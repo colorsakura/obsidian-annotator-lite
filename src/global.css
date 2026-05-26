@@ -1,0 +1,396 @@
+@layer theme, base, components, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+
+/* Reader viewer layout */
+.reader-view-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  min-height: 0;
+}
+
+.reader-view-layout {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+}
+
+.reader-view-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.foliate-viewer-container {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  margin-inline: auto;
+  position: relative;
+}
+
+/* foliate-view custom element needs explicit dimensions */
+.foliate-viewer-container foliate-view {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 300px;
+}
+
+.reader-view-container.reader-readable-line-width .foliate-viewer-container {
+  max-width: var(--file-line-width);
+}
+
+.reader-placeholder {
+  padding: 1rem;
+  color: var(--text-muted);
+  text-align: center;
+  margin-top: 2rem;
+}
+
+.reader-loading {
+  padding: 1rem;
+  color: var(--text-muted);
+  text-align: center;
+  margin-top: 2rem;
+}
+
+/* Outline view (left sidebar) */
+.annotation-outline-container {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.annotator-outline-cover-section {
+  padding: 16px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.annotator-outline-cover {
+  width: 100%;
+  max-width: 160px;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px var(--background-modifier-box-shadow);
+  aspect-ratio: 2/3;
+  object-fit: cover;
+}
+
+.annotator-outline-cover-placeholder {
+  width: 100%;
+  max-width: 160px;
+  aspect-ratio: 2/3;
+  background: var(--background-secondary);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  border: 1px solid var(--background-modifier-border);
+}
+
+.annotator-outline-metadata {
+  text-align: center;
+  width: 100%;
+}
+
+.annotator-outline-book-title {
+  font-size: var(--font-ui-medium);
+  font-weight: 600;
+  color: var(--text-normal);
+  line-height: 1.4;
+  margin-bottom: 4px;
+}
+
+.annotator-outline-book-author {
+  font-size: var(--font-ui-small);
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.annotator-outline-tree {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.annotator-outline-row {
+  display: flex;
+  align-items: center;
+  padding: 3px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+  margin: 0 4px;
+  font-size: 13px;
+}
+
+.annotator-outline-row:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.annotator-outline-chevron {
+  width: 14px;
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--text-faint);
+  text-align: center;
+}
+
+.annotator-outline-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.annotator-outline-empty {
+  padding: 16px;
+  color: var(--text-muted);
+  text-align: center;
+  font-size: 13px;
+}
+
+/* Section indicator (right side of reader) */
+.section-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 4px;
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  user-select: none;
+  opacity: 0.15;
+  transition: opacity 0.25s ease;
+}
+
+.section-indicator:hover {
+  opacity: 1;
+}
+
+.section-indicator-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-normal);
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    color 0.15s;
+  padding: 0;
+  line-height: 1;
+}
+
+.section-indicator-btn:hover:not(:disabled) {
+  background: var(--background-modifier-hover);
+  color: var(--text-accent);
+  border-color: var(--text-accent);
+}
+
+.section-indicator-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.section-indicator-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-normal);
+  text-align: center;
+  line-height: 1.2;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  writing-mode: vertical-rl;
+}
+
+/* Context menu: now handled by Obsidian native Menu API */
+
+/* Annotations panel (right sidebar) */
+.annotation-annotations-container {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.annotator-annotations-container {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.annotator-annotations-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.annotator-annotation-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--background-modifier-border);
+  transition: background-color 0.1s;
+}
+
+.annotator-annotation-item:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.annotator-annotation-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.annotator-annotation-highlight {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--text-normal);
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: rgba(255, 235, 59, 0.3);
+  padding: 2px 4px;
+  border-radius: 2px;
+}
+
+.annotator-annotation-actions {
+  flex-shrink: 0;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.annotator-annotation-item:hover .annotator-annotation-actions {
+  opacity: 1;
+}
+
+.annotator-annotation-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 3px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.annotator-annotation-btn:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.annotator-annotation-btn-edit:hover {
+  color: var(--text-accent);
+}
+
+.annotator-annotation-btn-delete:hover {
+  color: var(--text-error);
+}
+
+.annotator-annotation-btn-delete-confirm {
+  color: var(--color-red);
+  background: rgba(var(--color-red-rgb), 0.1);
+}
+
+.annotator-annotation-btn-save {
+  color: var(--text-on-accent);
+  background: var(--interactive-accent);
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+.annotator-annotation-btn-save:hover {
+  background: var(--interactive-accent-hover);
+}
+
+.annotator-annotation-btn-cancel {
+  color: var(--text-muted);
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+.annotator-annotation-edit {
+  margin-top: 6px;
+}
+
+.annotator-annotation-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 50px;
+  font-size: 12px;
+  padding: 4px 6px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 3px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: inherit;
+}
+
+.annotator-annotation-textarea:focus {
+  outline: none;
+  border-color: var(--interactive-accent);
+}
+
+.annotator-annotation-edit-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.annotator-annotation-note {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-top: 4px;
+  padding-left: 8px;
+  border-left: 2px solid var(--text-accent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.annotator-annotation-delete-hint {
+  font-size: 11px;
+  color: var(--text-error);
+  margin-top: 4px;
+  padding-left: 8px;
+}
+
+.annotator-annotations-empty {
+  padding: 16px;
+  color: var(--text-muted);
+  text-align: center;
+  font-size: 13px;
+}
