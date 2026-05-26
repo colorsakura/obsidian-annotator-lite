@@ -52,7 +52,10 @@ export class DefaultReaderController implements ReaderController {
     await this.openFromSourceFile(sourceFile);
   }
 
-  async openFromSourceFile(sourceFile: TFile): Promise<void> {
+  async openFromSourceFile(
+    sourceFile: TFile,
+    initialNavigationTarget?: NavigationTarget | null,
+  ): Promise<void> {
     const target = this.targetResolver.resolve(sourceFile);
     if (!target) return;
 
@@ -77,7 +80,12 @@ export class DefaultReaderController implements ReaderController {
     if (!readerView) return;
 
     readerView.setSettings(this.settingsProvider());
-    readerView.setTargetFile(target.targetPath, target.sourcePath, annotations);
+    readerView.setTargetFile(
+      target.targetPath,
+      target.sourcePath,
+      annotations,
+      initialNavigationTarget,
+    );
     readerView.setOnOutlineLoaded((items) => {
       this.sessionStore.setOutline(items);
     });
@@ -199,10 +207,6 @@ export class DefaultReaderController implements ReaderController {
       return;
     }
 
-    if (this.currentReaderSourcePath === sourceFile.path) {
-      this.sessionStore.setAnnotations(annotations);
-    }
-
     const annotation = annotations.find((a) => a.id === annotationId);
     if (!annotation) {
       console.warn('[Annotator Lite] 未找到标注:', annotationId);
@@ -213,25 +217,23 @@ export class DefaultReaderController implements ReaderController {
       return;
     }
 
-    if (!this.viewCoordinator.getReaderView()) {
-      let activeLeaf: WorkspaceLeaf | null = null;
-      this.app.workspace.iterateAllLeaves((leaf) => {
-        if (leaf.view === activeView) {
-          activeLeaf = leaf;
-        }
-      });
+    const navTarget: NavigationTarget = { href: annotation.cfiRange };
 
-      if (activeLeaf) {
-        this.currentReaderSourcePath = sourceFile.path;
-        await this.openFromMarkdownLeaf(activeLeaf);
-        setTimeout(() => {
-          void this.navigateToAnnotation(annotationId);
-        }, 800);
-      }
+    // 如果阅读器不存在，或者阅读器存在但显示的是不同的书籍，都需要重新打开
+    const needOpen =
+      !this.viewCoordinator.getReaderView() || this.currentReaderSourcePath !== sourceFile.path;
+
+    if (needOpen) {
+      // 将导航目标作为初始目标传递，FoliateViewer 在 init() 后直接跳转，无闪现
+      await this.openFromSourceFile(sourceFile, navTarget);
       return;
     }
 
-    this.navigateToTarget({ href: annotation.cfiRange });
+    // 阅读器已打开且显示的是同一本书，直接导航
+    if (this.currentReaderSourcePath === sourceFile.path) {
+      this.sessionStore.setAnnotations(annotations);
+    }
+    this.navigateToTarget(navTarget);
     this.viewCoordinator.revealReader();
   }
 

@@ -108,6 +108,7 @@ interface ReaderViewInnerProps {
   targetFile: string | null;
   sourcePath: string | null;
   initialAnnotations: Annotation[];
+  initialNavigationTarget?: NavigationTarget | null;
   settings: AnnotatorLiteSettings | null;
   onOutlineLoaded?: (items: OutlineItem[]) => void;
   onBookMetadataLoaded?: (metadata: BookMetadata) => void;
@@ -127,6 +128,7 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
   targetFile,
   sourcePath,
   initialAnnotations,
+  initialNavigationTarget,
   settings,
   onOutlineLoaded,
   onBookMetadataLoaded,
@@ -135,7 +137,9 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
   apiRef,
 }) => {
   const [annotations, setAnnotations] = useState<Annotation[]>(initialAnnotations);
-  const [navigationTarget, setNavigationTarget] = useState<NavigationTarget | null>(null);
+  const [navigationTarget, setNavigationTarget] = useState<NavigationTarget | null>(
+    initialNavigationTarget ?? null,
+  );
   const [sectionTarget, setSectionTarget] = useState<number | null>(null);
   const [sectionInfo, setSectionInfo] = useState<ReaderSectionState>({
     currentIndex: 0,
@@ -295,6 +299,7 @@ export class ReaderView extends ItemView {
   private targetFile: string | null = null;
   private sourcePath: string | null = null;
   private annotations: Annotation[] = [];
+  private initialNavigationTarget: NavigationTarget | null = null;
   private settings: AnnotatorLiteSettings | null = null;
   private reactRoot: HTMLElement;
   private root: Root;
@@ -425,10 +430,12 @@ export class ReaderView extends ItemView {
     fileName: string | null,
     sourcePath: string | null,
     annotations: Annotation[] = [],
+    initialNavigationTarget?: NavigationTarget | null,
   ) {
     this.targetFile = fileName;
     this.sourcePath = sourcePath;
     this.annotations = annotations;
+    this.initialNavigationTarget = initialNavigationTarget ?? null;
     (this.leaf as any)?.updateHeader();
     this.render();
   }
@@ -458,6 +465,7 @@ export class ReaderView extends ItemView {
           targetFile: this.targetFile,
           sourcePath: this.sourcePath,
           initialAnnotations: this.annotations,
+          initialNavigationTarget: this.initialNavigationTarget,
           settings: this.settings,
           onOutlineLoaded: (items: OutlineItem[]) => {
             this.onOutlineLoadedCallback?.(items);

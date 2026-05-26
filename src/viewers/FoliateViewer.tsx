@@ -80,6 +80,8 @@ const FoliateViewer: React.FC<FoliateViewerProps> = ({
   const pendingSelectionRef = useRef<PendingSelection | null>(null);
   const onSectionChangeRef = useRef(onSectionChange);
   onSectionChangeRef.current = onSectionChange;
+  const navigationTargetRef = useRef(navigationTarget);
+  navigationTargetRef.current = navigationTarget;
 
   // Create <foliate-view> element using the container's ownerDocument
   const getView = useCallback((): HTMLElement | null => {
@@ -203,6 +205,12 @@ const FoliateViewer: React.FC<FoliateViewerProps> = ({
           try {
             await (view as any).goTo(0);
           } catch {}
+        }
+
+        // Navigate to initial target if set (e.g. from "show annotation" link)
+        const initialTarget = navigationTargetRef.current;
+        if (initialTarget) {
+          navigateFoliate(view, initialTarget);
         }
 
         // Reset applied annotation tracking
