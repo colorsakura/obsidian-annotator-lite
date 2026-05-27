@@ -1,9 +1,15 @@
 import { MarkdownView, MenuItem, Plugin, TFile } from 'obsidian';
-import { READER_VIEW_TYPE, ReaderView } from './views/ReaderView';
-import { OUTLINE_VIEW_TYPE, OutlineView } from './views/OutlineView';
-import { ANNOTATIONS_VIEW_TYPE, AnnotationsView } from './views/AnnotationsView';
+import { ReaderView } from './views/ReaderView';
+import { OutlineView } from './views/OutlineView';
+import { AnnotationsView } from './views/AnnotationsView';
 import { type AnnotatorLiteSettings, AnnotatorLiteSettingTab, DEFAULT_SETTINGS } from './settings';
-import { ANNOTATION_TARGET_PROPERTY, ICON_NAME } from './constants';
+import {
+  ANNOTATION_TARGET_PROPERTY,
+  ANNOTATIONS_VIEW_TYPE,
+  ICON_NAME,
+  OUTLINE_VIEW_TYPE,
+  READER_VIEW_TYPE,
+} from './constants';
 import { AnnotationIndexService, DatacoreAdapter } from './datacore';
 import {
   type AnnotationRepository,

@@ -13,8 +13,7 @@ import {
 import type { AnnotatorLiteSettings } from '../settings';
 import type { ReaderSectionState } from '../services/ReaderSessionStore';
 import { ANNOTATABLE_READER_TYPES, isReaderTargetType } from '../services/TargetResolver';
-
-export const READER_VIEW_TYPE = 'reader-view';
+import { READER_VIEW_TYPE } from '../constants';
 
 type ReadableLineLengthConfig = {
   getConfig?: (key: 'readableLineLength') => unknown;

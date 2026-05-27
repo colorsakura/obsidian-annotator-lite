@@ -4,8 +4,7 @@ import { ItemView, type WorkspaceLeaf } from 'obsidian';
 import { OutlineComponent } from '../components/OutlineComponent';
 import { AppContext } from '../hooks/useObsidianApp';
 import { type BookMetadata, type NavigationTarget, type OutlineItem } from '../types/annotations';
-
-export const OUTLINE_VIEW_TYPE = 'annotation-outline';
+import { OUTLINE_VIEW_TYPE } from '../constants';
 
 // ──────────────────────────────────────────
 // Inner React component — holds state so that setOutline/setBookMetadata

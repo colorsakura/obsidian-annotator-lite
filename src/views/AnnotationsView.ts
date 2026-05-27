@@ -4,8 +4,7 @@ import { ItemView, type WorkspaceLeaf } from 'obsidian';
 import AnnotationsComponent from '../components/AnnotationsComponent';
 import { AppContext } from '../hooks/useObsidianApp';
 import { type Annotation, type NavigationTarget } from '../types/annotations';
-
-export const ANNOTATIONS_VIEW_TYPE = 'annotation-annotations';
+import { ANNOTATIONS_VIEW_TYPE } from '../constants';
 
 // ──────────────────────────────────────────
 // Inner React component — holds state to avoid destroying React tree on every update.
