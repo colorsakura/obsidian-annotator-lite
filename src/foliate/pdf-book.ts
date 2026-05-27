@@ -157,7 +157,7 @@ export const makePDF = async (file: Blob) => {
     cMapUrl: CMAP_URL,
     standardFontDataUrl: STANDARD_FONT_URL,
     isEvalSupported: false,
-  }).promise;
+  } as any).promise;
 
   const book: any = {};
 

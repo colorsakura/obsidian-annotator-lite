@@ -4,10 +4,6 @@
 
 ## 项目规则
 
-- 禁止编辑 `main.js` 和 `styles.css`，这是编译生成的文件。
-- HTML元素只添加必要的class类
-- 冻结PDF相关的功能和代码
-
 ### 语言
 
 默认用简体中文回复；用户明确指定时再切换语言。
@@ -32,7 +28,7 @@
 | **foliate-js**      | EPUB 渲染引擎，提供 `<foliate-view>` 自定义元素   |
 | **pdfjs-dist v5**   | PDF 渲染（通过 pdf-book.ts 适配 foliate-js 接口） |
 | **Tailwind CSS v4** | 样式（通过 PostCSS）                              |
-| **esbuild**         | 打包构建，内联 PDF worker 和 CSS                  |
+| **vite**            | 打包构建，内联 PDF worker 和 CSS                  |
 
 ## 开发命令
 
@@ -40,4 +36,3 @@
 npm run build    # 构建（修改结束后，必须运行，确保构建成功）
 ```
 
-构建产物：`main.js`（插件代码）和 `styles.css`（样式文件）。

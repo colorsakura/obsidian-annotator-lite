@@ -1,7 +1,8 @@
 import type { App } from 'obsidian';
-import { ANNOTATIONS_VIEW_TYPE, AnnotationsView } from '../views/AnnotationsView';
-import { OUTLINE_VIEW_TYPE, OutlineView } from '../views/OutlineView';
-import { READER_VIEW_TYPE, ReaderView } from '../views/ReaderView';
+import { AnnotationsView } from '../views/AnnotationsView';
+import { OutlineView } from '../views/OutlineView';
+import { ReaderView } from '../views/ReaderView';
+import { ANNOTATIONS_VIEW_TYPE, OUTLINE_VIEW_TYPE, READER_VIEW_TYPE } from '../constants';
 
 export interface ViewCoordinator {
   openReader(): Promise<ReaderView | null>;

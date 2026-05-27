@@ -1,7 +1,3 @@
-@layer theme, base, components, utilities;
-@import 'tailwindcss/theme.css' layer(theme);
-@import 'tailwindcss/utilities.css' layer(utilities);
-
 /* Reader viewer layout */
 .reader-view-container {
   display: flex;
@@ -83,14 +79,14 @@
   max-width: 160px;
   border-radius: 4px;
   box-shadow: 0 2px 8px var(--background-modifier-box-shadow);
-  aspect-ratio: 2/3;
+  aspect-ratio: 2 / 3;
   object-fit: cover;
 }
 
 .annotator-outline-cover-placeholder {
   width: 100%;
   max-width: 160px;
-  aspect-ratio: 2/3;
+  aspect-ratio: 2 / 3;
   background: var(--background-secondary);
   border-radius: 4px;
   display: flex;

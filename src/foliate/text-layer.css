@@ -42,7 +42,7 @@
   display: contents;
 }
 
-.textLayer span[role='img'] {
+.textLayer span[role="img"] {
   user-select: none;
   cursor: default;
 }
