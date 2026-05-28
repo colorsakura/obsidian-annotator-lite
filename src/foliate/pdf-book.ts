@@ -2,15 +2,12 @@
 // Modified for esbuild-bundled Obsidian plugin environment:
 // - Uses static pdfjs-dist import instead of vendored bundle
 // - Uses blob URL for worker (inlined via esbuild define)
-// - Inlines CSS content (injected via esbuild define)
 // - Uses CDN URLs for cmaps and standard_fonts
 
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Injected by esbuild define at build time
 declare const __PDF_WORKER_CODE__: string;
-declare const __TEXT_LAYER_CSS__: string;
-declare const __ANNOTATION_LAYER_CSS__: string;
 
 let workerBlobUrl: string | null = null;
 
@@ -109,20 +106,6 @@ const renderPage = async (page: any, getImageBlob?: boolean): Promise<Blob | Pag
         <html lang="en">
         <meta charset="utf-8">
         <meta name="viewport" content="width=${viewport.width}, height=${viewport.height}">
-        <style>
-        html, body {
-            margin: 0;
-            padding: 0;
-        }
-        :root {
-            --user-unit: 1;
-            --total-scale-factor: calc(var(--scale-factor) * var(--user-unit));
-            --scale-round-x: 1px;
-            --scale-round-y: 1px;
-        }
-        ${__TEXT_LAYER_CSS__}
-        ${__ANNOTATION_LAYER_CSS__}
-        </style>
         <div id="canvas"></div>
         <div class="textLayer"></div>
         <div class="annotationLayer"></div>

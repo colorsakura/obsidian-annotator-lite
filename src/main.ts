@@ -2,7 +2,6 @@ import { MarkdownView, MenuItem, Plugin, TFile } from 'obsidian';
 import { ReaderView } from './views/ReaderView';
 import { OutlineView } from './views/OutlineView';
 import { AnnotationsView } from './views/AnnotationsView';
-import { type AnnotatorLiteSettings, AnnotatorLiteSettingTab, DEFAULT_SETTINGS } from './settings';
 import {
   ANNOTATION_TARGET_PROPERTY,
   ANNOTATIONS_VIEW_TYPE,
@@ -21,7 +20,6 @@ import { DefaultReaderController, type ReaderController } from './services/Reade
 import { ObsidianViewCoordinator, type ViewCoordinator } from './services/ViewCoordinator';
 
 export default class AnnotatorLitePlugin extends Plugin {
-  settings: AnnotatorLiteSettings = DEFAULT_SETTINGS;
   private annotationRepository!: AnnotationRepository;
   private targetResolver!: TargetResolver;
   private sessionStore = new ReaderSessionStore();
@@ -34,9 +32,6 @@ export default class AnnotatorLitePlugin extends Plugin {
   annotationIndex!: AnnotationIndexService;
 
   async onload() {
-    await this.loadSettings();
-    this.addSettingTab(new AnnotatorLiteSettingTab(this.app, this));
-
     // 初始化 Datacore 适配器和标注索引服务
     this.datacoreAdapter = new DatacoreAdapter(this.app);
     this.annotationIndex = new AnnotationIndexService(this.app, this.datacoreAdapter);
@@ -47,7 +42,6 @@ export default class AnnotatorLitePlugin extends Plugin {
     this.viewCoordinator = new ObsidianViewCoordinator(this.app);
     this.readerController = new DefaultReaderController(
       this.app,
-      () => this.settings,
       this.targetResolver,
       this.annotationRepository,
       this.sessionStore,
@@ -113,19 +107,6 @@ export default class AnnotatorLitePlugin extends Plugin {
   }
 
   onunload() {}
-
-  async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-  }
-
-  async saveSettings() {
-    await this.saveData(this.settings);
-    this.applySettings();
-  }
-
-  applySettings() {
-    this.viewCoordinator?.getReaderView()?.setSettings(this.settings);
-  }
 
   /**
    * 读取前置元字段值

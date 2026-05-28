@@ -1,5 +1,4 @@
 import { App, MarkdownView, TFile, type WorkspaceLeaf } from 'obsidian';
-import type { AnnotatorLiteSettings } from '../settings';
 import type { Annotation, BookMetadata, NavigationTarget, OutlineItem } from '../types/annotations';
 import type { AnnotationIndexService } from '../datacore';
 import type { AnnotationRepository } from './AnnotationRepository';
@@ -35,7 +34,6 @@ export class DefaultReaderController implements ReaderController {
 
   constructor(
     private app: App,
-    private settingsProvider: () => AnnotatorLiteSettings,
     private targetResolver: TargetResolver,
     private annotationRepository: AnnotationRepository,
     private sessionStore: ReaderSessionStore,
@@ -79,7 +77,6 @@ export class DefaultReaderController implements ReaderController {
     const readerView = await this.viewCoordinator.openReader();
     if (!readerView) return;
 
-    readerView.setSettings(this.settingsProvider());
     readerView.setTargetFile(
       target.targetPath,
       target.sourcePath,

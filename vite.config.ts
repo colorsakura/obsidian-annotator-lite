@@ -27,9 +27,6 @@ if (!Map.prototype.getOrInsertComputed) {
 // Read assets for PDF book adapter defines
 const workerPath = require.resolve('pdfjs-dist/build/pdf.worker.min.mjs');
 const workerCode = fs.readFileSync(workerPath, 'utf8');
-const textLayerCSS = fs.readFileSync('src/foliate/text-layer.css', 'utf8');
-const annotationLayerCSS = fs.readFileSync('src/foliate/annotation-layer.css', 'utf8');
-
 // Plugin to ignore CSS imports from dependencies (we handle CSS separately)
 function ignoreCSS(): Plugin {
   return {
@@ -113,8 +110,6 @@ export default defineConfig(({ mode }) => {
       outDir: 'dist',
     },
     define: {
-      '__TEXT_LAYER_CSS__': JSON.stringify(textLayerCSS),
-      '__ANNOTATION_LAYER_CSS__': JSON.stringify(annotationLayerCSS),
       '__PDF_WORKER_CODE__': JSON.stringify(workerCode),
     },
   };

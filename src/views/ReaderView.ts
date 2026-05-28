@@ -10,14 +10,9 @@ import {
   type NavigationTarget,
   type OutlineItem,
 } from '../types/annotations';
-import type { AnnotatorLiteSettings } from '../settings';
 import type { ReaderSectionState } from '../services/ReaderSessionStore';
 import { ANNOTATABLE_READER_TYPES, isReaderTargetType } from '../services/TargetResolver';
 import { READER_VIEW_TYPE } from '../constants';
-
-type ReadableLineLengthConfig = {
-  getConfig?: (key: 'readableLineLength') => unknown;
-};
 
 // ──────────────────────────────────────────
 // Inner React component that manages all mutable state internally.
@@ -108,7 +103,6 @@ interface ReaderViewInnerProps {
   sourcePath: string | null;
   initialAnnotations: Annotation[];
   initialNavigationTarget?: NavigationTarget | null;
-  settings: AnnotatorLiteSettings | null;
   onOutlineLoaded?: (items: OutlineItem[]) => void;
   onBookMetadataLoaded?: (metadata: BookMetadata) => void;
   onSectionChanged?: (section: ReaderSectionState) => void;
@@ -128,7 +122,6 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
   sourcePath,
   initialAnnotations,
   initialNavigationTarget,
-  settings,
   onOutlineLoaded,
   onBookMetadataLoaded,
   onSectionChanged,
@@ -254,39 +247,28 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
     );
   }
 
-  return React.createElement(
-    'div',
-    { className: 'reader-view-layout' },
-    React.createElement(
-      'div',
-      { className: 'reader-view-main' },
-      React.createElement(FoliateViewer, {
-        file: targetFile,
-        annotations: activeAnnotations,
-        settings: settings,
-        ...(isAnnotatable ? { onAddAnnotation: addAnnotation } : {}),
-        onOutlineLoaded: onOutlineLoaded,
-        onBookMetadataLoaded: onBookMetadataLoaded,
-        navigationTarget: navigationTarget,
-        sectionTarget: sectionTarget,
-        onSectionChange: handleSectionChange,
-        sectionIndicator:
-          sectionInfo.totalSections > 0 &&
-          React.createElement(SectionIndicator, {
-            currentIndex: sectionInfo.currentIndex,
-            totalSections: sectionInfo.totalSections,
-            onPrev: () => {
-              setSectionTarget(Math.max(0, sectionInfo.currentIndex - 1));
-            },
-            onNext: () => {
-              setSectionTarget(
-                Math.min(sectionInfo.totalSections - 1, sectionInfo.currentIndex + 1),
-              );
-            },
-          }),
+  return React.createElement(FoliateViewer, {
+    file: targetFile,
+    annotations: activeAnnotations,
+    ...(isAnnotatable ? { onAddAnnotation: addAnnotation } : {}),
+    onOutlineLoaded: onOutlineLoaded,
+    onBookMetadataLoaded: onBookMetadataLoaded,
+    navigationTarget: navigationTarget,
+    sectionTarget: sectionTarget,
+    onSectionChange: handleSectionChange,
+    sectionIndicator:
+      sectionInfo.totalSections > 0 &&
+      React.createElement(SectionIndicator, {
+        currentIndex: sectionInfo.currentIndex,
+        totalSections: sectionInfo.totalSections,
+        onPrev: () => {
+          setSectionTarget(Math.max(0, sectionInfo.currentIndex - 1));
+        },
+        onNext: () => {
+          setSectionTarget(Math.min(sectionInfo.totalSections - 1, sectionInfo.currentIndex + 1));
+        },
       }),
-    ),
-  );
+  });
 };
 
 // ──────────────────────────────────────────
@@ -299,7 +281,6 @@ export class ReaderView extends ItemView {
   private sourcePath: string | null = null;
   private annotations: Annotation[] = [];
   private initialNavigationTarget: NavigationTarget | null = null;
-  private settings: AnnotatorLiteSettings | null = null;
   private reactRoot: HTMLElement;
   private root: Root;
   private onSwitchToOutlineCallback: (() => void) | null = null;
@@ -363,12 +344,6 @@ export class ReaderView extends ItemView {
       }
     };
     activeWindow.requestAnimationFrame(setupHeader);
-    this.registerEvent(
-      this.app.workspace.on('css-change', () => this.syncReadableLineLengthClass()),
-    );
-    this.registerEvent(
-      this.app.workspace.on('layout-change', () => this.syncReadableLineLengthClass()),
-    );
     this.render();
   }
 
@@ -439,23 +414,9 @@ export class ReaderView extends ItemView {
     this.render();
   }
 
-  setSettings(settings: AnnotatorLiteSettings) {
-    this.settings = settings;
-    this.render();
-  }
-
-  private syncReadableLineLengthClass() {
-    const vault = this.app.vault as typeof this.app.vault & ReadableLineLengthConfig;
-    this.reactRoot.classList.toggle(
-      'reader-readable-line-width',
-      vault.getConfig?.('readableLineLength') === true,
-    );
-  }
-
-  /** Only called for structural changes (new file, settings).
+  /** Only called for structural changes (new file).
    *  Annotation/navigation updates flow through apiRef instead. */
   private render() {
-    this.syncReadableLineLengthClass();
     this.root.render(
       React.createElement(
         AppContext.Provider,
@@ -465,7 +426,6 @@ export class ReaderView extends ItemView {
           sourcePath: this.sourcePath,
           initialAnnotations: this.annotations,
           initialNavigationTarget: this.initialNavigationTarget,
-          settings: this.settings,
           onOutlineLoaded: (items: OutlineItem[]) => {
             this.onOutlineLoadedCallback?.(items);
           },

@@ -2,12 +2,8 @@ import React, { useCallback, useEffect, useRef } from 'react';
 import { TFile } from 'obsidian';
 import { useObsidianApp } from '../hooks/useObsidianApp';
 import type { Annotation, BookMetadata, NavigationTarget, OutlineItem } from '../types/annotations';
-import type { AnnotatorLiteSettings } from '../settings';
-
 // Registers <foliate-view> custom element and provides pdf-book adapter
 import '../foliate/view.js';
-
-import { applyRendererSettings, buildTypographicCSS } from './foliate/foliateSettings';
 import { installAnnotationRendering, applyAnnotationOverlays } from './foliate/foliateAnnotations';
 import { loadBookMetadata } from './foliate/foliateBookMetadata';
 import { showSelectionMenu, type PendingSelection } from './foliate/foliateSelection';
@@ -38,7 +34,6 @@ function getAnnotatableType(file: string): 'pdf' | 'epub' | undefined {
 interface FoliateViewerProps {
   file: string;
   annotations: Annotation[];
-  settings: AnnotatorLiteSettings | null;
   onAddAnnotation?: (params: {
     type: 'pdf' | 'epub';
     cfiRange: string;
@@ -59,7 +54,6 @@ interface FoliateViewerProps {
 const FoliateViewer: React.FC<FoliateViewerProps> = ({
   file,
   annotations,
-  settings,
   onAddAnnotation,
   onOutlineLoaded,
   onBookMetadataLoaded,
@@ -173,12 +167,6 @@ const FoliateViewer: React.FC<FoliateViewerProps> = ({
         const fileObj = new File([blob], tfile.name);
         await (view as any).open(fileObj);
 
-        // Apply settings to renderer BEFORE init()
-        applyRendererSettings(view as any, settings);
-        if (settings && (view as any).renderer) {
-          (view as any).renderer.setStyles?.(buildTypographicCSS(settings));
-        }
-
         // Extract TOC, cover, metadata
         const book = (view as any).book;
         if (book) {
@@ -225,16 +213,6 @@ const FoliateViewer: React.FC<FoliateViewerProps> = ({
 
     loadFile();
   }, [app, file, getView]);
-
-  // ─── Settings change ────────────────────────────────────────────────────
-  useEffect(() => {
-    const view = viewRef.current;
-    if (!view || !loadedFileRef.current || !settings) return;
-    applyRendererSettings(view as any, settings);
-    if ((view as any).renderer) {
-      (view as any).renderer.setStyles?.(buildTypographicCSS(settings));
-    }
-  }, [settings]);
 
   // ─── Keep annotations ref in sync ───────────────────────────────────────
   useEffect(() => {
