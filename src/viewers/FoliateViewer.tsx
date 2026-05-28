@@ -9,12 +9,31 @@ import { showSelectionMenu, type PendingSelection } from './foliate/foliateSelec
 import { navigateFoliate, goToSection, installRelocateListener } from './foliate/foliateNavigation';
 import { installKeyboardNavigation } from './foliate/foliateKeyboard';
 
+type ReaderFlowMode = 'paginated' | 'scrolled';
+type FoliateViewElement = HTMLElement & {
+  renderer?: HTMLElement;
+  isFixedLayout?: boolean;
+};
+
 // ─── Determine annotatability from file extension ─────────────────────────────
 function getAnnotatableType(file: string): 'pdf' | 'epub' | undefined {
   const ext = file.split('.').pop()?.toLowerCase();
   if (ext === 'pdf') return 'pdf';
   if (ext === 'epub') return 'epub';
   return undefined;
+}
+
+function applyReaderFlowMode(view: HTMLElement, flowMode: ReaderFlowMode): void {
+  const { renderer, isFixedLayout } = view as FoliateViewElement;
+  if (!renderer || isFixedLayout || renderer.tagName.toLowerCase() !== 'foliate-paginator') {
+    return;
+  }
+
+  if (flowMode === 'scrolled') {
+    renderer.setAttribute('flow', 'scrolled');
+  } else {
+    renderer.removeAttribute('flow');
+  }
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -33,6 +52,7 @@ interface FoliateViewerProps {
   onBookMetadataLoaded?: (metadata: BookMetadata) => void;
   navigationTarget?: NavigationTarget | null;
   sectionTarget?: number | null;
+  flowMode: ReaderFlowMode;
   onSectionChange?: (currentIndex: number, totalSections: number, currentLabel?: string) => void;
   sectionIndicator?: React.ReactNode;
 }
@@ -46,6 +66,7 @@ const FoliateViewer: React.FC<FoliateViewerProps> = ({
   onBookMetadataLoaded,
   navigationTarget,
   sectionTarget,
+  flowMode,
   onSectionChange,
   sectionIndicator,
 }) => {
@@ -63,6 +84,8 @@ const FoliateViewer: React.FC<FoliateViewerProps> = ({
   onSectionChangeRef.current = onSectionChange;
   const navigationTargetRef = useRef(navigationTarget);
   navigationTargetRef.current = navigationTarget;
+  const flowModeRef = useRef(flowMode);
+  flowModeRef.current = flowMode;
 
   // Create <foliate-view> element using the container's ownerDocument
   const getView = useCallback((): HTMLElement | null => {
@@ -150,6 +173,7 @@ const FoliateViewer: React.FC<FoliateViewerProps> = ({
         const blob = new Blob([data]);
         const fileObj = new File([blob], tfile.name);
         await (view as any).open(fileObj);
+        applyReaderFlowMode(view, flowModeRef.current);
 
         // Extract TOC, cover, metadata
         const book = (view as any).book;
@@ -197,6 +221,13 @@ const FoliateViewer: React.FC<FoliateViewerProps> = ({
 
     loadFile();
   }, [app, file, getView]);
+
+  // ─── Apply reader flow mode ─────────────────────────────────────────────
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view || !loadedFileRef.current) return;
+    applyReaderFlowMode(view, flowMode);
+  }, [flowMode]);
 
   // ─── Keep annotations ref in sync ───────────────────────────────────────
   useEffect(() => {

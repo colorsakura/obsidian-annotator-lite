@@ -14,6 +14,8 @@ import type { ReaderSectionState } from '../services/ReaderSessionStore';
 import { ANNOTATABLE_READER_TYPES, isReaderTargetType } from '../services/TargetResolver';
 import { READER_VIEW_TYPE } from '../constants';
 
+type ReaderFlowMode = 'paginated' | 'scrolled';
+
 // ──────────────────────────────────────────
 // Inner React component that manages all mutable state internally.
 // The outer ItemView only re-creates this component (via root.render())
@@ -103,6 +105,7 @@ interface ReaderViewInnerProps {
   sourcePath: string | null;
   initialAnnotations: Annotation[];
   initialNavigationTarget?: NavigationTarget | null;
+  readerFlowMode: ReaderFlowMode;
   onOutlineLoaded?: (items: OutlineItem[]) => void;
   onBookMetadataLoaded?: (metadata: BookMetadata) => void;
   onSectionChanged?: (section: ReaderSectionState) => void;
@@ -122,6 +125,7 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
   sourcePath,
   initialAnnotations,
   initialNavigationTarget,
+  readerFlowMode,
   onOutlineLoaded,
   onBookMetadataLoaded,
   onSectionChanged,
@@ -255,6 +259,7 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
     onBookMetadataLoaded: onBookMetadataLoaded,
     navigationTarget: navigationTarget,
     sectionTarget: sectionTarget,
+    flowMode: readerFlowMode,
     onSectionChange: handleSectionChange,
     sectionIndicator:
       sectionInfo.totalSections > 0 &&
@@ -290,6 +295,8 @@ export class ReaderView extends ItemView {
   private onSectionChangedCallback: ((section: ReaderSectionState) => void) | null = null;
   private onAnnotationsChangedCallback: ((annotations: Annotation[]) => void) | null = null;
   private onCloseCallback: (() => void) | null = null;
+  private readerFlowMode: ReaderFlowMode = 'paginated';
+  private readerFlowModeAction: HTMLElement | null = null;
   private apiRef: React.MutableRefObject<ReaderViewApi | null> = { current: null };
   /** Pending data that arrived before React mounted. */
   private pendingNavigationTarget: NavigationTarget | null = null;
@@ -318,6 +325,11 @@ export class ReaderView extends ItemView {
     const annotationsAction = this.addAction('highlighter', 'Open annotations', () => {
       this.onSwitchToAnnotationsCallback?.();
     });
+    const readerFlowModeAction = this.addAction('scroll-text', '切换滚动模式', () => {
+      this.toggleReaderFlowMode();
+    });
+    this.readerFlowModeAction = readerFlowModeAction;
+    this.updateReaderFlowModeAction();
     const comebackAction = this.addAction('left-arrow', '返回笔记', () => {
       if (this.sourcePath) {
         const file = this.app.vault.getAbstractFileByPath(this.sourcePath);
@@ -340,6 +352,7 @@ export class ReaderView extends ItemView {
       }
       const viewActions = header.querySelector('.view-actions');
       if (viewActions) {
+        viewActions.appendChild(readerFlowModeAction);
         viewActions.appendChild(annotationsAction);
       }
     };
@@ -353,6 +366,23 @@ export class ReaderView extends ItemView {
 
   setOnSwitchToAnnotations(callback: () => void) {
     this.onSwitchToAnnotationsCallback = callback;
+  }
+
+  private toggleReaderFlowMode() {
+    this.readerFlowMode = this.readerFlowMode === 'scrolled' ? 'paginated' : 'scrolled';
+    this.updateReaderFlowModeAction();
+    this.render();
+  }
+
+  private updateReaderFlowModeAction() {
+    const action = this.readerFlowModeAction;
+    if (!action) return;
+
+    const isScrolled = this.readerFlowMode === 'scrolled';
+    const label = isScrolled ? '切换到分页模式' : '切换到滚动模式';
+    action.setAttribute('aria-label', label);
+    action.setAttribute('title', label);
+    action.classList.toggle('is-active', isScrolled);
   }
 
   setOnOutlineLoaded(callback: (items: OutlineItem[]) => void) {
@@ -426,6 +456,7 @@ export class ReaderView extends ItemView {
           sourcePath: this.sourcePath,
           initialAnnotations: this.annotations,
           initialNavigationTarget: this.initialNavigationTarget,
+          readerFlowMode: this.readerFlowMode,
           onOutlineLoaded: (items: OutlineItem[]) => {
             this.onOutlineLoadedCallback?.(items);
           },
