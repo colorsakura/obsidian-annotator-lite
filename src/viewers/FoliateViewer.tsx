@@ -4,23 +4,10 @@ import { useObsidianApp } from '../hooks/useObsidianApp';
 import type { Annotation, BookMetadata, NavigationTarget, OutlineItem } from '../types/annotations';
 import 'foliate-js/view.js';
 import { installAnnotationRendering, applyAnnotationOverlays } from './foliate/foliateAnnotations';
-import { makePDF } from './foliate/pdfBook';
 import { loadBookMetadata } from './foliate/foliateBookMetadata';
 import { showSelectionMenu, type PendingSelection } from './foliate/foliateSelection';
 import { navigateFoliate, goToSection, installRelocateListener } from './foliate/foliateNavigation';
 import { installKeyboardNavigation } from './foliate/foliateKeyboard';
-
-// ─── PDF page rendering helper ────────────────────────────────────────────────
-async function renderPdfPage(view: any, index: number, doc: Document): Promise<void> {
-  const section = view.book?.sections?.[index];
-  if (section?.render) {
-    try {
-      await section.render(doc);
-    } catch (err) {
-      console.error('[annotator-lite] Failed to render page:', err);
-    }
-  }
-}
 
 // ─── Determine annotatability from file extension ─────────────────────────────
 function getAnnotatableType(file: string): 'pdf' | 'epub' | undefined {
@@ -127,10 +114,7 @@ const FoliateViewer: React.FC<FoliateViewerProps> = ({
 
         // ─── Load handler ──────────────────────────────────────────────────
         const handleLoad = async ({ detail }: any) => {
-          const { doc, index } = detail;
-
-          // PDF page rendering
-          await renderPdfPage(view, index, doc);
+          const { doc } = detail;
 
           // Inject selection contextmenu into iframe
           if (doc && (view as any).renderer && isAnnotatable && fileType && onAddAnnotation) {
@@ -165,8 +149,7 @@ const FoliateViewer: React.FC<FoliateViewerProps> = ({
         // Open the book
         const blob = new Blob([data]);
         const fileObj = new File([blob], tfile.name);
-        const bookSource = fileType === 'pdf' ? await makePDF(fileObj) : fileObj;
-        await (view as any).open(bookSource);
+        await (view as any).open(fileObj);
 
         // Extract TOC, cover, metadata
         const book = (view as any).book;
