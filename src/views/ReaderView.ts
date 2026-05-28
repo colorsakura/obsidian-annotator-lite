@@ -17,6 +17,10 @@ import { READER_VIEW_TYPE } from '../constants';
 type ReaderFlowMode = 'paginated' | 'scrolled';
 type ColumnMode = 'single' | 'double';
 
+const READER_FONT_SIZE_MIN = 80;
+const READER_FONT_SIZE_MAX = 160;
+const READER_FONT_SIZE_STEP = 10;
+
 // ──────────────────────────────────────────
 // Inner React component that manages all mutable state internally.
 // The outer ItemView only re-creates this component (via root.render())
@@ -108,6 +112,7 @@ interface ReaderViewInnerProps {
   initialNavigationTarget?: NavigationTarget | null;
   readerFlowMode: ReaderFlowMode;
   columnMode: ColumnMode;
+  fontSize: number;
   onOutlineLoaded?: (items: OutlineItem[]) => void;
   onBookMetadataLoaded?: (metadata: BookMetadata) => void;
   onSectionChanged?: (section: ReaderSectionState) => void;
@@ -129,6 +134,7 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
   initialNavigationTarget,
   readerFlowMode,
   columnMode,
+  fontSize,
   onOutlineLoaded,
   onBookMetadataLoaded,
   onSectionChanged,
@@ -264,6 +270,7 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
     sectionTarget: sectionTarget,
     flowMode: readerFlowMode,
     columnMode: columnMode,
+    fontSize: fontSize,
     onSectionChange: handleSectionChange,
     sectionIndicator:
       sectionInfo.totalSections > 0 &&
@@ -303,6 +310,9 @@ export class ReaderView extends ItemView {
   private readerFlowModeAction: HTMLElement | null = null;
   private columnMode: ColumnMode = 'double';
   private columnModeAction: HTMLElement | null = null;
+  private fontSize = 100;
+  private decreaseFontSizeAction: HTMLElement | null = null;
+  private increaseFontSizeAction: HTMLElement | null = null;
   private apiRef: React.MutableRefObject<ReaderViewApi | null> = { current: null };
   /** Pending data that arrived before React mounted. */
   private pendingNavigationTarget: NavigationTarget | null = null;
@@ -336,6 +346,15 @@ export class ReaderView extends ItemView {
     });
     this.readerFlowModeAction = readerFlowModeAction;
     this.updateReaderFlowModeAction();
+    const decreaseFontSizeAction = this.addAction('zoom-out', '减小字体', () => {
+      this.decreaseFontSize();
+    });
+    this.decreaseFontSizeAction = decreaseFontSizeAction;
+    const increaseFontSizeAction = this.addAction('zoom-in', '增大字体', () => {
+      this.increaseFontSize();
+    });
+    this.increaseFontSizeAction = increaseFontSizeAction;
+    this.updateFontSizeActions();
     const columnModeAction = this.addAction('columns', '切换为单列', () => {
       this.toggleColumnMode();
     });
@@ -363,6 +382,8 @@ export class ReaderView extends ItemView {
       }
       const viewActions = header.querySelector('.view-actions');
       if (viewActions) {
+        viewActions.appendChild(decreaseFontSizeAction);
+        viewActions.appendChild(increaseFontSizeAction);
         viewActions.appendChild(columnModeAction);
         viewActions.appendChild(readerFlowModeAction);
         viewActions.appendChild(annotationsAction);
@@ -410,6 +431,43 @@ export class ReaderView extends ItemView {
     const label = isSingle ? '切换为双列' : '切换为单列';
     action.setAttribute('aria-label', label);
     action.classList.toggle('is-active', isSingle);
+  }
+
+  private decreaseFontSize() {
+    const nextSize = Math.max(READER_FONT_SIZE_MIN, this.fontSize - READER_FONT_SIZE_STEP);
+    if (nextSize === this.fontSize) return;
+    this.fontSize = nextSize;
+    this.updateFontSizeActions();
+    this.render();
+  }
+
+  private increaseFontSize() {
+    const nextSize = Math.min(READER_FONT_SIZE_MAX, this.fontSize + READER_FONT_SIZE_STEP);
+    if (nextSize === this.fontSize) return;
+    this.fontSize = nextSize;
+    this.updateFontSizeActions();
+    this.render();
+  }
+
+  private updateFontSizeActions() {
+    this.updateFontSizeAction(
+      this.decreaseFontSizeAction,
+      '减小字体',
+      this.fontSize <= READER_FONT_SIZE_MIN,
+    );
+    this.updateFontSizeAction(
+      this.increaseFontSizeAction,
+      '增大字体',
+      this.fontSize >= READER_FONT_SIZE_MAX,
+    );
+  }
+
+  private updateFontSizeAction(action: HTMLElement | null, label: string, disabled: boolean) {
+    if (!action) return;
+
+    action.setAttribute('aria-label', `${label}（当前 ${this.fontSize}%）`);
+    action.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+    action.classList.toggle('is-disabled', disabled);
   }
 
   setOnOutlineLoaded(callback: (items: OutlineItem[]) => void) {
@@ -485,6 +543,7 @@ export class ReaderView extends ItemView {
           initialNavigationTarget: this.initialNavigationTarget,
           readerFlowMode: this.readerFlowMode,
           columnMode: this.columnMode,
+          fontSize: this.fontSize,
           onOutlineLoaded: (items: OutlineItem[]) => {
             this.onOutlineLoadedCallback?.(items);
           },

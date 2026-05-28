@@ -11,8 +11,11 @@ import { installKeyboardNavigation } from './foliate/foliateKeyboard';
 
 type ReaderFlowMode = 'paginated' | 'scrolled';
 type ColumnMode = 'single' | 'double';
+type FoliateRendererElement = HTMLElement & {
+  setStyles?: (styles: string | string[]) => void;
+};
 type FoliateViewElement = HTMLElement & {
-  renderer?: HTMLElement;
+  renderer?: FoliateRendererElement;
   isFixedLayout?: boolean;
 };
 
@@ -59,6 +62,13 @@ function applyColumnMode(view: HTMLElement, columnMode: ColumnMode): void {
   }
 }
 
+function applyFontSize(view: HTMLElement, fontSize: number): void {
+  const { renderer } = view as FoliateViewElement;
+  if (!renderer || renderer.tagName.toLowerCase() !== 'foliate-paginator') return;
+
+  renderer.setStyles?.(`html { font-size: ${fontSize}% !important; }`);
+}
+
 async function reopenPdfWithSpread(view: HTMLElement, columnMode: ColumnMode): Promise<void> {
   const v = view as any;
   if (!v.book) return;
@@ -100,6 +110,7 @@ interface FoliateViewerProps {
   sectionTarget?: number | null;
   flowMode: ReaderFlowMode;
   columnMode: ColumnMode;
+  fontSize: number;
   onSectionChange?: (currentIndex: number, totalSections: number, currentLabel?: string) => void;
   sectionIndicator?: React.ReactNode;
 }
@@ -115,6 +126,7 @@ const FoliateViewer: React.FC<FoliateViewerProps> = ({
   sectionTarget,
   flowMode,
   columnMode,
+  fontSize,
   onSectionChange,
   sectionIndicator,
 }) => {
@@ -136,6 +148,8 @@ const FoliateViewer: React.FC<FoliateViewerProps> = ({
   flowModeRef.current = flowMode;
   const columnModeRef = useRef(columnMode);
   columnModeRef.current = columnMode;
+  const fontSizeRef = useRef(fontSize);
+  fontSizeRef.current = fontSize;
 
   // Create <foliate-view> element using the container's ownerDocument
   const getView = useCallback((): HTMLElement | null => {
@@ -234,6 +248,7 @@ const FoliateViewer: React.FC<FoliateViewerProps> = ({
           await (view as any).open(fileObj);
           applyReaderFlowMode(view, flowModeRef.current);
           applyColumnMode(view, columnModeRef.current);
+          applyFontSize(view, fontSizeRef.current);
         }
 
         // Extract TOC, cover, metadata
@@ -296,6 +311,13 @@ const FoliateViewer: React.FC<FoliateViewerProps> = ({
     if (!view || !loadedFileRef.current) return;
     applyColumnMode(view, columnMode);
   }, [columnMode]);
+
+  // ─── Apply font size ────────────────────────────────────────────────────
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view || !loadedFileRef.current) return;
+    applyFontSize(view, fontSize);
+  }, [fontSize]);
 
   // ─── Keep annotations ref in sync ───────────────────────────────────────
   useEffect(() => {
