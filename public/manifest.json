@@ -1,10 +1,10 @@
 {
 	"id": "obsidian-annotator-lite",
 	"name": "Annotator Lite",
-	"version": "1.0.0",
+	"version": "0.1.0",
 	"minAppVersion": "0.15.0",
 	"description": "Annotate EPUB, MOBI, KF8 (AZW3), FB2, CBZ and PDF files directly in Obsidian.",
-	"author": "Claude",
-	"authorUrl": "https://anthropic.com",
+	"author": "iFlygo",
+	"authorUrl": "https://github.com/colorsakura",
 	"isDesktopOnly": false
 }
