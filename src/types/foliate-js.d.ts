@@ -1,3 +1,8 @@
+declare module 'foliate-js/view.js' {
+  const _: unknown;
+  export default _;
+}
+
 declare module 'foliate-js/overlayer.js' {
   export const Overlayer: {
     highlight: (range: Range, options: { color: string }) => SVGGraphicsElement[];

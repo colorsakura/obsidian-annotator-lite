@@ -2,9 +2,9 @@ import React, { useCallback, useEffect, useRef } from 'react';
 import { TFile } from 'obsidian';
 import { useObsidianApp } from '../hooks/useObsidianApp';
 import type { Annotation, BookMetadata, NavigationTarget, OutlineItem } from '../types/annotations';
-// Registers <foliate-view> custom element and provides pdf-book adapter
-import '../foliate/view.js';
+import 'foliate-js/view.js';
 import { installAnnotationRendering, applyAnnotationOverlays } from './foliate/foliateAnnotations';
+import { makePDF } from './foliate/pdfBook';
 import { loadBookMetadata } from './foliate/foliateBookMetadata';
 import { showSelectionMenu, type PendingSelection } from './foliate/foliateSelection';
 import { navigateFoliate, goToSection, installRelocateListener } from './foliate/foliateNavigation';
@@ -165,7 +165,8 @@ const FoliateViewer: React.FC<FoliateViewerProps> = ({
         // Open the book
         const blob = new Blob([data]);
         const fileObj = new File([blob], tfile.name);
-        await (view as any).open(fileObj);
+        const bookSource = fileType === 'pdf' ? await makePDF(fileObj) : fileObj;
+        await (view as any).open(bookSource);
 
         // Extract TOC, cover, metadata
         const book = (view as any).book;
