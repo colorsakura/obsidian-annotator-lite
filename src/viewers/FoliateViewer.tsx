@@ -10,6 +10,7 @@ import { navigateFoliate, goToSection, installRelocateListener } from './foliate
 import { installKeyboardNavigation } from './foliate/foliateKeyboard';
 
 type ReaderFlowMode = 'paginated' | 'scrolled';
+type ColumnMode = 'single' | 'double';
 type FoliateViewElement = HTMLElement & {
   renderer?: HTMLElement;
   isFixedLayout?: boolean;
@@ -36,6 +37,51 @@ function applyReaderFlowMode(view: HTMLElement, flowMode: ReaderFlowMode): void 
   }
 }
 
+function applyColumnMode(view: HTMLElement, columnMode: ColumnMode): void {
+  const { renderer } = view as FoliateViewElement;
+  if (!renderer) return;
+
+  const tagName = renderer.tagName.toLowerCase();
+
+  // EPUB reflowable — use CSS multi-column
+  if (tagName === 'foliate-paginator') {
+    if (columnMode === 'single') {
+      renderer.setAttribute('max-column-count', '1');
+    } else {
+      renderer.removeAttribute('max-column-count');
+    }
+    return;
+  }
+
+  // PDF fixed-layout — control page spread via book rendition
+  if (tagName === 'foliate-fxl') {
+    void reopenPdfWithSpread(view, columnMode);
+  }
+}
+
+async function reopenPdfWithSpread(view: HTMLElement, columnMode: ColumnMode): Promise<void> {
+  const v = view as any;
+  if (!v.book) return;
+
+  const lastLocation = v.lastLocation;
+
+  v.book.rendition = v.book.rendition || {};
+  v.book.rendition.spread = columnMode === 'single' ? 'none' : undefined;
+
+  v.close();
+  await v.open(v.book);
+
+  if (lastLocation) {
+    try {
+      await v.init({ lastLocation });
+    } catch {
+      await v.init({ showTextStart: true }).catch(() => {});
+    }
+  } else {
+    await v.init({ showTextStart: true }).catch(() => {});
+  }
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 interface FoliateViewerProps {
   file: string;
@@ -53,6 +99,7 @@ interface FoliateViewerProps {
   navigationTarget?: NavigationTarget | null;
   sectionTarget?: number | null;
   flowMode: ReaderFlowMode;
+  columnMode: ColumnMode;
   onSectionChange?: (currentIndex: number, totalSections: number, currentLabel?: string) => void;
   sectionIndicator?: React.ReactNode;
 }
@@ -67,6 +114,7 @@ const FoliateViewer: React.FC<FoliateViewerProps> = ({
   navigationTarget,
   sectionTarget,
   flowMode,
+  columnMode,
   onSectionChange,
   sectionIndicator,
 }) => {
@@ -86,6 +134,8 @@ const FoliateViewer: React.FC<FoliateViewerProps> = ({
   navigationTargetRef.current = navigationTarget;
   const flowModeRef = useRef(flowMode);
   flowModeRef.current = flowMode;
+  const columnModeRef = useRef(columnMode);
+  columnModeRef.current = columnMode;
 
   // Create <foliate-view> element using the container's ownerDocument
   const getView = useCallback((): HTMLElement | null => {
@@ -172,8 +222,19 @@ const FoliateViewer: React.FC<FoliateViewerProps> = ({
         // Open the book
         const blob = new Blob([data]);
         const fileObj = new File([blob], tfile.name);
-        await (view as any).open(fileObj);
-        applyReaderFlowMode(view, flowModeRef.current);
+        const ext = tfile.name.split('.').pop()?.toLowerCase();
+
+        if (ext === 'pdf') {
+          // For PDF: create book manually with correct rendition.spread
+          const { makePDF } = await import('foliate-js/pdf.js');
+          const book = await makePDF(fileObj);
+          book.rendition.spread = columnModeRef.current === 'single' ? 'none' : undefined;
+          await (view as any).open(book);
+        } else {
+          await (view as any).open(fileObj);
+          applyReaderFlowMode(view, flowModeRef.current);
+          applyColumnMode(view, columnModeRef.current);
+        }
 
         // Extract TOC, cover, metadata
         const book = (view as any).book;
@@ -228,6 +289,13 @@ const FoliateViewer: React.FC<FoliateViewerProps> = ({
     if (!view || !loadedFileRef.current) return;
     applyReaderFlowMode(view, flowMode);
   }, [flowMode]);
+
+  // ─── Apply column mode ──────────────────────────────────────────────────
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view || !loadedFileRef.current) return;
+    applyColumnMode(view, columnMode);
+  }, [columnMode]);
 
   // ─── Keep annotations ref in sync ───────────────────────────────────────
   useEffect(() => {

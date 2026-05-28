@@ -15,6 +15,7 @@ import { ANNOTATABLE_READER_TYPES, isReaderTargetType } from '../services/Target
 import { READER_VIEW_TYPE } from '../constants';
 
 type ReaderFlowMode = 'paginated' | 'scrolled';
+type ColumnMode = 'single' | 'double';
 
 // ──────────────────────────────────────────
 // Inner React component that manages all mutable state internally.
@@ -106,6 +107,7 @@ interface ReaderViewInnerProps {
   initialAnnotations: Annotation[];
   initialNavigationTarget?: NavigationTarget | null;
   readerFlowMode: ReaderFlowMode;
+  columnMode: ColumnMode;
   onOutlineLoaded?: (items: OutlineItem[]) => void;
   onBookMetadataLoaded?: (metadata: BookMetadata) => void;
   onSectionChanged?: (section: ReaderSectionState) => void;
@@ -126,6 +128,7 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
   initialAnnotations,
   initialNavigationTarget,
   readerFlowMode,
+  columnMode,
   onOutlineLoaded,
   onBookMetadataLoaded,
   onSectionChanged,
@@ -260,6 +263,7 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
     navigationTarget: navigationTarget,
     sectionTarget: sectionTarget,
     flowMode: readerFlowMode,
+    columnMode: columnMode,
     onSectionChange: handleSectionChange,
     sectionIndicator:
       sectionInfo.totalSections > 0 &&
@@ -297,6 +301,8 @@ export class ReaderView extends ItemView {
   private onCloseCallback: (() => void) | null = null;
   private readerFlowMode: ReaderFlowMode = 'paginated';
   private readerFlowModeAction: HTMLElement | null = null;
+  private columnMode: ColumnMode = 'double';
+  private columnModeAction: HTMLElement | null = null;
   private apiRef: React.MutableRefObject<ReaderViewApi | null> = { current: null };
   /** Pending data that arrived before React mounted. */
   private pendingNavigationTarget: NavigationTarget | null = null;
@@ -330,6 +336,11 @@ export class ReaderView extends ItemView {
     });
     this.readerFlowModeAction = readerFlowModeAction;
     this.updateReaderFlowModeAction();
+    const columnModeAction = this.addAction('columns', '切换为单列', () => {
+      this.toggleColumnMode();
+    });
+    this.columnModeAction = columnModeAction;
+    this.updateColumnModeAction();
     const comebackAction = this.addAction('left-arrow', '返回笔记', () => {
       if (this.sourcePath) {
         const file = this.app.vault.getAbstractFileByPath(this.sourcePath);
@@ -352,6 +363,7 @@ export class ReaderView extends ItemView {
       }
       const viewActions = header.querySelector('.view-actions');
       if (viewActions) {
+        viewActions.appendChild(columnModeAction);
         viewActions.appendChild(readerFlowModeAction);
         viewActions.appendChild(annotationsAction);
       }
@@ -381,8 +393,23 @@ export class ReaderView extends ItemView {
     const isScrolled = this.readerFlowMode === 'scrolled';
     const label = isScrolled ? '切换到分页模式' : '切换到滚动模式';
     action.setAttribute('aria-label', label);
-    action.setAttribute('title', label);
     action.classList.toggle('is-active', isScrolled);
+  }
+
+  private toggleColumnMode() {
+    this.columnMode = this.columnMode === 'single' ? 'double' : 'single';
+    this.updateColumnModeAction();
+    this.render();
+  }
+
+  private updateColumnModeAction() {
+    const action = this.columnModeAction;
+    if (!action) return;
+
+    const isSingle = this.columnMode === 'single';
+    const label = isSingle ? '切换为双列' : '切换为单列';
+    action.setAttribute('aria-label', label);
+    action.classList.toggle('is-active', isSingle);
   }
 
   setOnOutlineLoaded(callback: (items: OutlineItem[]) => void) {
@@ -457,6 +484,7 @@ export class ReaderView extends ItemView {
           initialAnnotations: this.annotations,
           initialNavigationTarget: this.initialNavigationTarget,
           readerFlowMode: this.readerFlowMode,
+          columnMode: this.columnMode,
           onOutlineLoaded: (items: OutlineItem[]) => {
             this.onOutlineLoadedCallback?.(items);
           },
