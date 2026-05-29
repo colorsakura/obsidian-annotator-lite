@@ -97,6 +97,9 @@ export default defineConfig(({ mode }) => {
       ignoreCSS(),
       buildStylesPlugin(prod),
     ],
+    define: {
+      'process.env.NODE_ENV': JSON.stringify(prod ? 'production' : 'development'),
+    },
     build: {
       lib: {
         entry: path.resolve(__dirname, 'src/main.ts'),

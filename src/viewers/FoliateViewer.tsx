@@ -9,6 +9,122 @@ import { showSelectionMenu, type PendingSelection } from './foliate/foliateSelec
 import { navigateFoliate, goToSection, installRelocateListener } from './foliate/foliateNavigation';
 import { installKeyboardNavigation } from './foliate/foliateKeyboard';
 
+// ─── Android iframe sandbox workaround ────────────────────────────────────────
+// foliate-js's paginator creates sandboxed iframes (sandbox="allow-same-origin
+// allow-scripts") for a WebKit bug (https://bugs.webkit.org/show_bug.cgi?id=218086).
+// On Chromium-based Android WebView, this sandbox silently blocks blob: URL
+// loading, causing a blank reader. Strip the sandbox attribute from iframes
+// created during the foliate-view lifecycle.
+const _origSetAttribute = HTMLIFrameElement.prototype.setAttribute;
+let _iframePatchActive = false;
+
+function enableIframePatch() {
+  if (_iframePatchActive) return;
+  _iframePatchActive = true;
+  HTMLIFrameElement.prototype.setAttribute = function (name: string, value: string) {
+    if (name === 'sandbox' && value === 'allow-same-origin allow-scripts') return;
+    return _origSetAttribute.call(this, name, value);
+  };
+}
+
+function disableIframePatch() {
+  if (!_iframePatchActive) return;
+  HTMLIFrameElement.prototype.setAttribute = _origSetAttribute;
+  _iframePatchActive = false;
+}
+
+// ─── Android blob: URL → srcdoc conversion ──────────────────────────────────
+// Blob URLs loaded in data:-URL iframes are cross-origin (null vs real origin),
+// making contentDocument inaccessible. Loaded as src they are same-origin but
+// fail silently on some Android WebViews.
+//
+// Approach: pre-read section HTML from blob URLs and inject via srcdoc instead.
+// srcdoc iframes share the parent origin, so contentDocument is accessible and
+// blob: sub-resources (images, CSS) load without cross-origin restrictions.
+const _blobMap = new Map<string, Blob>();
+const _textMap = new Map<string, string>();
+const _origCreateObjectURL = URL.createObjectURL.bind(URL);
+let _blobPatchActive = false;
+
+function enableBlobPatch() {
+  if (_blobPatchActive) return;
+  _blobPatchActive = true;
+  URL.createObjectURL = function (blob: Blob): string {
+    const url = _origCreateObjectURL(blob);
+    _blobMap.set(url, blob);
+    return url;
+  };
+}
+
+function disableBlobPatch() {
+  if (!_blobPatchActive) return;
+  URL.createObjectURL = _origCreateObjectURL;
+  _blobPatchActive = false;
+}
+
+async function wrapSectionLoadForAndroid(section: any): Promise<void> {
+  const originalLoad = section.load.bind(section);
+  let done = false;
+  let result: any = null;
+  section.load = async (): Promise<any> => {
+    if (done) return result;
+    const loaded = await originalLoad();
+    // PDF sections return objects (not strings); pass them through unchanged
+    if (!loaded || typeof loaded !== 'string' || !loaded.startsWith('blob:')) {
+      done = true;
+      result = loaded;
+      return loaded;
+    }
+    const blob = _blobMap.get(loaded);
+    if (!blob) {
+      done = true;
+      result = loaded;
+      return loaded;
+    }
+    try {
+      const text = await blob.text();
+      _textMap.set(loaded, text);
+    } catch {
+      // preload failed, fall back to original blob URL
+    }
+    done = true;
+    result = loaded;
+    return loaded; // still return the blob URL; src patch intercepts to use srcdoc
+  };
+}
+
+// Patch iframe src setter: if the URL has preloaded text in _textMap,
+// use srcdoc instead (same-origin, contentDocument accessible).
+const _origSrcDescriptor = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, 'src')!;
+let _srcPatchActive = false;
+
+function enableSrcPatch() {
+  if (_srcPatchActive) return;
+  _srcPatchActive = true;
+  Object.defineProperty(HTMLIFrameElement.prototype, 'src', {
+    get() {
+      return _origSrcDescriptor.get!.call(this);
+    },
+    set(value: string) {
+      const text = typeof value === 'string' ? _textMap.get(value) : undefined;
+      if (text) {
+        this.srcdoc = text;
+        return;
+      }
+      _origSrcDescriptor.set!.call(this, value);
+    },
+    configurable: true,
+    enumerable: true,
+  });
+}
+
+function disableSrcPatch() {
+  if (!_srcPatchActive) return;
+  Object.defineProperty(HTMLIFrameElement.prototype, 'src', _origSrcDescriptor);
+  _textMap.clear();
+  _srcPatchActive = false;
+}
+
 type ReaderFlowMode = 'paginated' | 'scrolled';
 type ColumnMode = 'single' | 'double';
 type FoliateRendererElement = HTMLElement & {
@@ -151,12 +267,20 @@ const FoliateViewer: React.FC<FoliateViewerProps> = ({
   const fontSizeRef = useRef(fontSize);
   fontSizeRef.current = fontSize;
 
-  // Create <foliate-view> element using the container's ownerDocument
+  // Create <foliate-view> element. Use document.createElement instead of
+  // ownerDocument.createElement — Android WebView has no popout windows.
   const getView = useCallback((): HTMLElement | null => {
     if (viewRef.current) return viewRef.current;
-    const doc = containerRef.current?.ownerDocument;
-    if (!doc) return null;
-    viewRef.current = doc.createElement('foliate-view') as HTMLElement;
+    const el = document.createElement('foliate-view') as HTMLElement;
+    // Explicit dimensions: on Android WebView, percentage-based height chains
+    // may not resolve — set both width and height directly on the element.
+    Object.assign(el.style, {
+      width: '100%',
+      height: '100%',
+      minHeight: '300px',
+      display: 'block',
+    });
+    viewRef.current = el;
     return viewRef.current;
   }, []);
 
@@ -233,6 +357,11 @@ const FoliateViewer: React.FC<FoliateViewerProps> = ({
         view.addEventListener('load', handleLoad as any);
         loadHandlerRef.current = handleLoad as any;
 
+        // Patch iframe sandbox + intercept blob URLs — Android WebView workarounds
+        enableIframePatch();
+        enableBlobPatch();
+        enableSrcPatch();
+
         // Open the book
         const blob = new Blob([data]);
         const fileObj = new File([blob], tfile.name);
@@ -259,6 +388,11 @@ const FoliateViewer: React.FC<FoliateViewerProps> = ({
 
           onOutlineLoaded?.(info.outline);
           onBookMetadataLoaded?.(info.metadata);
+
+          // Rewire section .load() to preload HTML for srcdoc injection
+          if (book.sections) {
+            await Promise.all(book.sections.map((s: any) => wrapSectionLoadForAndroid(s)));
+          }
 
           if (info.totalSections > 0) {
             onSectionChangeRef.current?.(0, info.totalSections);
@@ -355,6 +489,9 @@ const FoliateViewer: React.FC<FoliateViewerProps> = ({
   // ─── Cleanup ────────────────────────────────────────────────────────────
   useEffect(() => {
     return () => {
+      disableIframePatch();
+      disableBlobPatch();
+      disableSrcPatch();
       if (coverUrlRef.current) {
         URL.revokeObjectURL(coverUrlRef.current);
         coverUrlRef.current = null;

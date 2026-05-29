@@ -319,6 +319,7 @@ export class ReaderView extends ItemView {
 
   constructor(leaf: WorkspaceLeaf) {
     super(leaf);
+    this.contentEl.style.position = 'relative';
     this.reactRoot = this.contentEl.createDiv({ cls: 'reader-view-container' });
     this.root = createRoot(this.reactRoot);
   }

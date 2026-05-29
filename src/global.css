@@ -1,10 +1,10 @@
 /* Reader viewer layout */
 .reader-view-container {
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
-  height: 100%;
   width: 100%;
-  min-height: 0;
 }
 
 .foliate-viewer-container {
