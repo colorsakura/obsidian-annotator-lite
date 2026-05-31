@@ -13,6 +13,8 @@ export interface ReaderSectionState {
   currentIndex: number;
   totalSections: number;
   currentLabel?: string;
+  canGoPrev?: boolean;
+  canGoNext?: boolean;
 }
 
 export interface ReaderSessionState {

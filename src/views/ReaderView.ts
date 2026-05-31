@@ -33,6 +33,8 @@ const READER_FONT_SIZE_STEP = 10;
 interface SectionIndicatorProps {
   currentIndex: number;
   totalSections: number;
+  canGoPrev: boolean;
+  canGoNext: boolean;
   onPrev: () => void;
   onNext: () => void;
 }
@@ -40,13 +42,13 @@ interface SectionIndicatorProps {
 const SectionIndicator: React.FC<SectionIndicatorProps> = ({
   currentIndex,
   totalSections,
+  canGoPrev,
+  canGoNext,
   onPrev,
   onNext,
 }) => {
   // 0-indexed → 1-indexed for display
   const displayIndex = totalSections > 0 ? currentIndex + 1 : 0;
-  const hasPrev = currentIndex > 0;
-  const hasNext = currentIndex < totalSections - 1;
 
   return React.createElement(
     'div',
@@ -56,7 +58,7 @@ const SectionIndicator: React.FC<SectionIndicatorProps> = ({
       {
         className: 'section-indicator-btn section-indicator-btn-up',
         onClick: onPrev,
-        disabled: !hasPrev,
+        disabled: !canGoPrev,
         'aria-label': '上一章',
       },
       React.createElement(
@@ -84,7 +86,7 @@ const SectionIndicator: React.FC<SectionIndicatorProps> = ({
       {
         className: 'section-indicator-btn section-indicator-btn-down',
         onClick: onNext,
-        disabled: !hasNext,
+        disabled: !canGoNext,
         'aria-label': '下一章',
       },
       React.createElement(
@@ -145,7 +147,11 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
   const [navigationTarget, setNavigationTarget] = useState<NavigationTarget | null>(
     initialNavigationTarget ?? null,
   );
-  const [sectionTarget, setSectionTarget] = useState<number | null>(null);
+  const [sectionTarget, setSectionTarget] = useState<{ index: number; nonce: number } | null>(null);
+  const [pageTurnTarget, setPageTurnTarget] = useState<{
+    direction: 'prev' | 'next';
+    nonce: number;
+  } | null>(null);
   const [sectionInfo, setSectionInfo] = useState<ReaderSectionState>({
     currentIndex: 0,
     totalSections: 0,
@@ -233,8 +239,20 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
 
   // Section change handler — receives index and total from FoliateViewer
   const handleSectionChange = useCallback(
-    (currentIndex: number, totalSections: number, currentLabel?: string) => {
-      const section = { currentIndex, totalSections, currentLabel };
+    (
+      currentIndex: number,
+      totalSections: number,
+      currentLabel?: string,
+      canGoPrev?: boolean,
+      canGoNext?: boolean,
+    ) => {
+      const section = {
+        currentIndex,
+        totalSections,
+        currentLabel,
+        canGoPrev: canGoPrev ?? currentIndex > 0,
+        canGoNext: canGoNext ?? currentIndex < totalSections - 1,
+      };
       setSectionInfo(section);
       onSectionChanged?.(section);
     },
@@ -267,7 +285,8 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
     onOutlineLoaded: onOutlineLoaded,
     onBookMetadataLoaded: onBookMetadataLoaded,
     navigationTarget: navigationTarget,
-    sectionTarget: sectionTarget,
+    sectionTarget: sectionTarget?.index ?? null,
+    pageTurnTarget: pageTurnTarget,
     flowMode: readerFlowMode,
     columnMode: columnMode,
     fontSize: fontSize,
@@ -277,11 +296,24 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
       React.createElement(SectionIndicator, {
         currentIndex: sectionInfo.currentIndex,
         totalSections: sectionInfo.totalSections,
+        canGoPrev: sectionInfo.canGoPrev ?? sectionInfo.currentIndex > 0,
+        canGoNext: sectionInfo.canGoNext ?? sectionInfo.currentIndex < sectionInfo.totalSections - 1,
         onPrev: () => {
-          setSectionTarget(Math.max(0, sectionInfo.currentIndex - 1));
+          if (readerFlowMode === 'paginated') {
+            setPageTurnTarget({ direction: 'prev', nonce: Date.now() });
+            return;
+          }
+          setSectionTarget({ index: Math.max(0, sectionInfo.currentIndex - 1), nonce: Date.now() });
         },
         onNext: () => {
-          setSectionTarget(Math.min(sectionInfo.totalSections - 1, sectionInfo.currentIndex + 1));
+          if (readerFlowMode === 'paginated') {
+            setPageTurnTarget({ direction: 'next', nonce: Date.now() });
+            return;
+          }
+          setSectionTarget({
+            index: Math.min(sectionInfo.totalSections - 1, sectionInfo.currentIndex + 1),
+            nonce: Date.now(),
+          });
         },
       }),
   });

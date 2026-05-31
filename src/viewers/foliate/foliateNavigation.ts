@@ -21,16 +21,16 @@ export function goToSection(view: HTMLElement, index: number): void {
 }
 
 /**
- * Navigate to the next section.
+ * Navigate to the next page/spread. In scrolled mode, foliate-js scrolls by one viewport.
  */
-export function goToNextSection(view: HTMLElement): void {
+export function goToNextPage(view: HTMLElement): void {
   (view as any).next?.();
 }
 
 /**
- * Navigate to the previous section.
+ * Navigate to the previous page/spread. In scrolled mode, foliate-js scrolls by one viewport.
  */
-export function goToPrevSection(view: HTMLElement): void {
+export function goToPrevPage(view: HTMLElement): void {
   (view as any).prev?.();
 }
 
@@ -57,7 +57,13 @@ export function goToLastSection(view: HTMLElement): void {
  */
 export function installRelocateListener(
   view: HTMLElement,
-  onSectionChange: (currentIndex: number, totalSections: number, currentLabel?: string) => void,
+  onSectionChange: (
+    currentIndex: number,
+    totalSections: number,
+    currentLabel?: string,
+    canGoPrev?: boolean,
+    canGoNext?: boolean,
+  ) => void,
 ): () => void {
   const handleRelocate = ({ detail }: any) => {
     // Prefer detail.section (from SectionProgress, EPUB), fallback to renderer
@@ -80,7 +86,12 @@ export function installRelocateListener(
         : undefined;
     const currentLabel = tocItem?.label ?? fallbackLabel;
 
-    onSectionChange(index, totalSections, currentLabel);
+    const renderer = (view as any).renderer;
+    const canGoPrev = typeof renderer?.atStart === 'boolean' ? !renderer.atStart : index > 0;
+    const canGoNext =
+      typeof renderer?.atEnd === 'boolean' ? !renderer.atEnd : index < totalSections - 1;
+
+    onSectionChange(index, totalSections, currentLabel, canGoPrev, canGoNext);
   };
 
   // Clean up previous listener

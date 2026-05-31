@@ -6,7 +6,13 @@ import 'foliate-js/view.js';
 import { installAnnotationRendering, applyAnnotationOverlays } from './foliate/foliateAnnotations';
 import { loadBookMetadata } from './foliate/foliateBookMetadata';
 import { showSelectionMenu, type PendingSelection } from './foliate/foliateSelection';
-import { navigateFoliate, goToSection, installRelocateListener } from './foliate/foliateNavigation';
+import {
+  navigateFoliate,
+  goToSection,
+  goToNextPage,
+  goToPrevPage,
+  installRelocateListener,
+} from './foliate/foliateNavigation';
 import { installKeyboardNavigation } from './foliate/foliateKeyboard';
 
 // ─── Android iframe sandbox workaround ────────────────────────────────────────
@@ -227,7 +233,14 @@ interface FoliateViewerProps {
   flowMode: ReaderFlowMode;
   columnMode: ColumnMode;
   fontSize: number;
-  onSectionChange?: (currentIndex: number, totalSections: number, currentLabel?: string) => void;
+  pageTurnTarget?: { direction: 'prev' | 'next'; nonce: number } | null;
+  onSectionChange?: (
+    currentIndex: number,
+    totalSections: number,
+    currentLabel?: string,
+    canGoPrev?: boolean,
+    canGoNext?: boolean,
+  ) => void;
   sectionIndicator?: React.ReactNode;
 }
 
@@ -240,6 +253,7 @@ const FoliateViewer: React.FC<FoliateViewerProps> = ({
   onBookMetadataLoaded,
   navigationTarget,
   sectionTarget,
+  pageTurnTarget,
   flowMode,
   columnMode,
   fontSize,
@@ -400,8 +414,8 @@ const FoliateViewer: React.FC<FoliateViewerProps> = ({
         }
 
         // Install relocate listener
-        installRelocateListener(view, (idx, total, label) => {
-          onSectionChangeRef.current?.(idx, total, label);
+        installRelocateListener(view, (idx, total, label, canGoPrev, canGoNext) => {
+          onSectionChangeRef.current?.(idx, total, label, canGoPrev, canGoNext);
         });
 
         // Initialize renderer
@@ -478,6 +492,14 @@ const FoliateViewer: React.FC<FoliateViewerProps> = ({
     if (!view || sectionTarget === null || sectionTarget === undefined) return;
     goToSection(view, sectionTarget);
   }, [sectionTarget]);
+
+  // ─── Page turn target ───────────────────────────────────────────────────
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view || !pageTurnTarget) return;
+    if (pageTurnTarget.direction === 'prev') goToPrevPage(view);
+    else goToNextPage(view);
+  }, [pageTurnTarget]);
 
   // ─── Keyboard navigation ────────────────────────────────────────────────
   useEffect(() => {

@@ -1,8 +1,8 @@
 import {
   goToFirstSection,
   goToLastSection,
-  goToNextSection,
-  goToPrevSection,
+  goToNextPage,
+  goToPrevPage,
 } from './foliateNavigation';
 
 /**
@@ -19,10 +19,10 @@ export function installKeyboardNavigation(
 
     if (e.key === 'PageDown') {
       e.preventDefault();
-      goToNextSection(view);
+      goToNextPage(view);
     } else if (e.key === 'PageUp') {
       e.preventDefault();
-      goToPrevSection(view);
+      goToPrevPage(view);
     } else if (e.key === 'Home') {
       e.preventDefault();
       goToFirstSection(view);
