@@ -18,19 +18,19 @@
   "devDependencies": {
     "@biomejs/biome": "2.4.15",
     "@blacksmithgu/datacore": "^0.1.24",
-    "@types/node": "^25.9.1",
-    "@types/react": "^19.2.15",
+    "@types/node": "^25.9.2",
+    "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "builtin-modules": "5.2.0",
     "esbuild": "^0.28.0",
     "obsidian": "latest",
     "tslib": "2.8.1",
     "typescript": "6.0.3",
-    "vite": "^8.0.14"
+    "vite": "^8.0.16"
   },
   "dependencies": {
     "foliate-js": "johnfactotum/foliate-js",
-    "react": "^19.2.6",
-    "react-dom": "^19.2.6"
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
   }
 }
