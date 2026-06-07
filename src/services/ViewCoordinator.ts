@@ -1,11 +1,20 @@
-import type { App } from 'obsidian';
+import type { App, WorkspaceLeaf } from 'obsidian';
 import { AnnotationsView } from '../views/AnnotationsView';
 import { OutlineView } from '../views/OutlineView';
 import { ReaderView } from '../views/ReaderView';
 import { ANNOTATIONS_VIEW_TYPE, OUTLINE_VIEW_TYPE, READER_VIEW_TYPE } from '../constants';
 
 export interface ViewCoordinator {
-  openReader(): Promise<ReaderView | null>;
+  /**
+   * Open or reuse a reader view.
+   *
+   * When `targetLeaf` is provided, that leaf is converted to a reader view
+   * (replacing the Markdown view that triggered "Annotate").
+   *
+   * When omitted, reuses an existing reader leaf or creates one via
+   * `getLeaf(false)` (the default "replace current pane" behaviour).
+   */
+  openReader(targetLeaf?: WorkspaceLeaf): Promise<ReaderView | null>;
   revealReader(): void;
 
   openOutline(): Promise<OutlineView | null>;
@@ -24,17 +33,27 @@ export interface ViewCoordinator {
 export class ObsidianViewCoordinator implements ViewCoordinator {
   constructor(private app: App) {}
 
-  async openReader(): Promise<ReaderView | null> {
-    let leaf = this.app.workspace.getLeavesOfType(READER_VIEW_TYPE)[0];
+  async openReader(targetLeaf?: WorkspaceLeaf): Promise<ReaderView | null> {
+    let leaf: WorkspaceLeaf | undefined;
 
-    if (!leaf) {
-      const centerLeaf = this.app.workspace.getLeaf(false);
-      if (centerLeaf) {
-        await centerLeaf.setViewState({
-          type: READER_VIEW_TYPE,
-          active: true,
-        });
-        leaf = centerLeaf;
+    if (targetLeaf) {
+      await targetLeaf.setViewState({
+        type: READER_VIEW_TYPE,
+        active: true,
+      });
+      leaf = targetLeaf;
+    } else {
+      leaf = this.app.workspace.getLeavesOfType(READER_VIEW_TYPE)[0];
+
+      if (!leaf) {
+        const newLeaf = this.app.workspace.getLeaf(false);
+        if (newLeaf) {
+          await newLeaf.setViewState({
+            type: READER_VIEW_TYPE,
+            active: true,
+          });
+          leaf = newLeaf;
+        }
       }
     }
 

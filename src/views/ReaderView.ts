@@ -279,6 +279,7 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
   }
 
   return React.createElement(FoliateViewer, {
+    key: targetFile,
     file: targetFile,
     annotations: activeAnnotations,
     ...(isAnnotatable ? { onAddAnnotation: addAnnotation } : {}),
@@ -327,7 +328,8 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
 // ──────────────────────────────────────────
 export class ReaderView extends ItemView {
   private targetFile: string | null = null;
-  private sourcePath: string | null = null;
+  /** Public for multi-reader lookup by ViewCoordinator. */
+  sourcePath: string | null = null;
   private annotations: Annotation[] = [];
   private initialNavigationTarget: NavigationTarget | null = null;
   private reactRoot: HTMLElement;

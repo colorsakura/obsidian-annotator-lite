@@ -47,12 +47,15 @@ export class DefaultReaderController implements ReaderController {
     const sourceFile = leaf.view.file;
     if (!sourceFile) return;
 
-    await this.openFromSourceFile(sourceFile);
+    // Pass the leaf so the reader replaces this specific Markdown pane
+    await this.openFromSourceFile(sourceFile, null, leaf);
   }
 
   async openFromSourceFile(
     sourceFile: TFile,
     initialNavigationTarget?: NavigationTarget | null,
+    /** The leaf to convert to a reader view (from openFromMarkdownLeaf). */
+    targetLeaf?: WorkspaceLeaf,
   ): Promise<void> {
     const target = this.targetResolver.resolve(sourceFile);
     if (!target) return;
@@ -74,7 +77,7 @@ export class DefaultReaderController implements ReaderController {
     // Subscribe to session changes and push to views
     this.startSessionSync();
 
-    const readerView = await this.viewCoordinator.openReader();
+    const readerView = await this.viewCoordinator.openReader(targetLeaf);
     if (!readerView) return;
 
     readerView.setTargetFile(
@@ -222,7 +225,8 @@ export class DefaultReaderController implements ReaderController {
 
     if (needOpen) {
       // 将导航目标作为初始目标传递，FoliateViewer 在 init() 后直接跳转，无闪现
-      await this.openFromSourceFile(sourceFile, navTarget);
+      // Pass the active markdown leaf so the reader replaces it
+      await this.openFromSourceFile(sourceFile, navTarget, activeView.leaf);
       return;
     }
 
