@@ -1,9 +1,4 @@
-import {
-  goToFirstSection,
-  goToLastSection,
-  goToNextPage,
-  goToPrevPage,
-} from './foliateNavigation';
+import { goToFirstSection, goToLastSection, goToNextPage, goToPrevPage } from './foliateNavigation';
 
 /**
  * Install keyboard navigation (PageUp/Down, Home/End) on a container element.

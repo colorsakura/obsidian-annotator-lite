@@ -297,7 +297,8 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
         currentIndex: sectionInfo.currentIndex,
         totalSections: sectionInfo.totalSections,
         canGoPrev: sectionInfo.canGoPrev ?? sectionInfo.currentIndex > 0,
-        canGoNext: sectionInfo.canGoNext ?? sectionInfo.currentIndex < sectionInfo.totalSections - 1,
+        canGoNext:
+          sectionInfo.canGoNext ?? sectionInfo.currentIndex < sectionInfo.totalSections - 1,
         onPrev: () => {
           if (readerFlowMode === 'paginated') {
             setPageTurnTarget({ direction: 'prev', nonce: Date.now() });
