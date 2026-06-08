@@ -67,36 +67,6 @@ export class DatacoreAdapter {
     const cache = this.app.metadataCache.getFileCache(file);
     return cache?.frontmatter?.[key] ?? null;
   }
-
-  /**
-   * 查找所有具有指定前置元字段的 Markdown 文件
-   *
-   * Datacore 可用时，利用倒排索引加速；
-   * 不可用时遍历全部文件。
-   */
-  findFilesWithField(field: string): TFile[] {
-    if (this.isReady && this.api) {
-      try {
-        const results = this.api.query({
-          type: 'field',
-          value: field.toLowerCase(),
-        } as any) as MarkdownPage[];
-
-        return results
-          .map((r) => this.app.vault.getAbstractFileByPath(r.$path))
-          .filter((f): f is TFile => f instanceof TFile);
-      } catch {
-        console.warn('[Annotator Lite] Datacore 查询失败，回退到 metadataCache');
-      }
-    }
-
-    // 回退：遍历全部 md 文件
-    return this.app.vault.getFiles().filter((f) => {
-      const cache = this.app.metadataCache.getFileCache(f);
-      return cache?.frontmatter?.[field] !== undefined;
-    });
-  }
-
   // ── 私有方法 ──
 
   /**

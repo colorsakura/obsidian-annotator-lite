@@ -165,7 +165,7 @@ export function generateMarkdownWithAnnotations(
 ): string {
   // Remove all existing annotation blocks
   const annotationRegex = makeAnnotationBlockRegex();
-  let content = originalContent.replace(annotationRegex, '').trimEnd();
+  const content = originalContent.replace(annotationRegex, '').trimEnd();
 
   if (annotations.length === 0) {
     return content;
