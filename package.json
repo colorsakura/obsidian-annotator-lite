@@ -4,29 +4,29 @@
   "description": "An Obsidian plugin to annotate EPUB files.",
   "main": "main.js",
   "scripts": {
-    "dev": "vite build --watch --mode development",
-    "build": "tsc -noEmit -skipLibCheck && vite build --mode production",
-    "version": "node version-bump.js",
-    "format": "biome format --write .",
-    "format:check": "biome format .",
-    "lint": "biome lint .",
-    "check": "biome check ."
+    "dev": "bun run build.ts --watch",
+    "build": "tsc -noEmit -skipLibCheck && bun run build.ts --production",
+    "lint": "eslint .",
+    "check": "eslint . && tsc -noEmit -skipLibCheck"
   },
   "keywords": [],
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@biomejs/biome": "2.4.15",
     "@blacksmithgu/datacore": "^0.1.24",
+    "@eslint/js": "^9.39.4",
+    "@stylistic/eslint-plugin": "^4.4.1",
     "@types/node": "^25.9.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "builtin-modules": "5.2.0",
     "esbuild": "^0.28.0",
+    "eslint": "^9.39.4",
+    "eslint-plugin-obsidianmd": "^0.3.0",
     "obsidian": "latest",
     "tslib": "2.8.1",
     "typescript": "6.0.3",
-    "vite": "^8.0.16"
+    "typescript-eslint": "^8.60.1"
   },
   "dependencies": {
     "foliate-js": "johnfactotum/foliate-js",
