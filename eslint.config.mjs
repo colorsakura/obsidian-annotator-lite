@@ -1,7 +1,7 @@
 import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
-import react from "eslint-plugin-react";
-import stylistic from '@stylistic/eslint-plugin';
+import react from 'eslint-plugin-react';
+import prettier from 'eslint-config-prettier';
 
 export default tseslint.config(
   // Global ignores
@@ -28,7 +28,7 @@ export default tseslint.config(
 
   {
     files: ['**/*.ts', '**/*.tsx'],
-    plugins: { react, '@stylistic': stylistic },
+    plugins: { react },
     rules: {
       // ── Project-specific overrides ──
       // foliate-js has poor TypeScript types; many APIs are `any`
@@ -40,15 +40,9 @@ export default tseslint.config(
       '@typescript-eslint/no-unsafe-argument': 'off',
       // Allow unused vars prefixed with underscore
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
-
-      '@stylistic/indent': ['error', 2],
-      '@stylistic/quotes': ['error', 'single'],
-      '@stylistic/semi': ['error', 'always'],
-      '@stylistic/comma-dangle': ['error', 'always-multiline'],
-      '@stylistic/arrow-parens': ['error', 'always'],
-      '@stylistic/object-curly-spacing': ['error', 'always'],
-      '@stylistic/max-len': ['warn', { code: 100 }],
-      '@stylistic/linebreak-style': ['error', 'unix'],
     },
   },
+
+  // Prettier must be last — disables all rules that conflict with Prettier
+  prettier,
 );

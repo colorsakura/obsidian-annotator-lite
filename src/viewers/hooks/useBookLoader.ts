@@ -139,7 +139,9 @@ export function useBookLoader(
         } catch {
           try {
             await (view as any).goTo(0);
-          } catch { /* ignore */ }
+          } catch {
+            /* ignore */
+          }
         }
 
         loadedFileRef.current = file;
@@ -165,7 +167,9 @@ export function useBookLoader(
       if (view) {
         try {
           (view as any).close?.();
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
         viewRef.current = null;
         loadedFileRef.current = null;
       }

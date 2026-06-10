@@ -35,6 +35,7 @@ npm install -D typescript@latest eslint typescript-eslint @typescript-eslint/par
 ```
 
 Then remove old config files:
+
 ```bash
 rm -f .eslintrc .eslintrc.js .eslintrc.json .eslintrc.yml .eslintrc.yaml
 ```
@@ -44,11 +45,13 @@ rm -f .eslintrc .eslintrc.js .eslintrc.json .eslintrc.yml .eslintrc.yaml
 If the quick command fails or you prefer more control:
 
 **1. Check your current setup:**
+
 ```bash
 grep -E "@typescript-eslint|eslint|typescript" package.json
 ```
 
 **2. Remove ALL old eslint packages first:**
+
 ```bash
 npm uninstall @typescript-eslint/eslint-plugin @typescript-eslint/parser eslint
 
@@ -67,11 +70,13 @@ npm install -D typescript@latest eslint typescript-eslint @typescript-eslint/par
 > **Why include TypeScript?** If your project has TypeScript 4.7.x or older, npm will refuse to install `typescript-eslint` with `ERESOLVE unable to resolve dependency tree`. Installing TypeScript in the same command resolves this.
 
 **4. Remove old config files:**
+
 ```bash
 rm -f .eslintrc .eslintrc.js .eslintrc.json .eslintrc.yml .eslintrc.yaml
 ```
 
 **5. Verify old packages are gone:**
+
 ```bash
 grep "@typescript-eslint/eslint-plugin" package.json
 # Should return nothing. If it still shows, run:
@@ -81,6 +86,7 @@ npm uninstall @typescript-eslint/eslint-plugin
 #### Why Migration Fails
 
 The old `@typescript-eslint/eslint-plugin` and `@typescript-eslint/parser` (v5-7) conflict with the new unified `typescript-eslint` package (v8+). Common errors:
+
 - `ERESOLVE unable to resolve dependency tree` — TypeScript too old, or old packages still installed
 - `TypeError: scopeManager.addGlobals is not a function` — version conflict between old and new packages
 - `Parsing error: Unexpected character 'e' found` — parser not loading due to version mismatch
@@ -89,16 +95,19 @@ The old `@typescript-eslint/eslint-plugin` and `@typescript-eslint/parser` (v5-7
 ### Version Requirements
 
 Versions at time of writing:
+
 - `eslint-plugin-obsidianmd` 0.3.0
 - `typescript-eslint` 8.x
 - `eslint` 9.x or 10.x (flat config)
 - `typescript` 5.x+ (required for typescript-eslint 8.x)
 
 **TypeScript 5.9+ notes:**
+
 - `moduleResolution: "node"` shows deprecation warning → use `"bundler"` for esbuild/bundler projects, or `"node10"` for tsc-only builds
 - `baseUrl` is deprecated (removed in TS 7.0) → remove if not using path aliases
 
 **v0.3.0 changes:**
+
 - `ui/sentence-case` rule disabled by default (not working as intended)
 - `prefer-active-doc` rule disabled by default
 - Cursor added as recognized brand
@@ -113,27 +122,37 @@ As of v0.2.5, `configs.recommended` properly scopes TypeScript rules to `.ts` fi
 
 ```js
 // eslint.config.mjs
-import tsParser from "@typescript-eslint/parser";
-import tseslint from "typescript-eslint";
-import obsidianmd from "eslint-plugin-obsidianmd";
+import tsParser from '@typescript-eslint/parser';
+import tseslint from 'typescript-eslint';
+import obsidianmd from 'eslint-plugin-obsidianmd';
 
 export default [
-    { ignores: ["node_modules/**", "main.js", "*.mjs", "package.json", "package-lock.json", "versions.json", "tsconfig.json"] },
-    ...tseslint.configs.recommendedTypeChecked.map(config => ({
-        ...config,
-        files: ["src/**/*.ts"],
-    })),
-    ...obsidianmd.configs.recommended,
-    {
-        files: ["src/**/*.ts"],
-        languageOptions: {
-            parser: tsParser,
-            parserOptions: {
-                project: "./tsconfig.json",
-                sourceType: "module",
-            },
-        },
+  {
+    ignores: [
+      'node_modules/**',
+      'main.js',
+      '*.mjs',
+      'package.json',
+      'package-lock.json',
+      'versions.json',
+      'tsconfig.json',
+    ],
+  },
+  ...tseslint.configs.recommendedTypeChecked.map((config) => ({
+    ...config,
+    files: ['src/**/*.ts'],
+  })),
+  ...obsidianmd.configs.recommended,
+  {
+    files: ['src/**/*.ts'],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        project: './tsconfig.json',
+        sourceType: 'module',
+      },
     },
+  },
 ];
 ```
 
@@ -143,80 +162,91 @@ If you need to customize rule severity or add overrides:
 
 ```js
 // eslint.config.mjs
-import tsParser from "@typescript-eslint/parser";
-import tseslint from "typescript-eslint";
-import obsidianmd from "eslint-plugin-obsidianmd";
+import tsParser from '@typescript-eslint/parser';
+import tseslint from 'typescript-eslint';
+import obsidianmd from 'eslint-plugin-obsidianmd';
 
 export default [
-    {
-        ignores: ["node_modules/**", "main.js", "*.mjs", "package.json", "package-lock.json", "versions.json", "tsconfig.json"],
+  {
+    ignores: [
+      'node_modules/**',
+      'main.js',
+      '*.mjs',
+      'package.json',
+      'package-lock.json',
+      'versions.json',
+      'tsconfig.json',
+    ],
+  },
+  // TypeScript-ESLint recommended rules WITH type checking
+  ...tseslint.configs.recommendedTypeChecked.map((config) => ({
+    ...config,
+    files: ['src/**/*.ts'],
+  })),
+  // Obsidian plugin rules + project config
+  {
+    files: ['src/**/*.ts'],
+    plugins: {
+      obsidianmd,
     },
-    // TypeScript-ESLint recommended rules WITH type checking
-    ...tseslint.configs.recommendedTypeChecked.map(config => ({
-        ...config,
-        files: ["src/**/*.ts"],
-    })),
-    // Obsidian plugin rules + project config
-    {
-        files: ["src/**/*.ts"],
-        plugins: {
-            obsidianmd,
-        },
-        languageOptions: {
-            parser: tsParser,
-            parserOptions: {
-                project: "./tsconfig.json",
-                sourceType: "module",
-            },
-            globals: {
-                activeDocument: "readonly",
-                activeWindow: "readonly",
-            },
-        },
-        rules: {
-            // All obsidianmd rules (v0.3.0)
-            "obsidianmd/commands/no-command-in-command-id": "error",
-            "obsidianmd/commands/no-command-in-command-name": "error",
-            "obsidianmd/commands/no-default-hotkeys": "error",
-            "obsidianmd/commands/no-plugin-id-in-command-id": "error",
-            "obsidianmd/commands/no-plugin-name-in-command-name": "error",
-            "obsidianmd/settings-tab/no-manual-html-headings": "error",
-            "obsidianmd/settings-tab/no-problematic-settings-headings": "error",
-            "obsidianmd/vault/iterate": "error",
-            "obsidianmd/detach-leaves": "error",
-            "obsidianmd/editor-drop-paste": "error",
-            "obsidianmd/hardcoded-config-path": "error",
-            "obsidianmd/no-forbidden-elements": "error",
-            "obsidianmd/no-nodejs-modules": "error",
-            "obsidianmd/no-plugin-as-component": "error",
-            "obsidianmd/no-sample-code": "error",
-            "obsidianmd/no-tfile-tfolder-cast": "error",
-            "obsidianmd/no-view-references-in-plugin": "error",
-            "obsidianmd/no-static-styles-assignment": "error",
-            "obsidianmd/object-assign": "error",
-            "obsidianmd/platform": "error",
-            "obsidianmd/prefer-create-el": "error",
-            "obsidianmd/prefer-file-manager-trash-file": "warn",
-            "obsidianmd/prefer-instanceof": "error",
-            "obsidianmd/prefer-get-language": "error",
-            "obsidianmd/prefer-abstract-input-suggest": "error",
-            "obsidianmd/prefer-active-window-timers": "error",
-            // prefer-active-doc is OFF by default in v0.3.0; enable for popout window support
-            "obsidianmd/prefer-active-doc": "error",
-            "obsidianmd/regex-lookbehind": "error",
-            "obsidianmd/sample-names": "error",
-            "obsidianmd/no-unsupported-api": "error",
-            // sentence-case is OFF by default in v0.3.0 (not working as intended)
-            // "obsidianmd/ui/sentence-case": ["error", { enforceCamelCaseLower: true }],
-            // Console: scanner allows warn, error, debug only
-            "no-console": ["error", { allow: ["warn", "error", "debug"] }],
-            // Allow underscore-prefixed unused params
-            "@typescript-eslint/no-unused-vars": ["error", {
-                argsIgnorePattern: "^_",
-                varsIgnorePattern: "^_",
-            }],
-        },
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        project: './tsconfig.json',
+        sourceType: 'module',
+      },
+      globals: {
+        activeDocument: 'readonly',
+        activeWindow: 'readonly',
+      },
     },
+    rules: {
+      // All obsidianmd rules (v0.3.0)
+      'obsidianmd/commands/no-command-in-command-id': 'error',
+      'obsidianmd/commands/no-command-in-command-name': 'error',
+      'obsidianmd/commands/no-default-hotkeys': 'error',
+      'obsidianmd/commands/no-plugin-id-in-command-id': 'error',
+      'obsidianmd/commands/no-plugin-name-in-command-name': 'error',
+      'obsidianmd/settings-tab/no-manual-html-headings': 'error',
+      'obsidianmd/settings-tab/no-problematic-settings-headings': 'error',
+      'obsidianmd/vault/iterate': 'error',
+      'obsidianmd/detach-leaves': 'error',
+      'obsidianmd/editor-drop-paste': 'error',
+      'obsidianmd/hardcoded-config-path': 'error',
+      'obsidianmd/no-forbidden-elements': 'error',
+      'obsidianmd/no-nodejs-modules': 'error',
+      'obsidianmd/no-plugin-as-component': 'error',
+      'obsidianmd/no-sample-code': 'error',
+      'obsidianmd/no-tfile-tfolder-cast': 'error',
+      'obsidianmd/no-view-references-in-plugin': 'error',
+      'obsidianmd/no-static-styles-assignment': 'error',
+      'obsidianmd/object-assign': 'error',
+      'obsidianmd/platform': 'error',
+      'obsidianmd/prefer-create-el': 'error',
+      'obsidianmd/prefer-file-manager-trash-file': 'warn',
+      'obsidianmd/prefer-instanceof': 'error',
+      'obsidianmd/prefer-get-language': 'error',
+      'obsidianmd/prefer-abstract-input-suggest': 'error',
+      'obsidianmd/prefer-active-window-timers': 'error',
+      // prefer-active-doc is OFF by default in v0.3.0; enable for popout window support
+      'obsidianmd/prefer-active-doc': 'error',
+      'obsidianmd/regex-lookbehind': 'error',
+      'obsidianmd/sample-names': 'error',
+      'obsidianmd/no-unsupported-api': 'error',
+      // sentence-case is OFF by default in v0.3.0 (not working as intended)
+      // "obsidianmd/ui/sentence-case": ["error", { enforceCamelCaseLower: true }],
+      // Console: scanner allows warn, error, debug only
+      'no-console': ['error', { allow: ['warn', 'error', 'debug'] }],
+      // Allow underscore-prefixed unused params
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+        },
+      ],
+    },
+  },
 ];
 ```
 
@@ -224,11 +254,11 @@ export default [
 
 The `typescript-eslint` package exports several config levels:
 
-| Config | Type-aware | What it catches |
-|--------|-----------|-----------------|
-| `recommended` | No | Basic TS issues (no-explicit-any, etc.) |
-| `recommendedTypeChecked` | Yes | + no-floating-promises, no-require-imports, restrict-template-expressions, no-unnecessary-type-assertion, require-await, no-misused-promises, await-thenable, no-base-to-string |
-| `strictTypeChecked` | Yes | + no-unsafe-assignment, no-unsafe-member-access, no-unsafe-return, no-unsafe-call |
+| Config                   | Type-aware | What it catches                                                                                                                                                                 |
+| ------------------------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `recommended`            | No         | Basic TS issues (no-explicit-any, etc.)                                                                                                                                         |
+| `recommendedTypeChecked` | Yes        | + no-floating-promises, no-require-imports, restrict-template-expressions, no-unnecessary-type-assertion, require-await, no-misused-promises, await-thenable, no-base-to-string |
+| `strictTypeChecked`      | Yes        | + no-unsafe-assignment, no-unsafe-member-access, no-unsafe-return, no-unsafe-call                                                                                               |
 
 The community scanner uses rules from the **`recommendedTypeChecked`** level. If you only use `recommended` (non-type-checked), you'll miss the most common violations.
 
@@ -238,14 +268,14 @@ The type-checked rules need `project` in parser options, which means your `tscon
 
 ```json
 {
-    "compilerOptions": {
-        "module": "ESNext",
-        "target": "ES6",
-        "moduleResolution": "bundler",
-        "strictNullChecks": true,
-        "lib": ["DOM", "ES5", "ES6", "ES7"]
-    },
-    "include": ["src/**/*.ts"]
+  "compilerOptions": {
+    "module": "ESNext",
+    "target": "ES6",
+    "moduleResolution": "bundler",
+    "strictNullChecks": true,
+    "lib": ["DOM", "ES5", "ES6", "ES7"]
+  },
+  "include": ["src/**/*.ts"]
 }
 ```
 
@@ -258,11 +288,12 @@ If you get "file not found in project" errors from ESLint, your `include` patter
 ### Strict mode recommendation
 
 For new projects, enable full strict mode to catch more issues at compile time:
+
 ```json
 {
-    "compilerOptions": {
-        "strict": true
-    }
+  "compilerOptions": {
+    "strict": true
+  }
 }
 ```
 
@@ -281,30 +312,32 @@ This occurs when `strictPropertyInitialization` is enabled (part of `strict` mod
 ```typescript
 // Pattern A: Definite assignment assertion (when assigned in onload/lifecycle)
 export class MyPlugin extends Plugin {
-    settings!: MySettings;  // ! tells TS "I'll assign this before use"
-    
-    async onload() {
-        this.settings = await this.loadData();
-    }
+  settings!: MySettings; // ! tells TS "I'll assign this before use"
+
+  async onload() {
+    this.settings = await this.loadData();
+  }
 }
 
 // Pattern B: Initialize with undefined-compatible type
 export class MyModal extends Modal {
-    result: string | undefined;  // Explicitly allow undefined
+  result: string | undefined; // Explicitly allow undefined
 }
 
 // Pattern C: Initialize with default value
 export class MyView extends ItemView {
-    containerEl: HTMLElement = document.createElement('div');
+  containerEl: HTMLElement = document.createElement('div');
 }
 ```
 
 **When to use each:**
+
 - **Pattern A (`!`)**: Property assigned in `onload()`, `onOpen()`, or similar lifecycle method. Most common for plugin settings.
 - **Pattern B (`| undefined`)**: Property may legitimately be unset. Requires null checks when accessing.
 - **Pattern C (default value)**: Property has a sensible default. Use when the default is cheap to create.
 
 **Debugging IDE vs build mismatch:**
+
 ```bash
 # See what strict mode catches (matches most IDEs)
 tsc --noEmit --strict
@@ -336,12 +369,13 @@ For `electron`, add a minimal type declaration file since `@types/electron` is n
 ```typescript
 // src/electron.d.ts
 declare module 'electron' {
-    const remote: { dialog: Dialog } | undefined;
-    // ... only the types you actually use
+  const remote: { dialog: Dialog } | undefined;
+  // ... only the types you actually use
 }
 ```
 
 Then import normally:
+
 ```typescript
 import * as electron from 'electron';
 ```
@@ -371,9 +405,7 @@ When accessing `Record<string, unknown>` values (common with tool inputs from JS
 const filePath = String(block.input['file_path'] || '');
 
 // Good — type-narrow first
-const filePath = typeof block.input['file_path'] === 'string'
-    ? block.input['file_path']
-    : '';
+const filePath = typeof block.input['file_path'] === 'string' ? block.input['file_path'] : '';
 ```
 
 ### Promises must be awaited
@@ -403,19 +435,19 @@ Async callbacks in `addEventListener` or other void-expecting contexts:
 ```typescript
 // Bad
 btn.addEventListener('click', async () => {
-    await doSomething();
+  await doSomething();
 });
 
 // Good — wrap in void IIFE
 btn.addEventListener('click', () => {
-    void (async () => {
-        await doSomething();
-    })();
+  void (async () => {
+    await doSomething();
+  })();
 });
 
 // Also good — just void the promise
 btn.addEventListener('click', () => {
-    void doSomething();
+  void doSomething();
 });
 ```
 
@@ -428,12 +460,12 @@ Note: `eslint-plugin-obsidianmd` **disables** this rule in its recommended confi
 ```typescript
 // Bad
 async function listFiles(): Promise<string[]> {
-    return fs.readdirSync(dir); // sync operation, no await
+  return fs.readdirSync(dir); // sync operation, no await
 }
 
 // Good
 function listFiles(): string[] {
-    return fs.readdirSync(dir);
+  return fs.readdirSync(dir);
 }
 ```
 
@@ -455,12 +487,12 @@ After `instanceof` or `Array.isArray()`, TypeScript narrows the type automatical
 ```typescript
 // Bad
 if (view instanceof TimelineView) {
-    (view as TimelineView).doSomething(); // cast is redundant
+  (view as TimelineView).doSomething(); // cast is redundant
 }
 
 // Good
 if (view instanceof TimelineView) {
-    view.doSomething();
+  view.doSomething();
 }
 ```
 
@@ -489,7 +521,10 @@ Common with `JSON.parse()`. Add a type assertion:
 const data = JSON.parse(raw);
 
 // Good
-interface MyData { field: string; count: number }
+interface MyData {
+  field: string;
+  count: number;
+}
 const data = JSON.parse(raw) as MyData;
 ```
 
@@ -534,29 +569,32 @@ activeWindow.setInterval(() => {}, 1000);
 **Rule:** Strict mode incompatibility with `Events.on()` callbacks
 
 The Obsidian `Events` class (used by `Plugin`, `Component`, custom event emitters) has this signature:
+
 ```typescript
 on(name: string, callback: (...data: unknown[]) => unknown, ctx?: unknown): EventRef
 ```
 
 Inline typed parameters fail with strict mode:
+
 ```typescript
 // Bad — strict mode error
 this.peerManager.on('transfer-request', (data: { files: File[] }) => {
-    // TS2345: Type '(data: { files: File[] }) => void' is not assignable...
+  // TS2345: Type '(data: { files: File[] }) => void' is not assignable...
 });
 
 // Good — cast inside the callback
 this.peerManager.on('transfer-request', (rawData) => {
-    const data = rawData as { files: File[] };
-    // use data.files
+  const data = rawData as { files: File[] };
+  // use data.files
 });
 ```
 
 For simple pass-through (just re-emitting), no cast needed:
+
 ```typescript
 // Good — trigger accepts unknown
 peer.on('file-received', (data) => {
-    this.trigger('file-received', data);
+  this.trigger('file-received', data);
 });
 ```
 
@@ -570,6 +608,7 @@ Obsidian's `Setting` component callbacks (`Dropdown.onChange`, `Toggle.onChange`
 ```
 
 Using narrower types inline fails:
+
 ```typescript
 // Bad — strict mode error
 .onChange(async (value: 'auto' | 'manual') => {
@@ -631,8 +670,8 @@ fs.readFileSync(path);
 import { Platform } from 'obsidian';
 
 if (Platform.isDesktop) {
-    const fs = await import('fs');
-    fs.readFileSync(path);
+  const fs = await import('fs');
+  fs.readFileSync(path);
 }
 ```
 
@@ -663,24 +702,28 @@ Type-checked linting is slower than basic linting because it loads the TypeScrip
 **Cause:** You have old `@typescript-eslint/parser` v7.x installed, which only supports TypeScript <5.6.0. TypeScript 5.9+ triggers this warning.
 
 **Fix:** Migrate to the unified `typescript-eslint` v8.x package:
+
 ```bash
 npm uninstall @typescript-eslint/eslint-plugin @typescript-eslint/parser eslint && \
 npm install -D typescript@latest eslint typescript-eslint @typescript-eslint/parser eslint-plugin-obsidianmd
 ```
 
 Then update your `eslint.config.mjs` to import the parser from `typescript-eslint`:
+
 ```js
-import tseslint from "typescript-eslint";
+import tseslint from 'typescript-eslint';
 // Use tseslint.parser or import @typescript-eslint/parser separately
 ```
 
 ### `ERESOLVE unable to resolve dependency tree`
 
 **Cause:** npm refuses to install because of peer dependency conflicts. Usually means:
+
 1. TypeScript version is too old (need >=4.8.4 for typescript-eslint 8.x)
 2. Old @typescript-eslint packages are still in package.json
 
 **Fix:** Uninstall old packages and upgrade TypeScript in one command:
+
 ```bash
 npm uninstall @typescript-eslint/eslint-plugin @typescript-eslint/parser eslint && \
 npm install -D typescript@latest eslint typescript-eslint @typescript-eslint/parser eslint-plugin-obsidianmd
@@ -691,6 +734,7 @@ npm install -D typescript@latest eslint typescript-eslint @typescript-eslint/par
 **Cause:** Version conflict between old `@typescript-eslint/*` packages (v5-7) and new `typescript-eslint` (v8+).
 
 **Fix:** Remove the old packages completely:
+
 ```bash
 npm uninstall @typescript-eslint/eslint-plugin @typescript-eslint/parser
 npm install -D typescript-eslint @typescript-eslint/parser
@@ -699,11 +743,13 @@ npm install -D typescript-eslint @typescript-eslint/parser
 ### `Parsing error: Unexpected character 'e' found` (or similar)
 
 **Cause:** TypeScript files aren't being parsed as TypeScript. Usually means:
+
 1. TypeScript version is too old (need 5.x+ for typescript-eslint 8.x)
 2. Parser isn't configured correctly
 3. Version conflicts between packages
 
 **Fix:**
+
 ```bash
 npm install -D typescript@latest
 # Then reinstall eslint packages
@@ -716,6 +762,7 @@ npm install -D eslint typescript-eslint @typescript-eslint/parser eslint-plugin-
 **Cause:** The `parserOptions.project` isn't set, or `tsconfig.json` doesn't include the files being linted.
 
 **Fix:** Ensure your eslint.config.mjs has:
+
 ```js
 parserOptions: {
     project: "./tsconfig.json",
@@ -724,9 +771,10 @@ parserOptions: {
 ```
 
 And your tsconfig.json includes your source files:
+
 ```json
 {
-    "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts"]
 }
 ```
 
@@ -735,9 +783,10 @@ And your tsconfig.json includes your source files:
 **Cause:** The file being linted isn't included in your tsconfig.json's `include` pattern.
 
 **Fix:** Update tsconfig.json to include all source files:
+
 ```json
 {
-    "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts"]
 }
 ```
 
@@ -746,6 +795,7 @@ And your tsconfig.json includes your source files:
 **Cause:** Using pnpm on a project that was set up with npm (or vice versa) causes packages to be moved to `node_modules/.ignored`.
 
 **Fix:** Stick to one package manager. To switch cleanly:
+
 ```bash
 rm -rf node_modules package-lock.json pnpm-lock.yaml yarn.lock
 # Then use your preferred package manager:
@@ -757,6 +807,7 @@ npm install  # or pnpm install
 **Cause:** Using `.eslintrc.*` (old format) instead of `eslint.config.mjs` (flat config).
 
 **Fix:** ESLint 9+ uses flat config by default. Remove old config files and create `eslint.config.mjs`:
+
 ```bash
 rm -f .eslintrc .eslintrc.js .eslintrc.json .eslintrc.yml
 # Then create eslint.config.mjs with the config from this guide
@@ -765,15 +816,17 @@ rm -f .eslintrc .eslintrc.js .eslintrc.json .eslintrc.yml
 ### tsconfig.json shows errors in VSCode/VSCodium (TypeScript 5.9+)
 
 **Cause:** TypeScript 5.9+ deprecated several tsconfig options:
+
 - `moduleResolution: "node"` — deprecated, use `"bundler"` for esbuild projects or `"node10"` for tsc-only
 - `baseUrl` — deprecated (removed in TS 7.0), remove if not using path aliases
 
 **Fix:** Update tsconfig.json:
+
 ```json
 {
-    "compilerOptions": {
-        "moduleResolution": "bundler"
-        // Remove "baseUrl" if you're not using path aliases
-    }
+  "compilerOptions": {
+    "moduleResolution": "bundler"
+    // Remove "baseUrl" if you're not using path aliases
+  }
 }
 ```

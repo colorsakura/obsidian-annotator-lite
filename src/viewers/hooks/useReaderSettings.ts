@@ -109,11 +109,7 @@ export function useColumnMode(
 /**
  * 应用字体大小设置。
  */
-export function useFontSize(
-  view: HTMLElement | null,
-  loaded: boolean,
-  fontSize: number,
-): void {
+export function useFontSize(view: HTMLElement | null, loaded: boolean, fontSize: number): void {
   useEffect(() => {
     if (!view || !loaded) return;
     applyFontSize(view, fontSize);

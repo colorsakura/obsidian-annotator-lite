@@ -41,10 +41,7 @@ function prepareFoliateResources() {
   const pdfDir = path.resolve(__dirname, 'node_modules/foliate-js/vendor/pdfjs');
   const workerCode = fs.readFileSync(path.join(pdfDir, 'pdf.worker.mjs'), 'utf8');
   const workerCodeBase64 = Buffer.from(workerCode).toString('base64');
-  const textLayerBuilderCSS = fs.readFileSync(
-    path.join(pdfDir, 'text_layer_builder.css'),
-    'utf8',
-  );
+  const textLayerBuilderCSS = fs.readFileSync(path.join(pdfDir, 'text_layer_builder.css'), 'utf8');
   const annotationLayerBuilderCSS = fs.readFileSync(
     path.join(pdfDir, 'annotation_layer_builder.css'),
     'utf8',
@@ -66,26 +63,23 @@ function foliatePdfPlugin(): esbuild.Plugin {
     name: 'foliate-pdf',
     setup(build) {
       // Intercept foliate-js/pdf.js and transform its source
-      build.onLoad(
-        { filter: /node_modules\/foliate-js\/pdf\.js$/ },
-        async (args) => {
-          let code = await fs.promises.readFile(args.path, 'utf8');
+      build.onLoad({ filter: /node_modules\/foliate-js\/pdf\.js$/ }, async (args) => {
+        let code = await fs.promises.readFile(args.path, 'utf8');
 
-          // Replace dynamic URL-based path resolution with static inlined resources
-          code = code.replace(
-            "const pdfjsPath = path => new URL(`vendor/pdfjs/${path}`, import.meta.url).toString()",
-            `const pdfjsWorkerCode = atob(${JSON.stringify(res.workerCodeBase64)})\nconst pdfjsWorkerUrl = URL.createObjectURL(new Blob([pdfjsWorkerCode], { type: 'text/javascript' }))\nconst pdfjsPath = path => path === 'pdf.worker.mjs'\n    ? pdfjsWorkerUrl\n    : path === 'cmaps/'\n        ? '${res.pdfAssetBase}cmaps/'\n        : path === 'standard_fonts/'\n            ? '${res.pdfAssetBase}standard_fonts/'\n            : path`,
-          );
+        // Replace dynamic URL-based path resolution with static inlined resources
+        code = code.replace(
+          'const pdfjsPath = path => new URL(`vendor/pdfjs/${path}`, import.meta.url).toString()',
+          `const pdfjsWorkerCode = atob(${JSON.stringify(res.workerCodeBase64)})\nconst pdfjsWorkerUrl = URL.createObjectURL(new Blob([pdfjsWorkerCode], { type: 'text/javascript' }))\nconst pdfjsPath = path => path === 'pdf.worker.mjs'\n    ? pdfjsWorkerUrl\n    : path === 'cmaps/'\n        ? '${res.pdfAssetBase}cmaps/'\n        : path === 'standard_fonts/'\n            ? '${res.pdfAssetBase}standard_fonts/'\n            : path`,
+        );
 
-          // Replace dynamic fetchText() calls for CSS with inlined CSS strings
-          code = code.replace(
-            /const fetchText = async url => await \(await fetch\(url\)\)\.text\(\)\n\n\/\/ https:\/\/raw\.githubusercontent\.com\/mozilla\/pdf\.js\/refs\/tags\/v5\.5\.207\/web\/text_layer_builder\.css\nconst textLayerBuilderCSS = await fetchText\(pdfjsPath\('text_layer_builder\.css'\)\)\n\n\/\/ https:\/\/raw\.githubusercontent\.com\/mozilla\/pdf\.js\/refs\/tags\/v5\.5\.207\/web\/annotation_layer_builder\.css\nconst annotationLayerBuilderCSS = await fetchText\(pdfjsPath\('annotation_layer_builder\.css'\)\)/,
-            `const textLayerBuilderCSS = ${JSON.stringify(res.textLayerBuilderCSS)}\nconst annotationLayerBuilderCSS = ${JSON.stringify(res.annotationLayerBuilderCSS)}`,
-          );
+        // Replace dynamic fetchText() calls for CSS with inlined CSS strings
+        code = code.replace(
+          /const fetchText = async url => await \(await fetch\(url\)\)\.text\(\)\n\n\/\/ https:\/\/raw\.githubusercontent\.com\/mozilla\/pdf\.js\/refs\/tags\/v5\.5\.207\/web\/text_layer_builder\.css\nconst textLayerBuilderCSS = await fetchText\(pdfjsPath\('text_layer_builder\.css'\)\)\n\n\/\/ https:\/\/raw\.githubusercontent\.com\/mozilla\/pdf\.js\/refs\/tags\/v5\.5\.207\/web\/annotation_layer_builder\.css\nconst annotationLayerBuilderCSS = await fetchText\(pdfjsPath\('annotation_layer_builder\.css'\)\)/,
+          `const textLayerBuilderCSS = ${JSON.stringify(res.textLayerBuilderCSS)}\nconst annotationLayerBuilderCSS = ${JSON.stringify(res.annotationLayerBuilderCSS)}`,
+        );
 
-          return { contents: code, loader: 'js' };
-        },
-      );
+        return { contents: code, loader: 'js' };
+      });
     },
   };
 }

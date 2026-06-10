@@ -55,31 +55,27 @@ export class AnnotatorLiteSettingTab extends PluginSettingTab {
         );
     }
 
-    new Setting(containerEl)
-      .setName('添加颜色')
-      .addButton((btn) =>
-        btn
-          .setButtonText('添加')
-          .setCta()
-          .onClick(async () => {
-            colors.push({
-              id: `custom-${Date.now()}`,
-              value: '#ffffff',
-              name: '自定义',
-            });
-            await this.plugin.saveSettings();
-            this.display();
-          }),
-      );
-
-    new Setting(containerEl)
-      .setName('恢复默认颜色')
-      .addButton((btn) =>
-        btn.setButtonText('恢复默认').onClick(async () => {
-          this.plugin.settings.highlightColors = [...DEFAULT_HIGHLIGHT_COLORS];
+    new Setting(containerEl).setName('添加颜色').addButton((btn) =>
+      btn
+        .setButtonText('添加')
+        .setCta()
+        .onClick(async () => {
+          colors.push({
+            id: `custom-${Date.now()}`,
+            value: '#ffffff',
+            name: '自定义',
+          });
           await this.plugin.saveSettings();
           this.display();
         }),
-      );
+    );
+
+    new Setting(containerEl).setName('恢复默认颜色').addButton((btn) =>
+      btn.setButtonText('恢复默认').onClick(async () => {
+        this.plugin.settings.highlightColors = [...DEFAULT_HIGHLIGHT_COLORS];
+        await this.plugin.saveSettings();
+        this.display();
+      }),
+    );
   }
 }

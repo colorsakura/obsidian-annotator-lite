@@ -3,6 +3,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { ItemView, type WorkspaceLeaf } from 'obsidian';
 import { AppContext } from '../hooks/useObsidianApp';
 import { ReaderStoreContext, getSessionStore } from '../contexts/ReaderStoreContext';
+import { ReaderAPIContext, getReaderAPI } from '../contexts/ReaderAPIContext';
 
 /**
  * 基类：提取三个 ItemView（ReaderView / OutlineView / AnnotationsView）的共同样板。
@@ -32,10 +33,7 @@ export abstract class BaseReactView<Api> extends ItemView {
    * @param apiSetter - 调用 apiRef.current 上的某个方法
    * @param pendingFallback - React 未挂载时的回退操作（通常是保存 pending 数据 + 调用 render)
    */
-  protected updateOrFallback(
-    apiSetter: (api: Api) => void,
-    pendingFallback: () => void,
-  ): void {
+  protected updateOrFallback(apiSetter: (api: Api) => void, pendingFallback: () => void): void {
     if (this.apiRef.current) {
       apiSetter(this.apiRef.current);
     } else {
@@ -49,21 +47,16 @@ export abstract class BaseReactView<Api> extends ItemView {
    */
   protected render() {
     const store = getSessionStore();
+    const api = getReaderAPI();
     let element = this.renderReact();
+
     if (store) {
-      element = React.createElement(
-        ReaderStoreContext.Provider,
-        { value: store },
-        element,
-      );
+      element = React.createElement(ReaderStoreContext.Provider, { value: store }, element);
     }
-    this.root.render(
-      React.createElement(
-        AppContext.Provider,
-        { value: this.app },
-        element,
-      ),
-    );
+    if (api) {
+      element = React.createElement(ReaderAPIContext.Provider, { value: api }, element);
+    }
+    this.root.render(React.createElement(AppContext.Provider, { value: this.app }, element));
   }
 
   /**

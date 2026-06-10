@@ -1,8 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import type {
-  ReaderSessionState,
-  ReaderSessionStore,
-} from '../services/ReaderSessionStore';
+import type { ReaderSessionState, ReaderSessionStore } from '../services/ReaderSessionStore';
 
 // ─── Context ──────────────────────────────────────────────────────────────
 export const ReaderStoreContext = createContext<ReaderSessionStore | null>(null);
@@ -27,9 +24,7 @@ export function getSessionStore(): ReaderSessionStore | null {
  */
 export function useSessionStore(): ReaderSessionState | null {
   const store = useContext(ReaderStoreContext);
-  const [state, setState] = useState<ReaderSessionState | null>(
-    () => store?.getSnapshot() ?? null,
-  );
+  const [state, setState] = useState<ReaderSessionState | null>(() => store?.getSnapshot() ?? null);
 
   useEffect(() => {
     if (!store) return;

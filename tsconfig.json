@@ -10,18 +10,10 @@
     "importHelpers": true,
     "isolatedModules": true,
     "strictNullChecks": true,
-    "lib": [
-      "DOM",
-      "ES2022"
-    ],
+    "lib": ["DOM", "ES2022"],
     "allowSyntheticDefaultImports": true,
     "jsx": "react"
   },
-  "include": [
-    "**/*.ts",
-    "**/*.tsx"
-  ],
-  "exclude": [
-    "build.ts"
-  ]
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["build.ts"]
 }

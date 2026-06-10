@@ -21,6 +21,7 @@ import { ReaderEventBus } from './services/ReaderEventBus';
 import { DefaultReaderController, type ReaderController } from './services/ReaderController';
 import { ObsidianViewCoordinator, type ViewCoordinator } from './services/ViewCoordinator';
 import { setSessionStore } from './contexts/ReaderStoreContext';
+import { setReaderAPI } from './contexts/ReaderAPIContext';
 import { type AnnotatorLiteSettings, DEFAULT_SETTINGS } from './services/Settings';
 import { AnnotatorLiteSettingTab } from './components/SettingsTab';
 
@@ -29,7 +30,7 @@ export default class AnnotatorLitePlugin extends Plugin {
   private targetResolver!: TargetResolver;
   private sessionStore = new ReaderSessionStore();
   private viewCoordinator!: ViewCoordinator;
-  private readerController!: ReaderController;
+  private readerController!: DefaultReaderController;
 
   /** Datacore 适配器（优先 Datacore API，回退 metadataCache） */
   datacoreAdapter!: DatacoreAdapter;
@@ -74,6 +75,7 @@ export default class AnnotatorLitePlugin extends Plugin {
       this.viewCoordinator,
       bus,
     );
+    setReaderAPI(this.readerController);
 
     this.registerView(READER_VIEW_TYPE, (leaf) => new ReaderView(leaf));
 

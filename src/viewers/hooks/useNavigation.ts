@@ -24,10 +24,7 @@ export function useNavigationTarget(
 /**
  * 处理章节跳转目标变化。
  */
-export function useSectionTarget(
-  view: HTMLElement | null,
-  sectionTarget: number | null,
-): void {
+export function useSectionTarget(view: HTMLElement | null, sectionTarget: number | null): void {
   useEffect(() => {
     if (!view || sectionTarget === null || sectionTarget === undefined) return;
     goToSection(view, sectionTarget);

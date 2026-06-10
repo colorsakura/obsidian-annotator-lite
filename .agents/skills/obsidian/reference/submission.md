@@ -20,6 +20,7 @@ your-plugin/
 The Obsidian release validation bot (`validate-plugin-entry.yml`) enforces these rules:
 
 ### Plugin ID (Required)
+
 - **Cannot contain "obsidian"** (case-insensitive)
 - **Cannot end with "plugin"**
 - **Must use only**: lowercase alphanumeric characters, dashes (`-`), and underscores (`_`)
@@ -27,6 +28,7 @@ The Obsidian release validation bot (`validate-plugin-entry.yml`) enforces these
 - Keep it short and simple (used for plugin folder name)
 
 ### Plugin Name (Required)
+
 - **Cannot contain "Obsidian"** (case-insensitive)
 - **Cannot end with "Plugin"**
 - **Cannot start with "Obsi" or end with "dian"**
@@ -34,6 +36,7 @@ The Obsidian release validation bot (`validate-plugin-entry.yml`) enforces these
 - Use a clear, descriptive name
 
 ### Description (Required)
+
 - **Cannot include "Obsidian"** (case-insensitive)
 - **Cannot use phrases**: "This plugin", "This is a plugin", "This plugin allows"
 - **Must end with punctuation**: `.`, `?`, `!`, or `)`
@@ -41,15 +44,18 @@ The Obsidian release validation bot (`validate-plugin-entry.yml`) enforces these
 - Focus on what the plugin does, not what it is
 
 ### Author (Required)
+
 - Must be the repository owner or a public member of the organization
 - Repository must have issues enabled (warning)
 - Must include a valid open source license
 
 ### Repository (Required)
+
 - Format: `"owner/repo-name"`
 - Must match the actual GitHub repository
 
 ### Manifest Synchronization
+
 - Plugin `id`, `name`, and `description` must match `manifest.json` in the repository
 
 ---
@@ -57,6 +63,7 @@ The Obsidian release validation bot (`validate-plugin-entry.yml`) enforces these
 **Examples:**
 
 ✅ Good:
+
 ```json
 {
   "id": "daily-notes-helper",
@@ -68,9 +75,10 @@ The Obsidian release validation bot (`validate-plugin-entry.yml`) enforces these
 ```
 
 ❌ Bad:
+
 ```json
 {
-  "id": "obsidian-daily-notes-plugin",  // Contains "obsidian" and ends with "plugin"
+  "id": "obsidian-daily-notes-plugin", // Contains "obsidian" and ends with "plugin"
   "name": "Obsidian Daily Notes Plugin", // Contains "Obsidian" and ends with "Plugin"
   "description": "This is an Obsidian plugin that helps with daily notes" // Contains "Obsidian" and "This is...plugin", no punctuation
 }
@@ -113,6 +121,7 @@ The Obsidian release validation bot (`validate-plugin-entry.yml`) enforces these
 ## Semantic Versioning
 
 Follow semantic versioning:
+
 - **MAJOR**: Breaking changes
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes
@@ -141,27 +150,30 @@ Composite of Health and Review metrics. Examples: 96% (excellent), 65% (needs wo
 
 ### Health (Excellent / Good / Poor)
 
-| Metric | What it measures | Tips |
-|--------|------------------|------|
-| Hygiene | readme, license, description, contributing guide | Add CONTRIBUTING.md |
-| Maintenance | Commit frequency, release recency | Release regularly |
-| Responsiveness | Issue close rate | Triage issues promptly |
-| Adoption | Installations, stars | Promote your plugin |
+| Metric         | What it measures                                 | Tips                   |
+| -------------- | ------------------------------------------------ | ---------------------- |
+| Hygiene        | readme, license, description, contributing guide | Add CONTRIBUTING.md    |
+| Maintenance    | Commit frequency, release recency                | Release regularly      |
+| Responsiveness | Issue close rate                                 | Triage issues promptly |
+| Adoption       | Installations, stars                             | Promote your plugin    |
 
 ### Review (Satisfactory / Caution)
 
 Automated scans of your latest release. **ESLint violations become publicly visible here.**
 
 **Passed Checks:**
+
 - No known vulnerable dependencies
 - No network requests detected (or properly disclosed)
 - Build verified against source
 - `main.js` and `styles.css` have verified GitHub artifact attestation
 
 **Risks:**
+
 - Unsafe API calls (e.g., `range.createContextualFragment`)
 
 **Warnings (can be 100+):**
+
 - Unnecessary type assertions
 - Unexpected `any` types
 - Direct style manipulation via `setAttribute` or `element.style`
@@ -176,17 +188,17 @@ Automated scans of your latest release. **ESLint violations become publicly visi
 
 These are shown to users but don't affect your score:
 
-| Disclosure | Trigger |
-|------------|---------|
-| Clipboard Access | `navigator.clipboard` usage |
-| base64 calls | `atob()` / `btoa()` usage |
-| Vault Read | `vault.read`, `vault.cachedRead` |
-| Vault Write | `vault.modify`, `vault.create` |
-| Vault Enumeration | `vault.getFiles()`, `getMarkdownFiles()` |
-| Network Requests | `fetch()`, `XMLHttpRequest` count |
-| Dynamic Code Execution | `eval()`, `new Function()` |
-| System Identity | hostname, user info, env vars |
-| ES5 Transpilation | `__esModule`, `__generator` helpers in bundle |
+| Disclosure             | Trigger                                       |
+| ---------------------- | --------------------------------------------- |
+| Clipboard Access       | `navigator.clipboard` usage                   |
+| base64 calls           | `atob()` / `btoa()` usage                     |
+| Vault Read             | `vault.read`, `vault.cachedRead`              |
+| Vault Write            | `vault.modify`, `vault.create`                |
+| Vault Enumeration      | `vault.getFiles()`, `getMarkdownFiles()`      |
+| Network Requests       | `fetch()`, `XMLHttpRequest` count             |
+| Dynamic Code Execution | `eval()`, `new Function()`                    |
+| System Identity        | hostname, user info, env vars                 |
+| ES5 Transpilation      | `__esModule`, `__generator` helpers in bundle |
 
 ### Other Flags
 

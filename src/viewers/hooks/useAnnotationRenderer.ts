@@ -1,15 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { Platform } from 'obsidian';
 import type { Annotation } from '../../types/annotations';
-import type { HighlightColor } from '../../constants';
 import { installAnnotationRendering, applyAnnotationOverlays } from '../foliate/foliateAnnotations';
-import { showSelectionMenu, type PendingSelection } from '../foliate/foliateSelection';
-import {
-  useSelectionMenu,
-  type SelectionMenuState,
-  type SelectionMenuActions,
-} from './useSelectionMenu';
-import type { App } from 'obsidian';
 
 /**
  * 安装标注渲染处理器（draw-annotation / create-overlay 事件）。
@@ -32,115 +23,38 @@ export function useAnnotationRendering(
 
 /**
  * 当标注列表变化时，应用新的标注覆盖层。
+ * 仅在标注列表实际发生变化时才触发更新，避免不必要的全量重绘。
  */
 export function useAnnotationOverlays(
   view: HTMLElement | null,
   loaded: boolean,
   annotations: Annotation[],
 ): void {
+  const prevAnnotationsRef = useRef<Annotation[]>([]);
   const appliedIdsRef = useRef<Set<string>>(new Set());
 
-  // Reset applied IDs when view changes
+  // Reset when view changes
   useEffect(() => {
     if (!view) return;
     appliedIdsRef.current = new Set();
+    prevAnnotationsRef.current = [];
   }, [view]);
 
   useEffect(() => {
     if (!view || !loaded) return;
-    void applyAnnotationOverlays(view, annotations, appliedIdsRef.current);
-  }, [view, loaded, annotations]);
-}
 
-type ContextMenuResult = {
-  menuState: SelectionMenuState | null;
-  menuActions: SelectionMenuActions;
-  menuRef: React.RefObject<HTMLDivElement | null>;
-};
+    // Check if annotations actually changed
+    const prevIds = new Set(prevAnnotationsRef.current.map((a) => a.id));
+    const currIds = new Set(annotations.map((a) => a.id));
+    const changed =
+      annotations.length !== prevAnnotationsRef.current.length ||
+      annotations.some((a) => !prevIds.has(a.id)) ||
+      prevAnnotationsRef.current.some((a) => !currIds.has(a.id));
 
-/**
- * 安装右键菜单处理器。
- * PC 端使用自定义 React 菜单（useSelectionMenu），移动端回退到 Obsidian Menu。
- *
- * @important 必须在组件顶层无条件调用（hooks 规则），不能放在 if/条件分支中。
- */
-export function useContextMenu(
-  view: HTMLElement | null,
-  loaded: boolean,
-  isAnnotatable: boolean,
-  fileType: 'pdf' | 'epub' | undefined,
-  onAddAnnotation: ((params: {
-    type: 'pdf' | 'epub';
-    cfiRange: string;
-    text: string;
-    prefix: string;
-    suffix: string;
-    note?: string;
-    color?: string;
-  }) => void) | undefined,
-  app: App,
-  containerRef: React.RefObject<HTMLDivElement | null>,
-  annotations: Annotation[],
-  onDeleteAnnotation: (id: string) => void,
-  colors?: HighlightColor[],
-): ContextMenuResult | null {
-  const isDesktop = Platform.isDesktop;
-
-  // Desktop: use custom React menu
-  const desktopMenu = useSelectionMenu({
-    view: isDesktop ? view : null,
-    loaded,
-    isAnnotatable,
-    fileType,
-    annotations,
-    onAddAnnotation: onAddAnnotation as any,
-    onDeleteAnnotation,
-    app,
-    colors,
-  });
-
-  // Mobile: keep Obsidian Menu fallback
-  const loadHandlerRef = useRef<((e: any) => void) | null>(null);
-  const pendingSelectionRef = useRef<PendingSelection | null>(null);
-
-  useEffect(() => {
-    if (isDesktop) return;
-    if (!view || !loaded || !isAnnotatable || !fileType || !onAddAnnotation) return;
-
-    const handleLoad = async ({ detail }: any) => {
-      const { doc } = detail;
-      if (!doc || !(view as any).renderer) return;
-
-      const win = doc.defaultView as Window;
-      const hostDoc = win.parent?.document ?? containerRef.current?.ownerDocument;
-      if (!hostDoc) return;
-
-      doc.addEventListener('contextmenu', (ev: MouseEvent) => {
-        ev.preventDefault();
-        ev.stopPropagation();
-        showSelectionMenu(
-          view, win, hostDoc, ev, fileType,
-          pendingSelectionRef, onAddAnnotation, app,
-        );
-      });
-    };
-
-    if (loadHandlerRef.current) {
-      view.removeEventListener('load', loadHandlerRef.current as any);
+    if (changed) {
+      void applyAnnotationOverlays(view, annotations, appliedIdsRef.current);
     }
-    view.addEventListener('load', handleLoad as any);
-    loadHandlerRef.current = handleLoad as any;
 
-    return () => {
-      if (loadHandlerRef.current) {
-        view.removeEventListener('load', loadHandlerRef.current as any);
-        loadHandlerRef.current = null;
-      }
-    };
-  }, [isDesktop, view, loaded, isAnnotatable, fileType, onAddAnnotation, app, containerRef]);
-
-  if (isDesktop) {
-    return desktopMenu;
-  }
-  return null;
+    prevAnnotationsRef.current = annotations;
+  }, [view, loaded, annotations]);
 }

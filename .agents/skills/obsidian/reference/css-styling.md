@@ -3,6 +3,7 @@
 Proper CSS styling ensures your plugin respects user themes and provides a native Obsidian experience.
 
 ## Table of Contents
+
 - [Avoid Inline Styles](#avoid-inline-styles)
 - [Use Obsidian CSS Variables](#use-obsidian-css-variables)
 - [Avoid `!important`](#avoid-important)
@@ -17,9 +18,11 @@ Proper CSS styling ensures your plugin respects user themes and provides a nativ
 ## Avoid Inline Styles
 
 ### Avoid Inline Styles
+
 Rule: `obsidianmd/no-static-styles-assignment`
 
 ❌ **INCORRECT**:
+
 ```typescript
 element.style.color = 'red';
 element.style.fontSize = '14px';
@@ -27,6 +30,7 @@ element.setAttribute('style', 'margin: 10px;');
 ```
 
 ✅ **CORRECT**:
+
 ```typescript
 // Add class in TypeScript
 element.addClass('my-custom-element');
@@ -44,9 +48,11 @@ Rationale: Move all styles to CSS for better theme/snippet adaptability. Use Obs
 ---
 
 ### Don't Create `<link>` or `<style>` Elements
+
 Rule: `obsidianmd/no-forbidden-elements`
 
 ❌ **INCORRECT**:
+
 ```typescript
 // Don't manually create and append stylesheets
 const styleSheet = document.createElement('link');
@@ -65,6 +71,7 @@ containerEl.createEl('style');
 ```
 
 ✅ **CORRECT**:
+
 ```typescript
 // Use styles.css file in your plugin root
 // Obsidian automatically loads it for you
@@ -78,11 +85,13 @@ Rationale: Creating and attaching `<link>` or `<style>` elements is not allowed.
 ## Use Obsidian CSS Variables
 
 ### Use Obsidian CSS Variables
+
 Rule: Theme consistency and user customization
 
 Always use Obsidian's CSS variables instead of hardcoded values to ensure your plugin respects user themes and customization.
 
 ❌ **INCORRECT**:
+
 ```css
 .my-plugin-modal {
   background: #1e1e1e;
@@ -94,6 +103,7 @@ Always use Obsidian's CSS variables instead of hardcoded values to ensure your p
 ```
 
 ✅ **CORRECT**:
+
 ```css
 .my-plugin-modal {
   background: var(--modal-background);
@@ -107,6 +117,7 @@ Always use Obsidian's CSS variables instead of hardcoded values to ensure your p
 ### Common CSS Variables by Category
 
 **Colors**:
+
 - `--text-normal`, `--text-muted`, `--text-faint` - Text colors
 - `--text-accent`, `--text-accent-hover` - Accent colors for links/buttons
 - `--text-error`, `--text-success`, `--text-warning` - Status colors
@@ -115,10 +126,12 @@ Always use Obsidian's CSS variables instead of hardcoded values to ensure your p
 - `--background-modifier-border` - Border colors
 
 **Spacing** (4px grid):
+
 - `--size-4-1` (4px), `--size-4-2` (8px), `--size-4-3` (12px)
 - `--size-4-4` (16px), `--size-4-6` (24px), `--size-4-8` (32px)
 
 **Typography**:
+
 - `--font-text-theme` - Editor text font
 - `--font-interface-theme` - UI font
 - `--font-monospace-theme` - Code font
@@ -126,6 +139,7 @@ Always use Obsidian's CSS variables instead of hardcoded values to ensure your p
 - `--font-bold`, `--font-normal` - Font weights
 
 **Borders & Radius**:
+
 - `--radius-s`, `--radius-m`, `--radius-l` - Border radius
 - `--input-radius` - Input field border radius
 - `--border-width` - Standard border thickness
@@ -134,6 +148,7 @@ Always use Obsidian's CSS variables instead of hardcoded values to ensure your p
 - `--background-modifier-border-hover` - Hover state border color
 
 **Modal/Dialog**:
+
 - `--modal-background`, `--modal-border-color`
 - `--modal-max-width`, `--modal-max-height`
 
@@ -142,9 +157,11 @@ Always use Obsidian's CSS variables instead of hardcoded values to ensure your p
 ## Avoid `!important`
 
 ### Avoid `!important`
+
 Rule: Scanner warning — style override
 
 ❌ **INCORRECT**:
+
 ```css
 .my-plugin-button {
   color: red !important;
@@ -153,6 +170,7 @@ Rule: Scanner warning — style override
 ```
 
 ✅ **CORRECT**:
+
 ```css
 /* Increase specificity instead */
 .my-plugin-container .my-plugin-button {
@@ -173,9 +191,11 @@ Rationale: `!important` overrides user themes and CSS snippets. Increase selecto
 ## Avoid `:has` Selector
 
 ### Avoid `:has` Selector
+
 Rule: Scanner warning — performance
 
 ❌ **INCORRECT**:
+
 ```css
 .my-plugin-container:has(.active-item) {
   border: 1px solid var(--interactive-accent);
@@ -187,6 +207,7 @@ div:has(> .my-plugin-icon) {
 ```
 
 ✅ **CORRECT**:
+
 ```typescript
 // Add a class from TypeScript when the condition is met
 if (container.querySelector('.active-item')) {
@@ -207,11 +228,13 @@ Rationale: `:has` causes broad selector invalidation and significant performance
 ## Scope Plugin Styles
 
 ### Scope Plugin Styles
+
 Rule: Avoid conflicts with Obsidian and other plugins
 
 Always scope your CSS to your plugin's specific elements to prevent style conflicts.
 
 ❌ **INCORRECT**:
+
 ```css
 /* Too broad - affects all buttons everywhere */
 button {
@@ -225,6 +248,7 @@ button {
 ```
 
 ✅ **CORRECT**:
+
 ```css
 /* Scoped to your plugin's view */
 .my-plugin-view button {
@@ -247,6 +271,7 @@ Rationale: Scoping prevents your styles from affecting Obsidian's UI or other pl
 ---
 
 ### Scope to Plugin Containers
+
 Rule: Use view and modal class names
 
 Obsidian automatically adds class names to your plugin's elements. Use these for scoping:
@@ -274,7 +299,7 @@ Add these classes in your TypeScript:
 // In your view
 export class MyPluginView extends ItemView {
   getViewType() {
-    return "my-plugin";
+    return 'my-plugin';
   }
 
   async onOpen() {
@@ -296,6 +321,7 @@ export class MyModal extends Modal {
 ## Theme Support
 
 ### Support Light and Dark Themes
+
 Rule: Respect user theme preference
 
 Test your plugin in both light and dark themes. Obsidian's CSS variables automatically adjust.
@@ -326,20 +352,21 @@ Rationale: Using CSS variables ensures your plugin works with any theme, includi
 ## Spacing and Layout
 
 ### Use Consistent Spacing
+
 Rule: Follow Obsidian's 4px grid system
 
 Use Obsidian's spacing variables for consistent layouts:
 
 ```css
 .my-plugin-container {
-  padding: var(--size-4-4);        /* 16px */
-  margin-bottom: var(--size-4-6);  /* 24px */
-  gap: var(--size-4-2);             /* 8px */
+  padding: var(--size-4-4); /* 16px */
+  margin-bottom: var(--size-4-6); /* 24px */
+  gap: var(--size-4-2); /* 8px */
 }
 
 .my-plugin-compact {
-  padding: var(--size-4-2);        /* 8px */
-  gap: var(--size-4-1);             /* 4px */
+  padding: var(--size-4-2); /* 8px */
+  gap: var(--size-4-1); /* 4px */
 }
 ```
 

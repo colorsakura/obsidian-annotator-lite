@@ -3,6 +3,7 @@
 Code quality ensures maintainability, reliability, and better user experience.
 
 ## Table of Contents
+
 - [Remove Sample Code](#remove-sample-code)
 - [Security Best Practices](#security-best-practices)
 - [Platform Compatibility](#platform-compatibility)
@@ -17,9 +18,11 @@ Code quality ensures maintainability, reliability, and better user experience.
 ## Remove Sample Code
 
 ### Remove Sample Code
+
 Rule: `obsidianmd/no-sample-code`
 
 Remove all sample/template code before publishing:
+
 - Sample ribbon icons
 - Example status bar items
 - Template settings
@@ -28,22 +31,25 @@ Remove all sample/template code before publishing:
 ---
 
 ### Rename Sample Class Names
+
 Rule: `obsidianmd/sample-names`
 
 ❌ **INCORRECT**:
+
 ```typescript
-class MyPlugin extends Plugin { }
-interface MyPluginSettings { }
-class SampleSettingTab extends PluginSettingTab { }
-class SampleModal extends Modal { }
+class MyPlugin extends Plugin {}
+interface MyPluginSettings {}
+class SampleSettingTab extends PluginSettingTab {}
+class SampleModal extends Modal {}
 ```
 
 ✅ **CORRECT**:
+
 ```typescript
-class TodoPlugin extends Plugin { }
-interface TodoPluginSettings { }
-class TodoSettingTab extends PluginSettingTab { }
-class TodoModal extends Modal { }
+class TodoPlugin extends Plugin {}
+interface TodoPluginSettings {}
+class TodoSettingTab extends PluginSettingTab {}
+class TodoModal extends Modal {}
 ```
 
 Rationale: Rename placeholder class names from the sample plugin template (`MyPlugin`, `MyPluginSettings`, `SampleSettingTab`, `SampleModal`) to meaningful names for your plugin.
@@ -53,15 +59,18 @@ Rationale: Rename placeholder class names from the sample plugin template (`MyPl
 ## Security Best Practices
 
 ### Avoid innerHTML and outerHTML
+
 Rule: Security best practice
 
 ❌ **INCORRECT**:
+
 ```typescript
 element.innerHTML = '<div>' + userContent + '</div>';
 element.outerHTML = '<p>' + text + '</p>';
 ```
 
 ✅ **CORRECT**:
+
 ```typescript
 // Use DOM API
 const div = element.createDiv();
@@ -79,14 +88,17 @@ Rationale: Using `innerHTML`/`outerHTML` is a security risk (XSS vulnerability).
 ## Platform Compatibility
 
 ### Avoid Regex Lookbehind
+
 Rule: `obsidianmd/regex-lookbehind`
 
 ❌ **INCORRECT**:
+
 ```typescript
-const pattern = /(?<=@)\w+/;  // Not supported on some iOS versions
+const pattern = /(?<=@)\w+/; // Not supported on some iOS versions
 ```
 
 ✅ **CORRECT**:
+
 ```typescript
 const pattern = /@(\w+)/;
 const match = text.match(pattern);
@@ -98,26 +110,39 @@ Rationale: Regex lookbehind not supported on iOS versions before 16.4.
 ---
 
 ### Use Platform API for OS Detection
+
 Rule: `obsidianmd/platform`
 
 ❌ **INCORRECT**:
+
 ```typescript
-if (navigator.platform.includes('Mac')) { }
-if (navigator.userAgent.includes('Windows')) { }
-if (window.navigator.platform === 'Linux') { }
+if (navigator.platform.includes('Mac')) {
+}
+if (navigator.userAgent.includes('Windows')) {
+}
+if (window.navigator.platform === 'Linux') {
+}
 ```
 
 ✅ **CORRECT**:
+
 ```typescript
 import { Platform } from 'obsidian';
 
-if (Platform.isMacOS) { }
-if (Platform.isWin) { }
-if (Platform.isLinux) { }
-if (Platform.isMobile) { }
-if (Platform.isIosApp) { }
-if (Platform.isAndroidApp) { }
-if (Platform.isDesktopApp) { }
+if (Platform.isMacOS) {
+}
+if (Platform.isWin) {
+}
+if (Platform.isLinux) {
+}
+if (Platform.isMobile) {
+}
+if (Platform.isIosApp) {
+}
+if (Platform.isAndroidApp) {
+}
+if (Platform.isDesktopApp) {
+}
 ```
 
 Rationale: Avoid using the `navigator` API to detect the operating system. Use Obsidian's Platform API instead for better reliability and mobile support.
@@ -125,9 +150,11 @@ Rationale: Avoid using the `navigator` API to detect the operating system. Use O
 ---
 
 ### Use activeWindow.setTimeout and activeWindow.setInterval
+
 Rule: `obsidianmd/prefer-active-window-timers`
 
 ❌ **INCORRECT**:
+
 ```typescript
 const timer: NodeJS.Timeout = setTimeout(() => {
   // do something
@@ -139,6 +166,7 @@ const interval = setInterval(() => {
 ```
 
 ✅ **CORRECT**:
+
 ```typescript
 const timer: number = activeWindow.setTimeout(() => {
   // do something
@@ -160,9 +188,11 @@ Rationale: Use `activeWindow.setTimeout/setInterval` for popout window compatibi
 ## API Usage Best Practices
 
 ### Don't Use Global `app` Object
+
 Rule: Best practice from official guidelines
 
 ❌ **INCORRECT**:
+
 ```typescript
 // Don't use global app
 const vault = app.vault;
@@ -170,6 +200,7 @@ const workspace = app.workspace;
 ```
 
 ✅ **CORRECT**:
+
 ```typescript
 // Use the plugin instance reference
 const vault = this.app.vault;
@@ -181,9 +212,11 @@ Rationale: Always use `this.app` from your plugin instance instead of the global
 ---
 
 ### Use requestUrl() Instead of fetch()
+
 Rule: Best practice from official guidelines
 
 ❌ **INCORRECT**:
+
 ```typescript
 // Don't use fetch()
 const response = await fetch('https://api.example.com/data');
@@ -191,6 +224,7 @@ const data = await response.json();
 ```
 
 ✅ **CORRECT**:
+
 ```typescript
 import { requestUrl } from 'obsidian';
 
@@ -204,9 +238,11 @@ Rationale: Don't use `fetch()`. Use Obsidian's `requestUrl()` instead to bypass 
 ---
 
 ### Minimize Console Logging
+
 Rule: Best practice from official guidelines
 
 ❌ **INCORRECT**:
+
 ```typescript
 async onload() {
   console.log('Plugin loaded');
@@ -220,6 +256,7 @@ onunload() {
 ```
 
 ✅ **CORRECT**:
+
 ```typescript
 async onload() {
   // Only log errors by default
@@ -241,9 +278,11 @@ Rationale: The developer console should display errors by default, not debug mes
 ---
 
 ### Prefer AbstractInputSuggest
+
 Rule: `obsidianmd/prefer-abstract-input-suggest`
 
 ❌ **INCORRECT**:
+
 ```typescript
 // Don't use the custom TextInputSuggest implementation
 // (frequently copied from Liam's code)
@@ -253,6 +292,7 @@ class MyTextInputSuggest extends TextInputSuggest<string> {
 ```
 
 ✅ **CORRECT**:
+
 ```typescript
 import { AbstractInputSuggest } from 'obsidian';
 
@@ -276,6 +316,7 @@ Rationale: Use the built-in `AbstractInputSuggest` API instead of copying custom
 ---
 
 ### Use updateOptions() for Editor Extensions
+
 Rule: Official guidelines
 
 ```typescript
@@ -288,11 +329,13 @@ Rationale: When reconfiguring editor extensions, use `updateOptions()` to flush 
 ---
 
 ### Target Main Workspace from Settings (v1.13.0+)
+
 Rule: Multi-window compatibility
 
 As of Obsidian 1.13.0, settings open in a **new window** instead of a modal. Code using `activeDocument` from settings callbacks will get the settings window's document, not the main vault window.
 
 ❌ **INCORRECT** (breaks in 1.13.0+):
+
 ```typescript
 // In settings tab or settings callback
 updateMainUI() {
@@ -303,6 +346,7 @@ updateMainUI() {
 ```
 
 ✅ **CORRECT** (works in all versions):
+
 ```typescript
 // In settings tab or settings callback
 updateMainUI() {
@@ -314,6 +358,7 @@ updateMainUI() {
 ```
 
 **When to use which:**
+
 - **Main workspace UI** (nav, sidebar, workspace elements): Use `this.app.workspace.containerEl.ownerDocument`
 - **Same-window UI** (modal contents, settings elements): `activeDocument` or `this.containerEl.ownerDocument` both work
 
@@ -324,9 +369,11 @@ Rationale: `workspace.containerEl.ownerDocument` always points to the main vault
 ## Async/Await Patterns
 
 ### Prefer async/await over Promise chains
+
 Rule: Code readability and maintainability
 
 ❌ **INCORRECT**:
+
 ```typescript
 function loadData() {
   return new Promise((resolve) => {
@@ -335,16 +382,17 @@ function loadData() {
 }
 
 getData()
-  .then(result => processResult(result))
-  .then(processed => saveData(processed))
-  .catch(error => console.error(error))
+  .then((result) => processResult(result))
+  .then((processed) => saveData(processed))
+  .catch((error) => console.error(error))
   .finally(() => cleanup());
 ```
 
 ✅ **CORRECT**:
+
 ```typescript
 async function loadData() {
-  await sleep(1000);  // Use Obsidian's sleep() helper
+  await sleep(1000); // Use Obsidian's sleep() helper
   return data;
 }
 
@@ -366,9 +414,11 @@ Rationale: async/await is more readable and maintainable. Use Obsidian's `sleep(
 ## DOM Helpers
 
 ### Use Obsidian DOM Helpers
+
 Rule: Prefer Obsidian API over vanilla DOM
 
 ❌ **INCORRECT**:
+
 ```typescript
 const div = document.createElement('div');
 const span = document.createElement('span');
@@ -376,6 +426,7 @@ const fragment = document.createDocumentFragment();
 ```
 
 ✅ **CORRECT**:
+
 ```typescript
 // On any HTMLElement:
 const div = containerEl.createDiv();
@@ -397,11 +448,13 @@ Rationale: Obsidian's helper functions (`createDiv()`, `createSpan()`, `createEl
 The Obsidian community plugin scanner checks for npm packages that have been superseded by Node.js built-ins. Using flagged packages produces warnings that lower your Scorecard score.
 
 ### Replace `builtin-modules` with `node:module`
+
 Rule: Scanner warning — deprecated package
 
 The `builtin-modules` package provides a list of Node.js built-in module names. Node.js has shipped this natively as `module.builtinModules` since v9.3.0.
 
 ❌ **INCORRECT** (`esbuild.config.mjs`):
+
 ```javascript
 import builtins from "builtin-modules";
 // ...
@@ -409,6 +462,7 @@ external: [...builtins],
 ```
 
 ✅ **CORRECT** (`esbuild.config.mjs`):
+
 ```javascript
 import { builtinModules } from "node:module";
 // ...
@@ -420,6 +474,7 @@ Then remove `builtin-modules` from `package.json` devDependencies.
 ### General Guidance
 
 When the scanner flags a package with a "should be replaced with an alternative" warning:
+
 1. Check [es-tooling/module-replacements](https://github.com/es-tooling/module-replacements) for the recommended replacement
 2. Replace the import with the Node.js built-in or recommended alternative
 3. Remove the flagged package from `package.json`
@@ -430,17 +485,20 @@ When the scanner flags a package with a "should be replaced with an alternative"
 ## Miscellaneous Rules
 
 ### Don't Mutate Defaults with Object.assign
+
 Rule: `obsidianmd/object-assign`
 
 Avoid calling `Object.assign` with exactly two arguments where the first argument is a variable with "default" in its name. This mutates the defaults object unexpectedly.
 
 ❌ **INCORRECT**:
+
 ```typescript
 // Mutates DEFAULT_SETTINGS - subsequent calls see modified defaults!
 Object.assign(DEFAULT_SETTINGS, userSettings);
 ```
 
 ✅ **CORRECT**:
+
 ```typescript
 // Merge into a fresh object - defaults stay intact
 Object.assign({}, DEFAULT_SETTINGS, userSettings);
@@ -454,9 +512,11 @@ Rationale: When the target of `Object.assign` is a variable holding default valu
 ---
 
 ### Organize Multi-File Plugins into Folders
+
 Rule: Best practice from official guidelines
 
 ✅ GOOD STRUCTURE:
+
 ```
 my-plugin/
 ├── src/
@@ -475,9 +535,11 @@ Rationale: For plugins with multiple files, organize them into folders to improv
 ---
 
 ### Validate manifest.json
+
 Rule: `obsidianmd/validate-manifest`
 
 Ensure your `manifest.json` is valid:
+
 ```json
 {
   "id": "unique-plugin-id",
@@ -494,6 +556,7 @@ Ensure your `manifest.json` is valid:
 ---
 
 ### Validate LICENSE
+
 Rule: `obsidianmd/validate-license`
 
 Your plugin must include a valid LICENSE file. The rule checks two things:
@@ -502,16 +565,19 @@ Your plugin must include a valid LICENSE file. The rule checks two things:
 2. **Copyright year**: The year must be current. Update it when the year changes.
 
 ❌ **INCORRECT** (unchanged sample plugin LICENSE):
+
 ```
 Copyright (C) 2021 by Dynalist Inc.
 ```
 
 ✅ **CORRECT**:
+
 ```
 Copyright (C) 2024 by Your Name
 ```
 
 Rule options:
+
 ```javascript
 "obsidianmd/validate-license": ["error", {
   currentYear: 2026,           // Override the year check (defaults to current year)

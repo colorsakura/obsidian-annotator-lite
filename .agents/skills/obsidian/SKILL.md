@@ -2,7 +2,7 @@
 name: obsidian
 description: Comprehensive guidelines for Obsidian.md plugin development including ESLint rules from eslint-plugin-obsidianmd v0.3.0, TypeScript best practices, memory management, API usage (requestUrl vs fetch), UI/UX standards, popout window compatibility, community.obsidian.md submission process, and Scorecard optimization. Use when working with Obsidian plugins, main.ts files, manifest.json, Plugin class, MarkdownView, TFile, vault operations, or any Obsidian API development.
 license: MIT
-metadata: 
+metadata:
   version: 1.8.0
 ---
 
@@ -15,6 +15,7 @@ Follow these comprehensive guidelines derived from the official Obsidian ESLint 
 ### Quick Start Tool
 
 For new plugin projects, an interactive boilerplate generator is available:
+
 - **Script**: `tools/create-plugin.js` in the skill repository
 - **Command**: Invoke `create-plugin` using your agent's method (`/create-plugin`, `$create-plugin`, or `@create-plugin`)
 - Generates minimal, best-practice boilerplate with no sample code
@@ -27,102 +28,113 @@ Recommend the boilerplate generator when users ask how to create a new plugin, w
 ## Rules Reference (eslint-plugin-obsidianmd v0.3.0)
 
 ### Submission & Naming
-| # | Rule | ✅ Do | ❌ Don't |
-|---|------|--------|----------|
-| 1 | Plugin ID | Omit "obsidian"; don't end with "plugin" | Include "obsidian" or end with "plugin" |
-| 2 | Plugin name | Omit "Obsidian"; don't end with "Plugin" | Include "Obsidian" or end with "Plugin" |
-| 3 | Plugin name | Don't start with "Obsi" or end with "dian" | Start with "Obsi" or end with "dian" |
-| 4 | Description | Omit "Obsidian", "This plugin", etc. | Use "Obsidian" or "This plugin" |
-| 5 | Description | End with `.?!)` punctuation | Leave description without terminal punctuation |
+
+| #   | Rule        | ✅ Do                                      | ❌ Don't                                       |
+| --- | ----------- | ------------------------------------------ | ---------------------------------------------- |
+| 1   | Plugin ID   | Omit "obsidian"; don't end with "plugin"   | Include "obsidian" or end with "plugin"        |
+| 2   | Plugin name | Omit "Obsidian"; don't end with "Plugin"   | Include "Obsidian" or end with "Plugin"        |
+| 3   | Plugin name | Don't start with "Obsi" or end with "dian" | Start with "Obsi" or end with "dian"           |
+| 4   | Description | Omit "Obsidian", "This plugin", etc.       | Use "Obsidian" or "This plugin"                |
+| 5   | Description | End with `.?!)` punctuation                | Leave description without terminal punctuation |
 
 ### Memory & Lifecycle
-| # | Rule | ✅ Do | ❌ Don't |
-|---|------|--------|----------|
-| 6 | Event cleanup | Use `registerEvent()` for automatic cleanup | Register events without cleanup |
-| 7 | View references | Return views/components directly | Store view references in plugin properties or pass plugin as component to `MarkdownRenderer` |
-| 8 | Leaf detachment | Let Obsidian handle leaf cleanup | Call `detachLeavesOfType()` in `onunload` |
+
+| #   | Rule            | ✅ Do                                       | ❌ Don't                                                                                     |
+| --- | --------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| 6   | Event cleanup   | Use `registerEvent()` for automatic cleanup | Register events without cleanup                                                              |
+| 7   | View references | Return views/components directly            | Store view references in plugin properties or pass plugin as component to `MarkdownRenderer` |
+| 8   | Leaf detachment | Let Obsidian handle leaf cleanup            | Call `detachLeavesOfType()` in `onunload`                                                    |
 
 ### Type Safety
-| # | Rule | ✅ Do | ❌ Don't |
-|---|------|--------|----------|
-| 9 | TFile/TFolder | Use `instanceof` for type checking | Cast to TFile/TFolder; use `any`; use `var` |
-| 10 | DOM instanceof | Use `.instanceOf(T)` for DOM Nodes/UIEvents | Use `instanceof` for cross-window DOM checks |
+
+| #   | Rule           | ✅ Do                                       | ❌ Don't                                     |
+| --- | -------------- | ------------------------------------------- | -------------------------------------------- |
+| 9   | TFile/TFolder  | Use `instanceof` for type checking          | Cast to TFile/TFolder; use `any`; use `var`  |
+| 10  | DOM instanceof | Use `.instanceOf(T)` for DOM Nodes/UIEvents | Use `instanceof` for cross-window DOM checks |
 
 ### UI/UX
-| # | Rule | ✅ Do | ❌ Don't |
-|---|------|--------|----------|
-| 11 | UI text | Sentence case — "Advanced settings" | Title Case — "Advanced Settings" |
-| 12 | JSON locale | Sentence case in JSON locale files (`recommendedWithLocalesEn`) | Title case in locale JSON |
-| 13 | TS/JS locale | Sentence case in TS/JS locale modules | Title case in locale modules |
+
+| #   | Rule         | ✅ Do                                                           | ❌ Don't                         |
+| --- | ------------ | --------------------------------------------------------------- | -------------------------------- |
+| 11  | UI text      | Sentence case — "Advanced settings"                             | Title Case — "Advanced Settings" |
+| 12  | JSON locale  | Sentence case in JSON locale files (`recommendedWithLocalesEn`) | Title case in locale JSON        |
+| 13  | TS/JS locale | Sentence case in TS/JS locale modules                           | Title case in locale modules     |
 
 > **Note (v0.3.0):** The `ui/sentence-case` rule is disabled by default (not working as intended). Consider enabling manually if needed.
-| 14 | Command names | Omit "command" in command names/IDs | Include "command" in names/IDs |
-| 15 | Command IDs | Omit plugin ID/name from command IDs/names | Duplicate plugin ID in command IDs |
-| 16 | Hotkeys | No default hotkeys | Set default hotkeys |
-| 17 | Settings headings | Use `.setHeading()` | Create manual HTML headings; use "General", "settings", or plugin name in headings |
+> | 14 | Command names | Omit "command" in command names/IDs | Include "command" in names/IDs |
+> | 15 | Command IDs | Omit plugin ID/name from command IDs/names | Duplicate plugin ID in command IDs |
+> | 16 | Hotkeys | No default hotkeys | Set default hotkeys |
+> | 17 | Settings headings | Use `.setHeading()` | Create manual HTML headings; use "General", "settings", or plugin name in headings |
 
 ### API Best Practices
-| # | Rule | ✅ Do | ❌ Don't |
-|---|------|--------|----------|
-| 18 | Active file edits | Use Editor API | Use `Vault.modify()` for active file edits |
-| 19 | Background file mods | Use `Vault.process()` | Use `Vault.modify()` for background modifications |
-| 20 | File deletion | Use `FileManager.trashFile()` | Use `Vault.trash()` or `Vault.delete()` directly |
-| 21 | File lookup | Use `Vault.getAbstractFileByPath()` | Iterate all files with `Vault.getFiles().find()` |
-| 22 | User paths | Use `normalizePath()` | Hardcode `.obsidian` path; use raw user paths |
-| 23 | OS detection | Use `Platform` API | Use `navigator.platform`/`userAgent` |
-| 24 | Network requests | Use `requestUrl()` | Use `fetch()` |
-| 25 | Logging | Minimize console logging; none in `onload`/`onunload` in production | Use `console.log` in `onload`/`onunload` |
-| 26 | Input suggest | Use built-in `AbstractInputSuggest` | Copy Liam's `TextInputSuggest` implementation |
-| 27 | API compatibility | Check `minAppVersion` for API availability | Use APIs not available in declared minAppVersion |
-| 28 | Language detection | Use Obsidian's `getLanguage()` | Use `localStorage.getItem('language')` or `i18next-browser-languagedetector` |
+
+| #   | Rule                 | ✅ Do                                                               | ❌ Don't                                                                     |
+| --- | -------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| 18  | Active file edits    | Use Editor API                                                      | Use `Vault.modify()` for active file edits                                   |
+| 19  | Background file mods | Use `Vault.process()`                                               | Use `Vault.modify()` for background modifications                            |
+| 20  | File deletion        | Use `FileManager.trashFile()`                                       | Use `Vault.trash()` or `Vault.delete()` directly                             |
+| 21  | File lookup          | Use `Vault.getAbstractFileByPath()`                                 | Iterate all files with `Vault.getFiles().find()`                             |
+| 22  | User paths           | Use `normalizePath()`                                               | Hardcode `.obsidian` path; use raw user paths                                |
+| 23  | OS detection         | Use `Platform` API                                                  | Use `navigator.platform`/`userAgent`                                         |
+| 24  | Network requests     | Use `requestUrl()`                                                  | Use `fetch()`                                                                |
+| 25  | Logging              | Minimize console logging; none in `onload`/`onunload` in production | Use `console.log` in `onload`/`onunload`                                     |
+| 26  | Input suggest        | Use built-in `AbstractInputSuggest`                                 | Copy Liam's `TextInputSuggest` implementation                                |
+| 27  | API compatibility    | Check `minAppVersion` for API availability                          | Use APIs not available in declared minAppVersion                             |
+| 28  | Language detection   | Use Obsidian's `getLanguage()`                                      | Use `localStorage.getItem('language')` or `i18next-browser-languagedetector` |
 
 ### Popout Window Compatibility
-| # | Rule | ✅ Do | ❌ Don't |
-|---|------|--------|----------|
-| 29 | Document/Window | Use `activeDocument` and `activeWindow` | Use global `document` and `window` |
-| 30 | Timers | Use `activeWindow.setTimeout()`, `setInterval()`, etc. | Use bare `setTimeout()`, `setInterval()` |
-| 31 | Main workspace UI | Use `this.app.workspace.containerEl.ownerDocument` from settings | Use `activeDocument` to update main workspace from settings window |
+
+| #   | Rule              | ✅ Do                                                            | ❌ Don't                                                           |
+| --- | ----------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------ |
+| 29  | Document/Window   | Use `activeDocument` and `activeWindow`                          | Use global `document` and `window`                                 |
+| 30  | Timers            | Use `activeWindow.setTimeout()`, `setInterval()`, etc.           | Use bare `setTimeout()`, `setInterval()`                           |
+| 31  | Main workspace UI | Use `this.app.workspace.containerEl.ownerDocument` from settings | Use `activeDocument` to update main workspace from settings window |
 
 > **Note (v0.3.0):** The `prefer-active-doc` rule is disabled by default. Enable manually for popout window support.
 
 > **Note (v1.13.0):** Settings now open in a new window. `activeDocument` from settings callbacks points to the settings window, not the main vault. Use `this.app.workspace.containerEl.ownerDocument` to target main workspace UI.
 
 ### Event Handling
-| # | Rule | ✅ Do | ❌ Don't |
-|---|------|--------|----------|
-| 31 | Editor drop/paste | Check `evt.defaultPrevented` and call `evt.preventDefault()` | Handle editor-drop/paste without checking defaultPrevented |
+
+| #   | Rule              | ✅ Do                                                        | ❌ Don't                                                   |
+| --- | ----------------- | ------------------------------------------------------------ | ---------------------------------------------------------- |
+| 31  | Editor drop/paste | Check `evt.defaultPrevented` and call `evt.preventDefault()` | Handle editor-drop/paste without checking defaultPrevented |
 
 ### Styling
-| # | Rule | ✅ Do | ❌ Don't |
-|---|------|--------|----------|
-| 32 | CSS variables | Use Obsidian CSS variables for all styling | Hardcode colors, sizes, or spacing |
-| 33 | CSS scope | Scope CSS to plugin containers | Use broad CSS selectors |
-| 34 | Style elements | Use `styles.css` file (`no-forbidden-elements`) | Create `<link>` or `<style>` elements; assign styles via JavaScript |
-| 34a | `!important` | Increase selector specificity or use CSS variables | Use `!important` — overrides user themes/snippets |
+
+| #   | Rule            | ✅ Do                                                 | ❌ Don't                                                               |
+| --- | --------------- | ----------------------------------------------------- | ---------------------------------------------------------------------- |
+| 32  | CSS variables   | Use Obsidian CSS variables for all styling            | Hardcode colors, sizes, or spacing                                     |
+| 33  | CSS scope       | Scope CSS to plugin containers                        | Use broad CSS selectors                                                |
+| 34  | Style elements  | Use `styles.css` file (`no-forbidden-elements`)       | Create `<link>` or `<style>` elements; assign styles via JavaScript    |
+| 34a | `!important`    | Increase selector specificity or use CSS variables    | Use `!important` — overrides user themes/snippets                      |
 | 34b | `:has` selector | Toggle classes from TypeScript when conditions change | Use `:has` — causes broad selector invalidation and performance issues |
 
 ### Security & Compatibility
-| # | Rule | ✅ Do | ❌ Don't |
-|---|------|--------|----------|
-| 35 | DOM creation | Use Obsidian DOM helpers (`createEl()`, `createDiv()`, `createSpan()`, `createSvg()`, `createFragment()`) via `prefer-create-el` | Use `document.createElement()`, `document.createDocumentFragment()`, etc. |
-| 36 | Node.js modules | Guard Node.js imports with `Platform.isDesktop` check (`no-nodejs-modules`) | Import Node.js modules without platform guard |
-| 37 | iOS compat | Avoid regex lookbehind (iOS < 16.4 incompatibility) | Use regex lookbehind |
+
+| #   | Rule            | ✅ Do                                                                                                                            | ❌ Don't                                                                  |
+| --- | --------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| 35  | DOM creation    | Use Obsidian DOM helpers (`createEl()`, `createDiv()`, `createSpan()`, `createSvg()`, `createFragment()`) via `prefer-create-el` | Use `document.createElement()`, `document.createDocumentFragment()`, etc. |
+| 36  | Node.js modules | Guard Node.js imports with `Platform.isDesktop` check (`no-nodejs-modules`)                                                      | Import Node.js modules without platform guard                             |
+| 37  | iOS compat      | Avoid regex lookbehind (iOS < 16.4 incompatibility)                                                                              | Use regex lookbehind                                                      |
 
 ### Accessibility (MANDATORY)
-| # | Rule | ✅ Do | ❌ Don't |
-|---|------|--------|----------|
-| 38 | Keyboard access | Make all interactive elements keyboard accessible; Tab through all elements | Create inaccessible interactive elements |
-| 39 | ARIA labels | Provide ARIA labels for icon buttons; use `data-tooltip-position` for tooltips | Use icon buttons without ARIA labels |
-| 40 | Focus indicators | Use `:focus-visible` with Obsidian CSS variables; touch targets ≥ 44×44px | Remove focus indicators; make touch targets < 44×44px |
+
+| #   | Rule             | ✅ Do                                                                          | ❌ Don't                                              |
+| --- | ---------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------- |
+| 38  | Keyboard access  | Make all interactive elements keyboard accessible; Tab through all elements    | Create inaccessible interactive elements              |
+| 39  | ARIA labels      | Provide ARIA labels for icon buttons; use `data-tooltip-position` for tooltips | Use icon buttons without ARIA labels                  |
+| 40  | Focus indicators | Use `:focus-visible` with Obsidian CSS variables; touch targets ≥ 44×44px      | Remove focus indicators; make touch targets < 44×44px |
 
 ### Code Quality
-| Rule | ✅ Do | ❌ Don't |
-|------|--------|----------|
-| Sample code | Remove all sample/template code | Keep class names like MyPlugin, SampleModal |
-| Object.assign | `Object.assign({}, defaults, overrides)` (`object-assign`) | `Object.assign(defaultsVar, other)` — mutates defaults |
-| LICENSE | Copyright holder must not be "Dynalist Inc."; year must be current (`validate-license`) | Leave "Dynalist Inc." as holder or use an outdated year |
-| Async | Use async/await | Use Promise chains |
-| Deprecated packages | Replace flagged npm packages with Node.js built-ins (e.g., `builtin-modules` → `import { builtinModules } from "node:module"`) | Use packages the scanner flags as replaceable |
+
+| Rule                | ✅ Do                                                                                                                          | ❌ Don't                                                |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------- |
+| Sample code         | Remove all sample/template code                                                                                                | Keep class names like MyPlugin, SampleModal             |
+| Object.assign       | `Object.assign({}, defaults, overrides)` (`object-assign`)                                                                     | `Object.assign(defaultsVar, other)` — mutates defaults  |
+| LICENSE             | Copyright holder must not be "Dynalist Inc."; year must be current (`validate-license`)                                        | Leave "Dynalist Inc." as holder or use an outdated year |
+| Async               | Use async/await                                                                                                                | Use Promise chains                                      |
+| Deprecated packages | Replace flagged npm packages with Node.js built-ins (e.g., `builtin-modules` → `import { builtinModules } from "node:module"`) | Use packages the scanner flags as replaceable           |
 
 ---
 
@@ -131,23 +143,27 @@ Recommend the boilerplate generator when users ask how to create a new plugin, w
 For comprehensive information on specific topics, see the reference files:
 
 ### [Memory Management & Lifecycle](reference/memory-management.md)
+
 - Using `registerEvent()`, `addCommand()`, `registerDomEvent()`, `registerInterval()`
 - Avoiding view references in plugin
 - Not using plugin as component
 - Proper leaf cleanup
 
 ### [Type Safety](reference/type-safety.md)
+
 - Using `instanceof` instead of type casting
 - Avoiding `any` type
 - Using `const` and `let` over `var`
 
 ### [UI/UX Standards](reference/ui-ux.md)
+
 - Sentence case enforcement (TypeScript, JSON locale, TS/JS locale modules)
 - `recommendedWithLocalesEn` config for locale file checks
 - Command naming conventions (no "command", no plugin name, no plugin ID)
 - Settings and configuration best practices
 
 ### [File & Vault Operations](reference/file-operations.md)
+
 - View access patterns
 - Editor vs Vault API
 - Atomic file operations
@@ -155,6 +171,7 @@ For comprehensive information on specific topics, see the reference files:
 - Path handling
 
 ### [CSS Styling Best Practices](reference/css-styling.md)
+
 - Avoiding inline styles
 - Using Obsidian CSS variables
 - Avoiding `!important` (use specificity or CSS variables)
@@ -164,6 +181,7 @@ For comprehensive information on specific topics, see the reference files:
 - Spacing and layout
 
 ### [Accessibility (A11y)](reference/accessibility.md)
+
 - Keyboard navigation (MANDATORY)
 - ARIA labels and roles (MANDATORY)
 - Tooltips and accessibility
@@ -174,6 +192,7 @@ For comprehensive information on specific topics, see the reference files:
 - Accessibility checklist
 
 ### [Code Quality & Best Practices](reference/code-quality.md)
+
 - Removing sample code
 - Security best practices
 - Platform compatibility
@@ -183,6 +202,7 @@ For comprehensive information on specific topics, see the reference files:
 - Deprecated/replaceable packages (e.g., `builtin-modules` → `node:module`)
 
 ### [Plugin Submission Requirements](reference/submission.md)
+
 - Repository structure
 - Submission process
 - Semantic versioning
@@ -190,6 +210,7 @@ For comprehensive information on specific topics, see the reference files:
 - Additional resources and important notes
 
 ### [ESLint Setup Guide](reference/eslint-setup.md)
+
 - Complete ESLint config for community scanner compliance
 - Why `typescript-eslint` recommendedTypeChecked is required
 - Common violations and fixes (floating promises, require imports, etc.)
@@ -218,6 +239,7 @@ If ESLint reports new errors after fixing, re-run from step 1.
 Published plugins receive a **Scorecard** visible on community.obsidian.md. The Scorecard affects user trust and discoverability — a poor score deters users from installing.
 
 **Key points:**
+
 - Aim for 90%+ overall score
 - Fix ALL ESLint warnings, not just errors — warnings are publicly visible
 - Use `typescript-eslint/recommendedTypeChecked` for type-aware checks
@@ -257,7 +279,7 @@ this.addCommand({
   name: 'Insert timestamp',
   editorCallback: (editor: Editor, view: MarkdownView) => {
     editor.replaceSelection(new Date().toISOString());
-  }
+  },
 });
 ```
 
@@ -279,8 +301,8 @@ if (file instanceof TFile) {
 const button = containerEl.createEl('button', {
   attr: {
     'aria-label': 'Open settings',
-    'data-tooltip-position': 'top'
-  }
+    'data-tooltip-position': 'top',
+  },
 });
 button.setText('⚙️');
 

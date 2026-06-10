@@ -32,9 +32,32 @@ function getAnnotatableType(file: string): 'pdf' | 'epub' | undefined {
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────
-interface FoliateViewerProps {
+interface ViewerTarget {
   file: string;
+  navigationTarget?: NavigationTarget | null;
+  sectionTarget?: number | null;
+  pageTurnTarget?: { direction: 'prev' | 'next'; nonce: number } | null;
+}
+
+interface ViewerConfig {
+  flowMode: ReaderFlowMode;
+  columnMode: ColumnMode;
+  fontSize: number;
   annotations: Annotation[];
+  highlightColors?: import('../constants').HighlightColor[];
+  sectionIndicator?: React.ReactNode;
+}
+
+interface ViewerCallbacks {
+  onOutlineLoaded?: (items: OutlineItem[]) => void;
+  onBookMetadataLoaded?: (metadata: BookMetadata) => void;
+  onSectionChange?: (
+    currentIndex: number,
+    totalSections: number,
+    currentLabel?: string,
+    canGoPrev?: boolean,
+    canGoNext?: boolean,
+  ) => void;
   onAddAnnotation?: (params: {
     type: 'pdf' | 'epub';
     cfiRange: string;
@@ -45,45 +68,30 @@ interface FoliateViewerProps {
     color?: string;
   }) => void;
   onDeleteAnnotation?: (id: string) => void;
-  highlightColors?: import('../constants').HighlightColor[];
-  onOutlineLoaded?: (items: OutlineItem[]) => void;
-  onBookMetadataLoaded?: (metadata: BookMetadata) => void;
-  navigationTarget?: NavigationTarget | null;
-  sectionTarget?: number | null;
-  flowMode: ReaderFlowMode;
-  columnMode: ColumnMode;
-  fontSize: number;
-  pageTurnTarget?: { direction: 'prev' | 'next'; nonce: number } | null;
-  onSectionChange?: (
-    currentIndex: number,
-    totalSections: number,
-    currentLabel?: string,
-    canGoPrev?: boolean,
-    canGoNext?: boolean,
-  ) => void;
-  sectionIndicator?: React.ReactNode;
+}
+
+interface FoliateViewerProps {
+  target: ViewerTarget;
+  config: ViewerConfig;
+  callbacks: ViewerCallbacks;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
-const FoliateViewer: React.FC<FoliateViewerProps> = ({
-  file,
-  annotations,
-  onAddAnnotation,
-  onDeleteAnnotation,
-  highlightColors,
-  onOutlineLoaded,
-  onBookMetadataLoaded,
-  navigationTarget,
-  sectionTarget,
-  pageTurnTarget,
-  flowMode,
-  columnMode,
-  fontSize,
-  onSectionChange,
-  sectionIndicator,
-}) => {
+const FoliateViewer: React.FC<FoliateViewerProps> = React.memo(({ target, config, callbacks }) => {
   const app = useObsidianApp();
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const { file, navigationTarget, sectionTarget, pageTurnTarget } = target;
+
+  const { flowMode, columnMode, fontSize, annotations, highlightColors, sectionIndicator } = config;
+
+  const {
+    onOutlineLoaded,
+    onBookMetadataLoaded,
+    onSectionChange,
+    onAddAnnotation,
+    onDeleteAnnotation,
+  } = callbacks;
 
   // ─── Book loader ──────────────────────────────────────────────────────
   const onSectionChangeRef = useRef(onSectionChange);
@@ -97,9 +105,7 @@ const FoliateViewer: React.FC<FoliateViewerProps> = ({
       canGoPrev?: boolean,
       canGoNext?: boolean,
     ) => {
-      onSectionChangeRef.current?.(
-        currentIndex, totalSections, currentLabel, canGoPrev, canGoNext,
-      );
+      onSectionChangeRef.current?.(currentIndex, totalSections, currentLabel, canGoPrev, canGoNext);
     },
     [],
   );
@@ -132,8 +138,15 @@ const FoliateViewer: React.FC<FoliateViewerProps> = ({
   useAnnotationRendering(view, isLoaded, annotations, isAnnotatable);
   useAnnotationOverlays(view, isLoaded, annotations);
   const menuResult = useContextMenu(
-    view, isLoaded, isAnnotatable, fileType, onAddAnnotation,
-    app!, containerRef, annotations, onDeleteAnnotation ?? (() => {}),
+    view,
+    isLoaded,
+    isAnnotatable,
+    fileType,
+    onAddAnnotation,
+    app!,
+    containerRef,
+    annotations,
+    onDeleteAnnotation ?? (() => {}),
     highlightColors,
   );
 
@@ -167,6 +180,8 @@ const FoliateViewer: React.FC<FoliateViewerProps> = ({
       )}
     </div>
   );
-};
+});
+
+FoliateViewer.displayName = 'FoliateViewer';
 
 export default FoliateViewer;

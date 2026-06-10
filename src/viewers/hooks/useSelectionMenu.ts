@@ -32,13 +32,19 @@ export function useSelectionMenu(opts: {
   app: App;
   colors?: HighlightColor[];
 }): {
-    menuState: SelectionMenuState | null;
-    menuActions: SelectionMenuActions;
-    menuRef: React.RefObject<HTMLDivElement | null>;
-  } {
+  menuState: SelectionMenuState | null;
+  menuActions: SelectionMenuActions;
+  menuRef: React.RefObject<HTMLDivElement | null>;
+} {
   const {
-    view, loaded, isAnnotatable, fileType, annotations,
-    onAddAnnotation, onDeleteAnnotation, app,
+    view,
+    loaded,
+    isAnnotatable,
+    fileType,
+    annotations,
+    onAddAnnotation,
+    onDeleteAnnotation,
+    app,
     colors = DEFAULT_HIGHLIGHT_COLORS,
   } = opts;
 
@@ -98,26 +104,21 @@ export function useSelectionMenu(opts: {
   // Find overlapping annotation for a given selection.
   // Reads from annotationsRef so the function reference is stable and never
   // triggers the contextmenu effect to re-run (which would lose the 'load' listener).
-  const findOverlappingAnnotation = useCallback(
-    (sel: PendingSelection): Annotation | undefined => {
-      const list = annotationsRef.current;
-      // For EPUB, try to match by cfiRange
-      if (sel.type === 'epub') {
-        const match = list.find((a) => a.cfiRange && a.cfiRange === sel.cfiRange);
-        if (match) return match;
-      }
-      // Fallback: match by exact text (TextQuoteSelector)
-      type TQS = import('../../types/annotations').TextQuoteSelector;
-      const match = list.find((a) => {
-        const quote = a.target?.[0]?.selector?.find(
-          (s): s is TQS => s.type === 'TextQuoteSelector',
-        );
-        return quote?.exact === sel.text;
-      });
-      return match;
-    },
-    [],
-  );
+  const findOverlappingAnnotation = useCallback((sel: PendingSelection): Annotation | undefined => {
+    const list = annotationsRef.current;
+    // For EPUB, try to match by cfiRange
+    if (sel.type === 'epub') {
+      const match = list.find((a) => a.cfiRange && a.cfiRange === sel.cfiRange);
+      if (match) return match;
+    }
+    // Fallback: match by exact text (TextQuoteSelector)
+    type TQS = import('../../types/annotations').TextQuoteSelector;
+    const match = list.find((a) => {
+      const quote = a.target?.[0]?.selector?.find((s): s is TQS => s.type === 'TextQuoteSelector');
+      return quote?.exact === sel.text;
+    });
+    return match;
+  }, []);
 
   // Listen for contextmenu in iframe.
   // The 'load' event fires when foliate-js navigates to a new section. However,
@@ -161,8 +162,13 @@ export function useSelectionMenu(opts: {
           const cfi = viewApi.getCFI(contents[0].index, range);
           const { prefix, suffix } = getSurroundingContext(range);
 
-          const selection: PendingSelection =
-            { type: fileType, cfiRange: cfi, text, prefix, suffix };
+          const selection: PendingSelection = {
+            type: fileType,
+            cfiRange: cfi,
+            text,
+            prefix,
+            suffix,
+          };
           pendingRef.current = selection;
 
           // Convert iframe coordinates to host coordinates
@@ -215,13 +221,16 @@ export function useSelectionMenu(opts: {
     };
   }, [view, loaded, isAnnotatable, fileType, colors]);
 
-  const handleHighlight = useCallback((color: string) => {
-    const sel = pendingRef.current;
-    if (!sel) return;
-    onAddAnnotation({ ...sel, color });
-    pendingRef.current = null;
-    setMenuState(null);
-  }, [onAddAnnotation]);
+  const handleHighlight = useCallback(
+    (color: string) => {
+      const sel = pendingRef.current;
+      if (!sel) return;
+      onAddAnnotation({ ...sel, color });
+      pendingRef.current = null;
+      setMenuState(null);
+    },
+    [onAddAnnotation],
+  );
 
   const handleAddNote = useCallback(async () => {
     const sel = pendingRef.current;
@@ -236,11 +245,14 @@ export function useSelectionMenu(opts: {
     pendingRef.current = null;
   }, [onAddAnnotation, app]);
 
-  const handleDelete = useCallback((annotationId: string) => {
-    onDeleteAnnotation(annotationId);
-    pendingRef.current = null;
-    setMenuState(null);
-  }, [onDeleteAnnotation]);
+  const handleDelete = useCallback(
+    (annotationId: string) => {
+      onDeleteAnnotation(annotationId);
+      pendingRef.current = null;
+      setMenuState(null);
+    },
+    [onDeleteAnnotation],
+  );
 
   const handleClose = useCallback(() => {
     pendingRef.current = null;

@@ -3,6 +3,7 @@ import type { Annotation, NavigationTarget } from '../types/annotations';
 import type { AnnotationService } from './AnnotationService';
 import type { ReaderEventBus } from './ReaderEventBus';
 import type { ReaderSessionStore } from './ReaderSessionStore';
+import type { ReaderAPI } from './ReaderAPI';
 import type { TargetResolver } from './TargetResolver';
 import type { ViewCoordinator } from './ViewCoordinator';
 
@@ -34,11 +35,9 @@ export interface ReaderController {
  * 数据同步：View 通过 useSessionStore() 直接订阅 SessionStore，
  * 不再需要 Controller 手动推送。
  */
-export class DefaultReaderController implements ReaderController {
+export class DefaultReaderController implements ReaderController, ReaderAPI {
   private currentReaderSourcePath: string | null = null;
-  /** Whether callbacks for outline/annotations view have been wired. */
-  private outlineCallbacksWired = false;
-  private annotationsCallbacksWired = false;
+  readonly bus: ReaderEventBus;
 
   constructor(
     private app: App,
@@ -46,8 +45,10 @@ export class DefaultReaderController implements ReaderController {
     private annotationService: AnnotationService,
     private sessionStore: ReaderSessionStore,
     private viewCoordinator: ViewCoordinator,
-    private bus: ReaderEventBus,
-  ) {}
+    bus: ReaderEventBus,
+  ) {
+    this.bus = bus;
+  }
 
   async openFromMarkdownLeaf(leaf: WorkspaceLeaf): Promise<void> {
     if (!(leaf.view instanceof MarkdownView)) return;
@@ -91,49 +92,46 @@ export class DefaultReaderController implements ReaderController {
     // Only pass file info — annotations/navigation come from the store
     readerView.setTargetFile(target.targetPath, target.sourcePath);
 
-    // Pass highlight colors from plugin settings
-    readerView.setHighlightColors(
-      (this.app as any).plugins?.plugins?.['obsidian-annotator-lite']?.settings?.highlightColors,
-    );
+    // Pass highlight colors from plugin settings (direct field assignment)
+    readerView.highlightColors = (this.app as any).plugins?.plugins?.[
+      'obsidian-annotator-lite'
+    ]?.settings?.highlightColors;
 
-    // Wire callbacks for FoliateViewer → store updates
-    readerView.setOnOutlineLoaded((items) => {
-      this.sessionStore.setOutline(items);
-      this.bus.emit('outline:loaded', { items });
-    });
-    readerView.setOnBookMetadataLoaded((metadata) => {
-      this.sessionStore.setMetadata(metadata);
-      this.bus.emit('metadata:loaded', { metadata });
-    });
-    readerView.setOnSectionChanged((section) => {
-      this.sessionStore.setSection(section);
-      this.bus.emit('section:changed', { section });
-    });
-    readerView.setOnAnnotationsChanged((changedAnnotations) => {
-      this.annotationService.handleUserAnnotationsChanged(
-        changedAnnotations,
-        this.currentReaderSourcePath,
-      );
-    });
-    readerView.setOnClose(() => {
-      this.closeCurrentSession();
-    });
-    readerView.setOnSwitchToOutline(() => {
-      void this.toggleOutline();
-    });
-    readerView.setOnSwitchToAnnotations(() => {
-      void this.toggleAnnotations();
-    });
+    // Wire view → controller events via bus
+    this.wireViewEvents();
   }
 
   closeCurrentSession(): void {
     this.viewCoordinator.closeCompanionViews();
     this.currentReaderSourcePath = null;
-    this.outlineCallbacksWired = false;
-    this.annotationsCallbacksWired = false;
     this.sessionStore.clearSession();
     this.bus.emit('session:closed', {});
     this.bus.clear();
+  }
+
+  closeSession(): void {
+    this.closeCurrentSession();
+  }
+
+  private wireViewEvents(): void {
+    this.bus.on('view:outline-loaded', ({ items }) => {
+      this.sessionStore.setOutline(items);
+    });
+    this.bus.on('view:metadata-loaded', ({ metadata }) => {
+      this.sessionStore.setMetadata(metadata);
+    });
+    this.bus.on('view:section-changed', ({ section }) => {
+      this.sessionStore.setSection(section);
+    });
+    this.bus.on('view:annotations-changed', ({ annotations }) => {
+      this.annotationService.handleUserAnnotationsChanged(
+        annotations,
+        this.currentReaderSourcePath,
+      );
+    });
+    this.bus.on('view:session-close', () => {
+      this.closeCurrentSession();
+    });
   }
 
   revealReader(): void {
@@ -150,44 +148,10 @@ export class DefaultReaderController implements ReaderController {
 
   async toggleOutline(): Promise<void> {
     await this.viewCoordinator.toggleOutline();
-    const outlineView = this.viewCoordinator.getOutlineView();
-    if (!outlineView) return;
-
-    // Wire action callbacks once per session
-    if (!this.outlineCallbacksWired) {
-      this.outlineCallbacksWired = true;
-      outlineView.setOnNavigate((target) => {
-        this.navigateToTarget(target);
-      });
-      outlineView.setOnSwitchToReader(() => {
-        this.revealReader();
-      });
-    }
-    // Data comes from the store via useSessionStore — no manual push needed
   }
 
   async toggleAnnotations(): Promise<void> {
     await this.viewCoordinator.toggleAnnotations();
-    const annotationsView = this.viewCoordinator.getAnnotationsView();
-    if (!annotationsView) return;
-
-    // Wire action callbacks once per session
-    if (!this.annotationsCallbacksWired) {
-      this.annotationsCallbacksWired = true;
-      annotationsView.setOnNavigate((target) => {
-        this.navigateToTarget(target);
-      });
-      annotationsView.setOnSwitchToReader(() => {
-        this.revealReader();
-      });
-      annotationsView.setOnUpdateAnnotation((id, updates) => {
-        void this.updateAnnotation(id, updates);
-      });
-      annotationsView.setOnDeleteAnnotation((id) => {
-        void this.deleteAnnotation(id);
-      });
-    }
-    // Data comes from the store via useSessionStore — no manual push needed
   }
 
   navigateToTarget(target: NavigationTarget): void {

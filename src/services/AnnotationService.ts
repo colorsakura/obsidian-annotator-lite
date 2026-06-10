@@ -36,11 +36,7 @@ export class AnnotationService {
   /**
    * 更新指定标注。
    */
-  async update(
-    id: string,
-    updates: Partial<Annotation>,
-    sourcePath: string,
-  ): Promise<void> {
+  async update(id: string, updates: Partial<Annotation>, sourcePath: string): Promise<void> {
     const state = this.sessionStore.getSnapshot();
     if (!state) return;
 
@@ -73,10 +69,7 @@ export class AnnotationService {
    * 处理来自 FoliateViewer 的标注变更（用户在阅读器中添加/删除标注）。
    * 包含变更检测和防重入保护。
    */
-  handleUserAnnotationsChanged(
-    changedAnnotations: Annotation[],
-    sourcePath: string | null,
-  ): void {
+  handleUserAnnotationsChanged(changedAnnotations: Annotation[], sourcePath: string | null): void {
     if (this.persistInProgress) return;
 
     const state = this.sessionStore.getSnapshot();
@@ -103,10 +96,7 @@ export class AnnotationService {
    * 持久化标注到 Markdown 文件。
    * 同步更新 SessionStore、AnnotationIndex，并通知 ReaderView。
    */
-  private async persist(
-    annotations: Annotation[],
-    sourcePath: string | null,
-  ): Promise<void> {
+  private async persist(annotations: Annotation[], sourcePath: string | null): Promise<void> {
     if (!sourcePath) {
       this.sessionStore.setAnnotations(annotations);
       return;

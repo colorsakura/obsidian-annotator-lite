@@ -17,6 +17,13 @@ export interface ReaderEventMap {
   'session:closed': Record<string, never>;
   /** 切换视图 */
   'view:switch': { to: 'outline' | 'annotations' | 'reader' };
+
+  // ── View → Controller 事件（由 View emit，Controller 监听） ──────────
+  'view:outline-loaded': { items: OutlineItem[] };
+  'view:metadata-loaded': { metadata: BookMetadata };
+  'view:section-changed': { section: ReaderSectionState };
+  'view:annotations-changed': { annotations: Annotation[] };
+  'view:session-close': Record<string, never>;
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────
@@ -58,10 +65,7 @@ export class ReaderEventBus {
   /**
    * 发布事件。所有订阅者同步调用。
    */
-  emit<K extends keyof ReaderEventMap>(
-    event: K,
-    payload: ReaderEventMap[K],
-  ): void {
+  emit<K extends keyof ReaderEventMap>(event: K, payload: ReaderEventMap[K]): void {
     const set = this.listeners.get(event as string);
     if (!set) return;
     for (const handler of set) {
@@ -76,10 +80,7 @@ export class ReaderEventBus {
   /**
    * 取消订阅。
    */
-  off<K extends keyof ReaderEventMap>(
-    event: K,
-    handler: EventHandler<ReaderEventMap[K]>,
-  ): void {
+  off<K extends keyof ReaderEventMap>(event: K, handler: EventHandler<ReaderEventMap[K]>): void {
     const set = this.listeners.get(event as string);
     if (set) {
       set.delete(handler);
