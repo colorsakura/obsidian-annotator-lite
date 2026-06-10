@@ -75,6 +75,7 @@ export default class AnnotatorLitePlugin extends Plugin {
       this.viewCoordinator,
       bus,
       () => this.settings.highlightColors,
+      () => this.settings,
     );
     setReaderAPI(this.readerController);
 

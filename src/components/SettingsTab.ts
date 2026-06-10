@@ -2,6 +2,8 @@ import { App, PluginSettingTab, Setting } from 'obsidian';
 import type AnnotatorLitePlugin from '../main';
 import { DEFAULT_HIGHLIGHT_COLORS } from '../constants';
 
+const FONT_SIZE_OPTIONS = [80, 90, 100, 110, 120, 130, 140, 150, 160];
+
 export class AnnotatorLiteSettingTab extends PluginSettingTab {
   plugin: AnnotatorLitePlugin;
 
@@ -15,6 +17,49 @@ export class AnnotatorLiteSettingTab extends PluginSettingTab {
     containerEl.empty();
 
     containerEl.createEl('h2', { text: 'Annotator Lite 设置' });
+
+    // ─── 阅读器默认设置 ─────────────────────────────────────────────
+    containerEl.createEl('h3', { text: '阅读器默认设置' });
+
+    new Setting(containerEl)
+      .setName('默认字体大小')
+      .setDesc('阅读器打开时的初始字体大小百分比')
+      .addDropdown((dropdown) => {
+        for (const size of FONT_SIZE_OPTIONS) {
+          dropdown.addOption(String(size), `${size}%`);
+        }
+        dropdown.setValue(String(this.plugin.settings.defaultFontSize));
+        dropdown.onChange(async (value) => {
+          this.plugin.settings.defaultFontSize = Number(value);
+          await this.plugin.saveSettings();
+        });
+      });
+
+    new Setting(containerEl)
+      .setName('默认显示模式')
+      .setDesc('阅读器打开时的默认翻页模式')
+      .addDropdown((dropdown) => {
+        dropdown.addOption('paginated', '分页');
+        dropdown.addOption('scrolled', '滚动');
+        dropdown.setValue(this.plugin.settings.defaultFlowMode);
+        dropdown.onChange(async (value) => {
+          this.plugin.settings.defaultFlowMode = value as 'paginated' | 'scrolled';
+          await this.plugin.saveSettings();
+        });
+      });
+
+    new Setting(containerEl)
+      .setName('默认分栏')
+      .setDesc('阅读器打开时的默认分栏模式')
+      .addDropdown((dropdown) => {
+        dropdown.addOption('single', '单列');
+        dropdown.addOption('double', '双列');
+        dropdown.setValue(this.plugin.settings.defaultColumnMode);
+        dropdown.onChange(async (value) => {
+          this.plugin.settings.defaultColumnMode = value as 'single' | 'double';
+          await this.plugin.saveSettings();
+        });
+      });
 
     // ─── Highlight Colors ────────────────────────────────────────────
     containerEl.createEl('h3', { text: '高亮颜色' });

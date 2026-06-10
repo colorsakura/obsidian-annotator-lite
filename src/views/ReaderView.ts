@@ -19,6 +19,11 @@ export class ReaderView extends BaseReactView<object> {
   sourcePath: string | null = null;
   highlightColors: import('../constants').HighlightColor[] | undefined;
 
+  /** Plugin default settings — set by ReaderController before setTargetFile(). */
+  defaultFlowMode: ReaderFlowMode = 'paginated';
+  defaultColumnMode: ColumnMode = 'double';
+  defaultFontSize = 100;
+
   private readerFlowMode: ReaderFlowMode = 'paginated';
   private columnMode: ColumnMode = 'double';
   private fontSize = 100;
@@ -97,6 +102,13 @@ export class ReaderView extends BaseReactView<object> {
   setTargetFile(fileName: string | null, sourcePath: string | null) {
     this.targetFile = fileName;
     this.sourcePath = sourcePath;
+
+    // Reset to plugin defaults when opening a new book
+    this.readerFlowMode = this.defaultFlowMode;
+    this.columnMode = this.defaultColumnMode;
+    this.fontSize = this.defaultFontSize;
+    this.headerHandle?.update(this.readerFlowMode, this.columnMode, this.fontSize);
+
     (this.leaf as any)?.updateHeader();
     this.render();
   }

@@ -7,6 +7,7 @@ import type { ReaderAPI } from './ReaderAPI';
 import type { TargetResolver } from './TargetResolver';
 import type { ViewCoordinator } from './ViewCoordinator';
 import type { HighlightColor } from '../constants';
+import type { AnnotatorLiteSettings } from './Settings';
 
 export interface ReaderController {
   openFromMarkdownLeaf(leaf: WorkspaceLeaf): Promise<void>;
@@ -48,6 +49,7 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
     private viewCoordinator: ViewCoordinator,
     bus: ReaderEventBus,
     private getHighlightColors: () => HighlightColor[],
+    private getSettings: () => AnnotatorLiteSettings,
   ) {
     this.bus = bus;
   }
@@ -91,11 +93,15 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
     const readerView = await this.viewCoordinator.openReader(targetLeaf);
     if (!readerView) return;
 
+    // Pass settings from plugin BEFORE setTargetFile (which resets to defaults)
+    const settings = this.getSettings();
+    readerView.highlightColors = this.getHighlightColors();
+    readerView.defaultFlowMode = settings.defaultFlowMode;
+    readerView.defaultColumnMode = settings.defaultColumnMode;
+    readerView.defaultFontSize = settings.defaultFontSize;
+
     // Only pass file info — annotations/navigation come from the store
     readerView.setTargetFile(target.targetPath, target.sourcePath);
-
-    // Pass highlight colors from plugin settings
-    readerView.highlightColors = this.getHighlightColors();
 
     // Wire view → controller events via bus
     this.wireViewEvents();
