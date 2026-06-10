@@ -5,9 +5,7 @@ import { useObsidianApp } from '../../hooks/useObsidianApp';
 import { loadBookMetadata } from '../foliate/foliateBookMetadata';
 import { applyReaderFlowMode, applyColumnMode, applyFontSize } from './useReaderSettings';
 import { wrapSectionLoadForAndroid } from './useAndroidPatches';
-
-type ReaderFlowMode = 'paginated' | 'scrolled';
-type ColumnMode = 'single' | 'double';
+import type { ReaderFlowMode, ColumnMode } from '../../constants';
 
 export interface BookLoaderCallbacks {
   onOutlineLoaded?: (items: OutlineItem[]) => void;

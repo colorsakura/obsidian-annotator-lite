@@ -18,7 +18,7 @@ import { ReaderSessionStore } from './services/ReaderSessionStore';
 import { ObsidianTargetResolver, type TargetResolver } from './services/TargetResolver';
 import { AnnotationService } from './services/AnnotationService';
 import { ReaderEventBus } from './services/ReaderEventBus';
-import { DefaultReaderController, type ReaderController } from './services/ReaderController';
+import { DefaultReaderController } from './services/ReaderController';
 import { ObsidianViewCoordinator, type ViewCoordinator } from './services/ViewCoordinator';
 import { setSessionStore } from './contexts/ReaderStoreContext';
 import { setReaderAPI } from './contexts/ReaderAPIContext';
@@ -53,7 +53,7 @@ export default class AnnotatorLitePlugin extends Plugin {
 
     // 初始化 Datacore 适配器和标注索引服务
     this.datacoreAdapter = new DatacoreAdapter(this.app);
-    this.annotationIndex = new AnnotationIndexService(this.app, this.datacoreAdapter);
+    this.annotationIndex = new AnnotationIndexService(this.datacoreAdapter);
     this.annotationRepository = new MarkdownAnnotationRepository(this.app.vault);
     this.targetResolver = new ObsidianTargetResolver(this.app, (propertyName, file) =>
       this.getPropertyValue(propertyName, file),
@@ -74,6 +74,7 @@ export default class AnnotatorLitePlugin extends Plugin {
       this.sessionStore,
       this.viewCoordinator,
       bus,
+      () => this.settings.highlightColors,
     );
     setReaderAPI(this.readerController);
 

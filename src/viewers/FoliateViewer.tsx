@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 import { useObsidianApp } from '../hooks/useObsidianApp';
 import type { Annotation, BookMetadata, NavigationTarget, OutlineItem } from '../types/annotations';
-import { ANNOTATABLE_READER_TYPES } from '../services/TargetResolver';
+import { isAnnotatableType } from '../services/TargetResolver';
 import 'foliate-js/view.js';
 import {
   useBookLoader,
@@ -19,10 +19,7 @@ import {
 } from './hooks';
 import { installKeyboardNavigation } from './foliate/foliateKeyboard';
 import SelectionMenu from '../components/SelectionMenu';
-
-// ─── Types ────────────────────────────────────────────────────────────────
-type ReaderFlowMode = 'paginated' | 'scrolled';
-type ColumnMode = 'single' | 'double';
+import type { ReaderFlowMode, ColumnMode } from '../constants';
 
 function getAnnotatableType(file: string): 'pdf' | 'epub' | undefined {
   const ext = file.split('.').pop()?.toLowerCase();
@@ -131,9 +128,8 @@ const FoliateViewer: React.FC<FoliateViewerProps> = React.memo(({ target, config
 
   // ─── Annotations ──────────────────────────────────────────────────────
   const fileType = getAnnotatableType(file);
-  const isAnnotatable = ANNOTATABLE_READER_TYPES.some(
-    (type) => type === file.split('.').pop()?.toLowerCase(),
-  );
+  const ext = file.split('.').pop()?.toLowerCase();
+  const isAnnotatable = ext ? isAnnotatableType(ext) : false;
 
   useAnnotationRendering(view, isLoaded, annotations, isAnnotatable);
   useAnnotationOverlays(view, isLoaded, annotations);

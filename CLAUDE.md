@@ -103,23 +103,23 @@ Plugin (main.ts)
 
 `FoliateViewer` 将复杂逻辑拆分为多个自定义 hooks（位于 `src/viewers/hooks/`）：
 
-| Hook                    | 职责                                                 |
-| ----------------------- | ---------------------------------------------------- |
-| `useBookLoader`         | 加载书籍文件，处理 foliate-js 打开流程               |
-| `useAnnotationRendering` | 标注渲染和高亮显示（渲染层）                        |
-| `useAnnotationOverlays`  | 标注覆盖层管理（叠加层）                            |
-| `useContextMenu`        | 右键菜单分发器（PC → useDesktopMenu，移动端 → useMobileMenu） |
-| `useDesktopMenu`        | PC 端自定义 React 选择菜单（委托 useSelectionMenu）  |
-| `useMobileMenu`         | 移动端 Obsidian Menu 回退                            |
-| `useSelectionMenu`      | 选择菜单核心逻辑（contextmenu 监听、坐标转换、标注检测） |
-| `useNavigationTarget`   | 导航目标跳转（点击目录/标注跳转）                    |
-| `useSectionTarget`      | 章节目标跳转                                         |
-| `usePageTurnTarget`     | 翻页控制                                             |
-| `useRelocateListener`   | 章节位置变化监听                                     |
-| `useFlowMode`           | 滚动/分页模式切换                                    |
-| `useColumnMode`         | 单列/双列模式切换                                    |
-| `useFontSize`           | 字体大小控制                                         |
-| `useAndroidPatches`     | Android WebView 兼容性补丁                           |
+| Hook                     | 职责                                                          |
+| ------------------------ | ------------------------------------------------------------- |
+| `useBookLoader`          | 加载书籍文件，处理 foliate-js 打开流程                        |
+| `useAnnotationRendering` | 标注渲染和高亮显示（渲染层）                                  |
+| `useAnnotationOverlays`  | 标注覆盖层管理（叠加层）                                      |
+| `useContextMenu`         | 右键菜单分发器（PC → useDesktopMenu，移动端 → useMobileMenu） |
+| `useDesktopMenu`         | PC 端自定义 React 选择菜单（委托 useSelectionMenu）           |
+| `useMobileMenu`          | 移动端 Obsidian Menu 回退                                     |
+| `useSelectionMenu`       | 选择菜单核心逻辑（contextmenu 监听、坐标转换、标注检测）      |
+| `useNavigationTarget`    | 导航目标跳转（点击目录/标注跳转）                             |
+| `useSectionTarget`       | 章节目标跳转                                                  |
+| `usePageTurnTarget`      | 翻页控制                                                      |
+| `useRelocateListener`    | 章节位置变化监听                                              |
+| `useFlowMode`            | 滚动/分页模式切换                                             |
+| `useColumnMode`          | 单列/双列模式切换                                             |
+| `useFontSize`            | 字体大小控制                                                  |
+| `useAndroidPatches`      | Android WebView 兼容性补丁                                    |
 
 其他 hooks：
 
@@ -130,12 +130,12 @@ Plugin (main.ts)
 
 ### foliate-js 辅助模块（`src/viewers/foliate/`）
 
-| 模块                     | 职责                                      |
-| ------------------------ | ----------------------------------------- |
-| `foliateAnnotations.ts`  | foliate-js 标注渲染逻辑                   |
-| `foliateBookMetadata.ts` | 书籍元数据提取（封面、标题、作者）        |
-| `foliateKeyboard.ts`     | 键盘导航安装（翻页快捷键）                |
-| `foliateNavigation.ts`   | foliate-js 导航逻辑（CFI 跳转、章节切换） |
+| 模块                     | 职责                                         |
+| ------------------------ | -------------------------------------------- |
+| `foliateAnnotations.ts`  | foliate-js 标注渲染逻辑                      |
+| `foliateBookMetadata.ts` | 书籍元数据提取（封面、标题、作者）           |
+| `foliateKeyboard.ts`     | 键盘导航安装（翻页快捷键）                   |
+| `foliateNavigation.ts`   | foliate-js 导航逻辑（CFI 跳转、章节切换）    |
 | `foliateSelection.ts`    | 选择处理（CFI 提取、上下文提取、移动端菜单） |
 
 ### 插件设置系统

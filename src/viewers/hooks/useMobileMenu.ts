@@ -30,19 +30,26 @@ export function useMobileMenu(
 ): void {
   const loadHandlerRef = useRef<((e: any) => void) | null>(null);
   const pendingSelectionRef = useRef<PendingSelection | null>(null);
+  const currentDocRef = useRef<Document | null>(null);
+  const contextHandlerRef = useRef<((e: MouseEvent) => void) | null>(null);
 
   useEffect(() => {
     if (!view || !loaded || !isAnnotatable || !fileType || !onAddAnnotation) return;
 
-    const handleLoad = async ({ detail }: any) => {
+    const handleLoad = ({ detail }: any) => {
       const { doc } = detail;
       if (!doc || !(view as any).renderer) return;
+
+      // 清理上一个 doc 的 contextmenu 监听器
+      if (currentDocRef.current && contextHandlerRef.current) {
+        currentDocRef.current.removeEventListener('contextmenu', contextHandlerRef.current);
+      }
 
       const win = doc.defaultView as Window;
       const hostDoc = win.parent?.document ?? containerRef.current?.ownerDocument;
       if (!hostDoc) return;
 
-      doc.addEventListener('contextmenu', (ev: MouseEvent) => {
+      const contextHandler = (ev: MouseEvent) => {
         ev.preventDefault();
         ev.stopPropagation();
         showSelectionMenu(
@@ -55,7 +62,11 @@ export function useMobileMenu(
           onAddAnnotation,
           app,
         );
-      });
+      };
+
+      doc.addEventListener('contextmenu', contextHandler);
+      currentDocRef.current = doc;
+      contextHandlerRef.current = contextHandler;
     };
 
     if (loadHandlerRef.current) {
@@ -68,6 +79,11 @@ export function useMobileMenu(
       if (loadHandlerRef.current) {
         view.removeEventListener('load', loadHandlerRef.current as any);
         loadHandlerRef.current = null;
+      }
+      if (currentDocRef.current && contextHandlerRef.current) {
+        currentDocRef.current.removeEventListener('contextmenu', contextHandlerRef.current);
+        currentDocRef.current = null;
+        contextHandlerRef.current = null;
       }
     };
   }, [view, loaded, isAnnotatable, fileType, onAddAnnotation, app, containerRef]);

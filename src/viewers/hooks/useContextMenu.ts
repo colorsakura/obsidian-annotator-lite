@@ -2,14 +2,22 @@ import { Platform } from 'obsidian';
 import type { App } from 'obsidian';
 import type { Annotation } from '../../types/annotations';
 import type { HighlightColor } from '../../constants';
-import { useDesktopMenu, type ContextMenuResult } from './useDesktopMenu';
+import {
+  useSelectionMenu,
+  type SelectionMenuState,
+  type SelectionMenuActions,
+} from './useSelectionMenu';
 import { useMobileMenu } from './useMobileMenu';
 
-export type { ContextMenuResult };
+export interface ContextMenuResult {
+  menuState: SelectionMenuState | null;
+  menuActions: SelectionMenuActions;
+  menuRef: React.RefObject<HTMLDivElement | null>;
+}
 
 /**
  * 右键菜单分发器。
- * PC 端使用自定义 React 菜单（useDesktopMenu），移动端回退到 Obsidian Menu（useMobileMenu）。
+ * PC 端使用自定义 React 菜单（useSelectionMenu），移动端回退到 Obsidian Menu（useMobileMenu）。
  *
  * @important 必须在组件顶层无条件调用（hooks 规则），不能放在 if/条件分支中。
  */
@@ -37,17 +45,17 @@ export function useContextMenu(
 ): ContextMenuResult | null {
   const isDesktop = Platform.isDesktop;
 
-  const desktopMenu = useDesktopMenu(
-    isDesktop ? view : null,
+  const desktopMenu = useSelectionMenu({
+    view: isDesktop ? view : null,
     loaded,
     isAnnotatable,
     fileType,
-    onAddAnnotation,
-    app,
     annotations,
+    onAddAnnotation,
     onDeleteAnnotation,
+    app,
     colors,
-  );
+  });
 
   useMobileMenu(
     !isDesktop ? view : null,

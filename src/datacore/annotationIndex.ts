@@ -1,4 +1,3 @@
-import { App } from 'obsidian';
 import { type Annotation } from '../types/annotations';
 import { DatacoreAdapter } from './adapter';
 
@@ -34,10 +33,7 @@ export class AnnotationIndexService {
   /** 当前活动文件路径 */
   private currentSourcePath: string | null = null;
 
-  constructor(
-    _app: App,
-    private adapter: DatacoreAdapter,
-  ) {}
+  constructor(private adapter: DatacoreAdapter) {}
 
   // ── 公开查询 API ──
 

@@ -175,39 +175,3 @@ export function generateMarkdownWithAnnotations(
   const blocks = annotations.map((a) => formatAnnotation(a));
   return content + '\n' + blocks.join('\n') + '\n';
 }
-
-/**
- * Write a single annotation to markdown content (add or update).
- * Returns the modified content and the new annotation object.
- */
-export function writeAnnotationToMarkdownString(
-  annotation: Annotation,
-  existingContent: string,
-): { newAnnotationFileString: string; newAnnotation: Annotation } {
-  const id = annotation.id || Math.random().toString(36).substring(2);
-  const result: Annotation = { ...annotation, id };
-  const annotationString = formatAnnotation(result);
-
-  let didReplace = false;
-  const regex = makeAnnotationBlockRegex(id);
-  const newContent = existingContent.replace(regex, () => {
-    didReplace = true;
-    return annotationString;
-  });
-
-  return {
-    newAnnotationFileString: didReplace ? newContent : existingContent + '\n' + annotationString,
-    newAnnotation: result,
-  };
-}
-
-/**
- * Delete a single annotation from markdown content by ID.
- */
-export function deleteAnnotationFromMarkdownString(
-  annotationId: string,
-  existingContent: string,
-): string {
-  const regex = makeAnnotationBlockRegex(annotationId);
-  return existingContent.replace(regex, '');
-}

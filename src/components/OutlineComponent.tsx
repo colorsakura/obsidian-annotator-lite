@@ -12,7 +12,7 @@ const OutlineNodeItem: React.FC<{
   depth: number;
   index: number; // position among siblings, used in key construction
   onNavigate: (target: NavigationTarget) => void;
-}> = ({ item, depth, index, onNavigate }) => {
+}> = ({ item, depth, index: _index, onNavigate }) => {
   const [expanded, setExpanded] = useState(true);
   const hasChildren = item.children.length > 0;
 

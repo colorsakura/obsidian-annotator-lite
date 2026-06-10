@@ -1,7 +1,5 @@
 import { useEffect } from 'react';
-
-type ReaderFlowMode = 'paginated' | 'scrolled';
-type ColumnMode = 'single' | 'double';
+import type { ReaderFlowMode, ColumnMode } from '../../constants';
 
 type FoliateRendererElement = HTMLElement & {
   setStyles?: (styles: string | string[]) => void;

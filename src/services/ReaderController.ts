@@ -6,6 +6,7 @@ import type { ReaderSessionStore } from './ReaderSessionStore';
 import type { ReaderAPI } from './ReaderAPI';
 import type { TargetResolver } from './TargetResolver';
 import type { ViewCoordinator } from './ViewCoordinator';
+import type { HighlightColor } from '../constants';
 
 export interface ReaderController {
   openFromMarkdownLeaf(leaf: WorkspaceLeaf): Promise<void>;
@@ -46,6 +47,7 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
     private sessionStore: ReaderSessionStore,
     private viewCoordinator: ViewCoordinator,
     bus: ReaderEventBus,
+    private getHighlightColors: () => HighlightColor[],
   ) {
     this.bus = bus;
   }
@@ -92,10 +94,8 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
     // Only pass file info — annotations/navigation come from the store
     readerView.setTargetFile(target.targetPath, target.sourcePath);
 
-    // Pass highlight colors from plugin settings (direct field assignment)
-    readerView.highlightColors = (this.app as any).plugins?.plugins?.[
-      'obsidian-annotator-lite'
-    ]?.settings?.highlightColors;
+    // Pass highlight colors from plugin settings
+    readerView.highlightColors = this.getHighlightColors();
 
     // Wire view → controller events via bus
     this.wireViewEvents();

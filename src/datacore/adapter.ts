@@ -1,5 +1,5 @@
 import { App, TFile } from 'obsidian';
-import { type DatacoreApi, type MarkdownPage, Link } from '@blacksmithgu/datacore';
+import { type DatacoreApi, Link } from '@blacksmithgu/datacore';
 
 /**
  * Datacore 适配器

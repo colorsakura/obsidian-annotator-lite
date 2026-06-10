@@ -19,3 +19,6 @@ export const DEFAULT_HIGHLIGHT_COLORS: HighlightColor[] = [
 ];
 
 export const DEFAULT_HIGHLIGHT_COLOR = '#ffe066';
+
+export type ReaderFlowMode = 'paginated' | 'scrolled';
+export type ColumnMode = 'single' | 'double';

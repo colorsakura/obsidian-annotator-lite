@@ -81,3 +81,7 @@ export function getReaderTargetType(targetPath: string): ReaderTargetType | null
 export function isReaderTargetType(extension: string): extension is ReaderTargetType {
   return SUPPORTED_READER_TYPES.some((type) => type === extension);
 }
+
+export function isAnnotatableType(extension: string): boolean {
+  return ANNOTATABLE_READER_TYPES.some((type) => type === extension);
+}

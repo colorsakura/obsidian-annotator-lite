@@ -201,13 +201,6 @@
 /* Context menu: now handled by Obsidian native Menu API */
 
 /* Annotations panel (right sidebar) */
-.annotation-annotations-container {
-  height: 100%;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
 .annotator-annotations-container {
   height: 100%;
   width: 100%;

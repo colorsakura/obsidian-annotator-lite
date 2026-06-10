@@ -7,17 +7,11 @@ import {
   type OutlineItem,
 } from '../types/annotations';
 import type { ReaderSectionState } from '../services/ReaderSessionStore';
-import { ANNOTATABLE_READER_TYPES, isReaderTargetType } from '../services/TargetResolver';
+import { isAnnotatableType, isReaderTargetType } from '../services/TargetResolver';
 import { useSessionField } from '../contexts/ReaderStoreContext';
 import { useReader } from '../contexts/ReaderAPIContext';
-import type { HighlightColor } from '../constants';
+import type { HighlightColor, ReaderFlowMode, ColumnMode } from '../constants';
 import SectionIndicator from './SectionIndicator';
-
-// ──────────────────────────────────────────
-// Types
-// ──────────────────────────────────────────
-export type ReaderFlowMode = 'paginated' | 'scrolled';
-export type ColumnMode = 'single' | 'double';
 
 export interface ReaderViewInnerProps {
   targetFile: string | null;
@@ -118,9 +112,7 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
   // Determine annotatability from the file extension
   const extension = targetFile ? targetFile.split('.').pop()?.toLowerCase() : undefined;
   const isSupported = extension ? isReaderTargetType(extension) : false;
-  const isAnnotatable = extension
-    ? ANNOTATABLE_READER_TYPES.some((type) => type === extension)
-    : false;
+  const isAnnotatable = extension ? isAnnotatableType(extension) : false;
 
   // Filter annotations by supported types
   const activeAnnotations = React.useMemo(
@@ -189,70 +181,66 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
   );
 
   if (!targetFile) {
-    return React.createElement(
-      'div',
-      { className: 'reader-placeholder' },
-      'No file selected. Open a note with ',
-      React.createElement('code', null, 'annotation-target'),
-      ' in its frontmatter.',
+    return (
+      <div className="reader-placeholder">
+        No file selected. Open a note with <code>annotation-target</code> in its frontmatter.
+      </div>
     );
   }
 
   if (!extension || !isSupported) {
-    return React.createElement(
-      'div',
-      { className: 'reader-placeholder' },
-      'Unsupported file type: ',
-      extension,
-    );
+    return <div className="reader-placeholder">Unsupported file type: {extension}</div>;
   }
 
-  return React.createElement(FoliateViewer, {
-    key: targetFile,
-    target: {
-      file: targetFile,
-      navigationTarget,
-      sectionTarget: sectionTarget?.index ?? null,
-      pageTurnTarget,
-    },
-    config: {
-      flowMode: readerFlowMode,
-      columnMode,
-      fontSize,
-      annotations: activeAnnotations,
-      highlightColors,
-      sectionIndicator:
-        sectionInfo.totalSections > 0 &&
-        React.createElement(SectionIndicator, {
-          currentIndex: sectionInfo.currentIndex,
-          totalSections: sectionInfo.totalSections,
-          canGoPrev: sectionInfo.canGoPrev ?? sectionInfo.currentIndex > 0,
-          canGoNext:
-            sectionInfo.canGoNext ?? sectionInfo.currentIndex < sectionInfo.totalSections - 1,
-          onPrev: () => {
-            if (readerFlowMode === 'paginated') {
-              setPageTurnTarget({ direction: 'prev', nonce: Date.now() });
-              return;
+  return (
+    <FoliateViewer
+      key={targetFile}
+      target={{
+        file: targetFile,
+        navigationTarget,
+        sectionTarget: sectionTarget?.index ?? null,
+        pageTurnTarget,
+      }}
+      config={{
+        flowMode: readerFlowMode,
+        columnMode,
+        fontSize,
+        annotations: activeAnnotations,
+        highlightColors,
+        sectionIndicator: sectionInfo.totalSections > 0 && (
+          <SectionIndicator
+            currentIndex={sectionInfo.currentIndex}
+            totalSections={sectionInfo.totalSections}
+            canGoPrev={sectionInfo.canGoPrev ?? sectionInfo.currentIndex > 0}
+            canGoNext={
+              sectionInfo.canGoNext ?? sectionInfo.currentIndex < sectionInfo.totalSections - 1
             }
-            setSectionTarget({
-              index: Math.max(0, sectionInfo.currentIndex - 1),
-              nonce: Date.now(),
-            });
-          },
-          onNext: () => {
-            if (readerFlowMode === 'paginated') {
-              setPageTurnTarget({ direction: 'next', nonce: Date.now() });
-              return;
-            }
-            setSectionTarget({
-              index: Math.min(sectionInfo.totalSections - 1, sectionInfo.currentIndex + 1),
-              nonce: Date.now(),
-            });
-          },
-        }),
-    },
-    callbacks,
-  });
+            onPrev={() => {
+              if (readerFlowMode === 'paginated') {
+                setPageTurnTarget({ direction: 'prev', nonce: Date.now() });
+                return;
+              }
+              setSectionTarget({
+                index: Math.max(0, sectionInfo.currentIndex - 1),
+                nonce: Date.now(),
+              });
+            }}
+            onNext={() => {
+              if (readerFlowMode === 'paginated') {
+                setPageTurnTarget({ direction: 'next', nonce: Date.now() });
+                return;
+              }
+              setSectionTarget({
+                index: Math.min(sectionInfo.totalSections - 1, sectionInfo.currentIndex + 1),
+                nonce: Date.now(),
+              });
+            }}
+          />
+        ),
+      }}
+      callbacks={callbacks}
+    />
+  );
 };
 
 export default ReaderViewInner;

@@ -27,7 +27,7 @@ export function useSelectionMenu(opts: {
   isAnnotatable: boolean;
   fileType: 'pdf' | 'epub' | undefined;
   annotations: Annotation[];
-  onAddAnnotation: (params: PendingSelection & { color?: string; note?: string }) => void;
+  onAddAnnotation?: (params: PendingSelection & { color?: string; note?: string }) => void;
   onDeleteAnnotation: (id: string) => void;
   app: App;
   colors?: HighlightColor[];
@@ -225,7 +225,7 @@ export function useSelectionMenu(opts: {
     (color: string) => {
       const sel = pendingRef.current;
       if (!sel) return;
-      onAddAnnotation({ ...sel, color });
+      onAddAnnotation?.({ ...sel, color });
       pendingRef.current = null;
       setMenuState(null);
     },
@@ -240,7 +240,7 @@ export function useSelectionMenu(opts: {
     modal.open();
     const result = await modal.result;
     if (!result.cancelled && result.note.trim()) {
-      onAddAnnotation({ ...sel, note: result.note.trim() });
+      onAddAnnotation?.({ ...sel, note: result.note.trim() });
     }
     pendingRef.current = null;
   }, [onAddAnnotation, app]);
