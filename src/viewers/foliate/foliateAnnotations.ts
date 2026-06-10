@@ -63,18 +63,34 @@ export function installAnnotationRendering(
 
 /**
  * Apply annotation overlays that haven't been applied yet.
- * Uses appliedIds to track which annotations have already been added.
+ * Uses appliedMap to track which annotations have already been added (id → cfiRange).
+ * Also removes overlays for annotations that are no longer in the list.
  */
 export async function applyAnnotationOverlays(
   view: HTMLElement,
   annotations: Annotation[],
-  appliedIds: Set<string>,
+  appliedMap: Map<string, string>,
 ): Promise<void> {
   const viewApi = view as any;
 
+  // Build a set of current annotation IDs for quick lookup
+  const currentIds = new Set(annotations.map((a) => a.id));
+
+  // Remove overlays for annotations that were applied but are no longer present
+  for (const [id, cfiRange] of appliedMap) {
+    if (currentIds.has(id)) continue;
+    try {
+      await viewApi.deleteAnnotation({ value: cfiRange });
+    } catch {
+      // ignore removal errors
+    }
+    appliedMap.delete(id);
+  }
+
+  // Add new annotations
   for (const a of annotations) {
-    if (!a.cfiRange || appliedIds.has(a.id)) continue;
-    appliedIds.add(a.id);
+    if (!a.cfiRange || appliedMap.has(a.id)) continue;
+    appliedMap.set(a.id, a.cfiRange);
     try {
       await viewApi.addAnnotation({
         value: a.cfiRange,
@@ -84,8 +100,8 @@ export async function applyAnnotationOverlays(
         color: a.color || DEFAULT_HIGHLIGHT_COLOR,
       });
     } catch {
-      // Annotation may not be renderable yet; remove from set so it gets retried
-      appliedIds.delete(a.id);
+      // Annotation may not be renderable yet; remove from map so it gets retried
+      appliedMap.delete(a.id);
     }
   }
 }

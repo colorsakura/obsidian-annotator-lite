@@ -31,12 +31,12 @@ export function useAnnotationOverlays(
   annotations: Annotation[],
 ): void {
   const prevAnnotationsRef = useRef<Annotation[]>([]);
-  const appliedIdsRef = useRef<Set<string>>(new Set());
+  const appliedMapRef = useRef<Map<string, string>>(new Map());
 
   // Reset when view changes
   useEffect(() => {
     if (!view) return;
-    appliedIdsRef.current = new Set();
+    appliedMapRef.current = new Map();
     prevAnnotationsRef.current = [];
   }, [view]);
 
@@ -52,7 +52,7 @@ export function useAnnotationOverlays(
       prevAnnotationsRef.current.some((a) => !currIds.has(a.id));
 
     if (changed) {
-      void applyAnnotationOverlays(view, annotations, appliedIdsRef.current);
+      void applyAnnotationOverlays(view, annotations, appliedMapRef.current);
     }
 
     prevAnnotationsRef.current = annotations;
