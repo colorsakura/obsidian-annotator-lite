@@ -16,8 +16,13 @@ import {
 } from './services/AnnotationRepository';
 import { ReaderSessionStore } from './services/ReaderSessionStore';
 import { ObsidianTargetResolver, type TargetResolver } from './services/TargetResolver';
+import { AnnotationService } from './services/AnnotationService';
+import { ReaderEventBus } from './services/ReaderEventBus';
 import { DefaultReaderController, type ReaderController } from './services/ReaderController';
 import { ObsidianViewCoordinator, type ViewCoordinator } from './services/ViewCoordinator';
+import { setSessionStore } from './contexts/ReaderStoreContext';
+import { type AnnotatorLiteSettings, DEFAULT_SETTINGS } from './services/Settings';
+import { AnnotatorLiteSettingTab } from './components/SettingsTab';
 
 export default class AnnotatorLitePlugin extends Plugin {
   private annotationRepository!: AnnotationRepository;
@@ -31,7 +36,20 @@ export default class AnnotatorLitePlugin extends Plugin {
   /** 标注索引服务（内存索引 + 前置元持久化） */
   annotationIndex!: AnnotationIndexService;
 
+  settings: AnnotatorLiteSettings = DEFAULT_SETTINGS;
+
+  async loadSettings() {
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+  }
+
+  async saveSettings() {
+    await this.saveData(this.settings);
+  }
+
   async onload() {
+    // 注册 SessionStore 到模块级单例，供 React 组件通过 useSessionStore() 访问
+    setSessionStore(this.sessionStore);
+
     // 初始化 Datacore 适配器和标注索引服务
     this.datacoreAdapter = new DatacoreAdapter(this.app);
     this.annotationIndex = new AnnotationIndexService(this.app, this.datacoreAdapter);
@@ -40,13 +58,21 @@ export default class AnnotatorLitePlugin extends Plugin {
       this.getPropertyValue(propertyName, file),
     );
     this.viewCoordinator = new ObsidianViewCoordinator(this.app);
+    const bus = new ReaderEventBus();
+    const annotationService = new AnnotationService(
+      this.app,
+      this.annotationRepository,
+      this.annotationIndex,
+      this.sessionStore,
+      bus,
+    );
     this.readerController = new DefaultReaderController(
       this.app,
       this.targetResolver,
-      this.annotationRepository,
+      annotationService,
       this.sessionStore,
       this.viewCoordinator,
-      this.annotationIndex,
+      bus,
     );
 
     this.registerView(READER_VIEW_TYPE, (leaf) => new ReaderView(leaf));
@@ -54,6 +80,9 @@ export default class AnnotatorLitePlugin extends Plugin {
     this.registerView(OUTLINE_VIEW_TYPE, (leaf) => new OutlineView(leaf));
 
     this.registerView(ANNOTATIONS_VIEW_TYPE, (leaf) => new AnnotationsView(leaf));
+
+    await this.loadSettings();
+    this.addSettingTab(new AnnotatorLiteSettingTab(this.app, this));
 
     this.app.workspace.onLayoutReady(() => {
       // 尝试激活 Datacore 索引层

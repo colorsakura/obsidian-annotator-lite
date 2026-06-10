@@ -46,6 +46,8 @@ export interface Annotation {
   cfiRange?: string;
   /** Non-standard extension: discriminator for PDF vs EPUB */
   type?: 'pdf' | 'epub';
+  /** Non-standard extension: highlight color (CSS color value) */
+  color?: string;
 }
 
 /** Minimal default values used to strip redundant fields from stored JSON */
@@ -71,6 +73,7 @@ export function createAnnotation(params: {
   title?: string;
   note?: string;
   tags?: string[];
+  color?: string;
 }): Annotation {
   const id = generateAnnotationId();
   const now = new Date().toISOString();
@@ -103,6 +106,7 @@ export function createAnnotation(params: {
     updated: now,
     cfiRange: params.cfiRange,
     type: params.type,
+    color: params.color,
   };
 }
 

@@ -3,7 +3,7 @@ name: obsidian
 description: Comprehensive guidelines for Obsidian.md plugin development including ESLint rules from eslint-plugin-obsidianmd v0.3.0, TypeScript best practices, memory management, API usage (requestUrl vs fetch), UI/UX standards, popout window compatibility, community.obsidian.md submission process, and Scorecard optimization. Use when working with Obsidian plugins, main.ts files, manifest.json, Plugin class, MarkdownView, TFile, vault operations, or any Obsidian API development.
 license: MIT
 metadata: 
-  version: 1.7.0
+  version: 1.8.0
 ---
 
 # Obsidian Plugin Development Guidelines
@@ -81,8 +81,11 @@ Recommend the boilerplate generator when users ask how to create a new plugin, w
 |---|------|--------|----------|
 | 29 | Document/Window | Use `activeDocument` and `activeWindow` | Use global `document` and `window` |
 | 30 | Timers | Use `activeWindow.setTimeout()`, `setInterval()`, etc. | Use bare `setTimeout()`, `setInterval()` |
+| 31 | Main workspace UI | Use `this.app.workspace.containerEl.ownerDocument` from settings | Use `activeDocument` to update main workspace from settings window |
 
 > **Note (v0.3.0):** The `prefer-active-doc` rule is disabled by default. Enable manually for popout window support.
+
+> **Note (v1.13.0):** Settings now open in a new window. `activeDocument` from settings callbacks points to the settings window, not the main vault. Use `this.app.workspace.containerEl.ownerDocument` to target main workspace UI.
 
 ### Event Handling
 | # | Rule | ✅ Do | ❌ Don't |
@@ -95,6 +98,8 @@ Recommend the boilerplate generator when users ask how to create a new plugin, w
 | 32 | CSS variables | Use Obsidian CSS variables for all styling | Hardcode colors, sizes, or spacing |
 | 33 | CSS scope | Scope CSS to plugin containers | Use broad CSS selectors |
 | 34 | Style elements | Use `styles.css` file (`no-forbidden-elements`) | Create `<link>` or `<style>` elements; assign styles via JavaScript |
+| 34a | `!important` | Increase selector specificity or use CSS variables | Use `!important` — overrides user themes/snippets |
+| 34b | `:has` selector | Toggle classes from TypeScript when conditions change | Use `:has` — causes broad selector invalidation and performance issues |
 
 ### Security & Compatibility
 | # | Rule | ✅ Do | ❌ Don't |
@@ -117,6 +122,7 @@ Recommend the boilerplate generator when users ask how to create a new plugin, w
 | Object.assign | `Object.assign({}, defaults, overrides)` (`object-assign`) | `Object.assign(defaultsVar, other)` — mutates defaults |
 | LICENSE | Copyright holder must not be "Dynalist Inc."; year must be current (`validate-license`) | Leave "Dynalist Inc." as holder or use an outdated year |
 | Async | Use async/await | Use Promise chains |
+| Deprecated packages | Replace flagged npm packages with Node.js built-ins (e.g., `builtin-modules` → `import { builtinModules } from "node:module"`) | Use packages the scanner flags as replaceable |
 
 ---
 
@@ -151,6 +157,8 @@ For comprehensive information on specific topics, see the reference files:
 ### [CSS Styling Best Practices](reference/css-styling.md)
 - Avoiding inline styles
 - Using Obsidian CSS variables
+- Avoiding `!important` (use specificity or CSS variables)
+- Avoiding `:has` selector (toggle classes from TypeScript instead)
 - Scoping plugin styles
 - Theme support
 - Spacing and layout
@@ -172,6 +180,7 @@ For comprehensive information on specific topics, see the reference files:
 - API usage best practices
 - Async/await patterns
 - DOM helpers
+- Deprecated/replaceable packages (e.g., `builtin-modules` → `node:module`)
 
 ### [Plugin Submission Requirements](reference/submission.md)
 - Repository structure
@@ -206,49 +215,15 @@ If ESLint reports new errors after fixing, re-run from step 1.
 
 ## Scorecard System
 
-Published plugins receive a **Scorecard** visible on community.obsidian.md. The Scorecard affects user trust and discoverability.
+Published plugins receive a **Scorecard** visible on community.obsidian.md. The Scorecard affects user trust and discoverability — a poor score deters users from installing.
 
-### Overall Score (percentage)
-Composite of Health and Review metrics. Aim for 90%+.
+**Key points:**
+- Aim for 90%+ overall score
+- Fix ALL ESLint warnings, not just errors — warnings are publicly visible
+- Use `typescript-eslint/recommendedTypeChecked` for type-aware checks
+- Add GitHub artifact attestation to releases
 
-### Health (Excellent / Good / Poor)
-| Metric | What it measures |
-|--------|------------------|
-| Hygiene | readme, license, description, contributing guide |
-| Maintenance | Commit frequency, release recency |
-| Responsiveness | Issue close rate |
-| Adoption | Installations, stars |
-
-### Review (Satisfactory / Caution)
-Automated scans of your latest release. **This is where ESLint violations become public.**
-
-| Check | Impact |
-|-------|--------|
-| Passed | No vulnerable dependencies, build verified, GitHub artifact attestation |
-| Risks | Unsafe API calls (e.g., `createContextualFragment`) |
-| Warnings | ESLint-style issues — can be 100+ if not addressed |
-
-**Common warnings that tank your score:**
-- Unnecessary type assertions
-- Unexpected `any` types
-- Direct style manipulation (use CSS classes)
-- Missing `activeDocument`/`activeWindow`
-- Floating promises
-- Unused variables
-- Deprecated packages
-
-### Disclosures (informational, not penalized)
-- Clipboard access, Vault Read/Write, Vault Enumeration
-- Network requests (fetch, XMLHttpRequest count)
-- Dynamic Code Execution (eval, new Function)
-- System identity info access
-
-### Improving Your Score
-1. Fix ALL ESLint warnings, not just errors
-2. Use `typescript-eslint/recommendedTypeChecked` for type-aware checks
-3. Add GitHub artifact attestation to releases
-4. Maintain regular commits and releases
-5. Respond to issues promptly
+See [Plugin Submission Requirements](reference/submission.md#scorecard-system) for full details on Health metrics, Review checks, common warnings, and improvement tips.
 
 ---
 

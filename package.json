@@ -29,7 +29,9 @@
     "typescript-eslint": "^8.60.1"
   },
   "dependencies": {
+    "eslint-plugin-react": "^7.37.5",
     "foliate-js": "johnfactotum/foliate-js",
+    "lucide-react": "^1.17.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   }

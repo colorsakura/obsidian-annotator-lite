@@ -1,5 +1,6 @@
 import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
+import react from "eslint-plugin-react";
 import stylistic from '@stylistic/eslint-plugin';
 
 export default tseslint.config(
@@ -25,10 +26,9 @@ export default tseslint.config(
     },
   },
 
-  // Stylistic formatting rules (replacing Biome formatter) + project overrides
   {
     files: ['**/*.ts', '**/*.tsx'],
-    plugins: { '@stylistic': stylistic },
+    plugins: { react, '@stylistic': stylistic },
     rules: {
       // ── Project-specific overrides ──
       // foliate-js has poor TypeScript types; many APIs are `any`
@@ -41,7 +41,6 @@ export default tseslint.config(
       // Allow unused vars prefixed with underscore
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
 
-      // ── Stylistic formatting (Biome equivalent) ──
       '@stylistic/indent': ['error', 2],
       '@stylistic/quotes': ['error', 'single'],
       '@stylistic/semi': ['error', 'always'],

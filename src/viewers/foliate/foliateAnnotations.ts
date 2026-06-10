@@ -1,4 +1,5 @@
 import type { Annotation } from '../../types/annotations';
+import { DEFAULT_HIGHLIGHT_COLOR } from '../../constants';
 
 /**
  * Install draw-annotation and create-overlay event handlers on a foliate-view element.
@@ -12,10 +13,9 @@ export function installAnnotationRendering(
 
   const handleDrawAnnotation = async ({ detail }: any) => {
     const { draw, annotation } = detail;
-    if (annotation.color === 'yellow') {
-      const { Overlayer } = await import('foliate-js/overlayer.js');
-      draw(Overlayer.highlight, { color: '#ffeb3b' });
-    }
+    const color = annotation.color || DEFAULT_HIGHLIGHT_COLOR;
+    const { Overlayer } = await import('foliate-js/overlayer.js');
+    draw(Overlayer.highlight, { color });
   };
 
   const handleCreateOverlay = async ({ detail }: any) => {
@@ -33,7 +33,7 @@ export function installAnnotationRendering(
             text:
               (a.target?.[0]?.selector?.find((s) => s.type === 'TextQuoteSelector') as any)
                 ?.exact || '',
-            color: 'yellow',
+            color: a.color || DEFAULT_HIGHLIGHT_COLOR,
           });
         }
       } catch {
@@ -81,7 +81,7 @@ export async function applyAnnotationOverlays(
         text:
           (a.target?.[0]?.selector?.find((s) => s.type === 'TextQuoteSelector') as any)?.exact ||
           '',
-        color: 'yellow',
+        color: a.color || DEFAULT_HIGHLIGHT_COLOR,
       });
     } catch {
       // Annotation may not be renderable yet; remove from set so it gets retried

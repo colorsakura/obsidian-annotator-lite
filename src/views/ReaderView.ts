@@ -1,18 +1,17 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { createRoot, Root } from 'react-dom/client';
-import { ItemView, TFile, type WorkspaceLeaf } from 'obsidian';
+import { TFile, type WorkspaceLeaf } from 'obsidian';
 import FoliateViewer from '../viewers/FoliateViewer';
-import { AppContext } from '../hooks/useObsidianApp';
 import {
   type Annotation,
   type BookMetadata,
   createAnnotation,
-  type NavigationTarget,
   type OutlineItem,
 } from '../types/annotations';
 import type { ReaderSectionState } from '../services/ReaderSessionStore';
 import { ANNOTATABLE_READER_TYPES, isReaderTargetType } from '../services/TargetResolver';
 import { READER_VIEW_TYPE } from '../constants';
+import { useSessionStore } from '../contexts/ReaderStoreContext';
+import { BaseReactView } from './BaseReactView';
 
 type ReaderFlowMode = 'paginated' | 'scrolled';
 type ColumnMode = 'single' | 'double';
@@ -21,12 +20,6 @@ const READER_FONT_SIZE_MIN = 80;
 const READER_FONT_SIZE_MAX = 160;
 const READER_FONT_SIZE_STEP = 10;
 
-// ──────────────────────────────────────────
-// Inner React component that manages all mutable state internally.
-// The outer ItemView only re-creates this component (via root.render())
-// when the target file changes; annotation/navigation updates happen
-// via React state and do NOT destroy/recreate FoliateViewer.
-// ──────────────────────────────────────────
 // ──────────────────────────────────────────
 // Section indicator component
 // ──────────────────────────────────────────
@@ -47,7 +40,6 @@ const SectionIndicator: React.FC<SectionIndicatorProps> = ({
   onPrev,
   onNext,
 }) => {
-  // 0-indexed → 1-indexed for display
   const displayIndex = totalSections > 0 ? currentIndex + 1 : 0;
 
   return React.createElement(
@@ -107,33 +99,25 @@ const SectionIndicator: React.FC<SectionIndicatorProps> = ({
   );
 };
 
+// ──────────────────────────────────────────
+// Inner React component — reads annotations/navigation from SessionStore.
+// ──────────────────────────────────────────
 interface ReaderViewInnerProps {
   targetFile: string | null;
-  sourcePath: string | null;
-  initialAnnotations: Annotation[];
-  initialNavigationTarget?: NavigationTarget | null;
   readerFlowMode: ReaderFlowMode;
   columnMode: ColumnMode;
   fontSize: number;
   onOutlineLoaded?: (items: OutlineItem[]) => void;
   onBookMetadataLoaded?: (metadata: BookMetadata) => void;
   onSectionChanged?: (section: ReaderSectionState) => void;
-  /** Called when annotations are added/removed/updated by the user */
+  /** Called when annotations are added by the user in FoliateViewer */
   onAnnotationsChanged?: (annotations: Annotation[]) => void;
-  /** Ref exposed to the parent ItemView for imperative updates */
-  apiRef: React.MutableRefObject<ReaderViewApi | null>;
-}
-
-interface ReaderViewApi {
-  setNavigationTarget: (target: NavigationTarget | null) => void;
-  setExternalAnnotations: (annotations: Annotation[] | null) => void;
+  highlightColors?: import('../constants').HighlightColor[];
+  onDeleteAnnotation?: (id: string) => void;
 }
 
 const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
   targetFile,
-  sourcePath,
-  initialAnnotations,
-  initialNavigationTarget,
   readerFlowMode,
   columnMode,
   fontSize,
@@ -141,12 +125,14 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
   onBookMetadataLoaded,
   onSectionChanged,
   onAnnotationsChanged,
-  apiRef,
+  highlightColors,
+  onDeleteAnnotation,
 }) => {
-  const [annotations, setAnnotations] = useState<Annotation[]>(initialAnnotations);
-  const [navigationTarget, setNavigationTarget] = useState<NavigationTarget | null>(
-    initialNavigationTarget ?? null,
-  );
+  const session = useSessionStore();
+  const storeAnnotations = session?.annotations ?? [];
+  const navigationTarget = session?.navigationTarget ?? null;
+
+  const [localAnnotations, setLocalAnnotations] = useState<Annotation[]>(storeAnnotations);
   const [sectionTarget, setSectionTarget] = useState<{ index: number; nonce: number } | null>(null);
   const [pageTurnTarget, setPageTurnTarget] = useState<{
     direction: 'prev' | 'next';
@@ -157,54 +143,47 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
     totalSections: 0,
   });
 
-  const isApplyingExternalAnnotationsRef = useRef(false);
-  const lastNotifiedAnnotationsRef = useRef<Annotation[]>(initialAnnotations);
+  // Track whether the last annotation change came from the store (external)
+  // vs from the user (local). This prevents the onAnnotationsChanged callback
+  // from firing when the store pushes back the same data we just sent.
+  const isStoreUpdateRef = useRef(false);
+  const lastNotifiedAnnotationsRef = useRef<Annotation[]>(storeAnnotations);
   const notifyAnnotationsChangedRef = useRef(onAnnotationsChanged);
   notifyAnnotationsChangedRef.current = onAnnotationsChanged;
 
-  const targetUri = React.useMemo(() => (targetFile ? `urn:${targetFile}` : null), [targetFile]);
+  const targetUri = React.useMemo(
+    () => (targetFile ? `urn:${targetFile}` : null),
+    [targetFile],
+  );
 
+  // Sync local annotations when store changes (external updates)
   useEffect(() => {
-    isApplyingExternalAnnotationsRef.current = true;
-    lastNotifiedAnnotationsRef.current = initialAnnotations;
-    setAnnotations(initialAnnotations);
-  }, [initialAnnotations, sourcePath, targetUri]);
+    isStoreUpdateRef.current = true;
+    lastNotifiedAnnotationsRef.current = storeAnnotations;
+    setLocalAnnotations(storeAnnotations);
+  }, [storeAnnotations]);
 
-  // Expose imperative API to parent
+  // Notify parent of annotation changes (user-added annotations)
   useEffect(() => {
-    apiRef.current = {
-      setNavigationTarget: (target) => setNavigationTarget(target),
-      setExternalAnnotations: (anns) => {
-        const nextAnnotations = anns ?? [];
-        isApplyingExternalAnnotationsRef.current = true;
-        lastNotifiedAnnotationsRef.current = nextAnnotations;
-        setAnnotations(nextAnnotations);
-      },
-    };
-    return () => {
-      apiRef.current = null;
-    };
-  }, [apiRef]);
-
-  // Notify parent of annotation changes (debounced by ref comparison)
-  useEffect(() => {
-    if (isApplyingExternalAnnotationsRef.current) {
-      isApplyingExternalAnnotationsRef.current = false;
+    if (isStoreUpdateRef.current) {
+      isStoreUpdateRef.current = false;
       return;
     }
 
     const prev = lastNotifiedAnnotationsRef.current;
     const changed =
-      annotations.length !== prev.length ||
-      annotations.some((a, i) => a.id !== prev[i]?.id || a.text !== prev[i]?.text);
+      localAnnotations.length !== prev.length ||
+      localAnnotations.some(
+        (a, i) => a.id !== prev[i]?.id || a.text !== prev[i]?.text,
+      );
 
     if (changed) {
-      lastNotifiedAnnotationsRef.current = annotations;
-      notifyAnnotationsChangedRef.current?.(annotations);
+      lastNotifiedAnnotationsRef.current = localAnnotations;
+      notifyAnnotationsChangedRef.current?.(localAnnotations);
     }
-  }, [annotations]);
+  }, [localAnnotations]);
 
-  // Add annotation callback
+  // Add annotation callback (user highlights text in FoliateViewer)
   const addAnnotation = useCallback(
     (params: {
       type: 'pdf' | 'epub';
@@ -213,31 +192,43 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
       prefix: string;
       suffix: string;
       note?: string;
+      color?: string;
     }) => {
       if (!targetUri) return;
-      const annotation = createAnnotation({
-        ...params,
-        uri: targetUri,
-      });
-      setAnnotations((prev) => [...prev, annotation]);
+      const annotation = createAnnotation({ ...params, uri: targetUri });
+      setLocalAnnotations((prev) => [...prev, annotation]);
     },
     [targetUri],
   );
 
+  // Delete annotation callback
+  const deleteAnnotation = useCallback(
+    (id: string) => {
+      setLocalAnnotations((prev) => prev.filter((a) => a.id !== id));
+      onDeleteAnnotation?.(id);
+    },
+    [onDeleteAnnotation],
+  );
+
   // Determine annotatability from the file extension
-  const extension = targetFile ? targetFile.split('.').pop()?.toLowerCase() : undefined;
+  const extension = targetFile
+    ? targetFile.split('.').pop()?.toLowerCase()
+    : undefined;
   const isSupported = extension ? isReaderTargetType(extension) : false;
   const isAnnotatable = extension
     ? ANNOTATABLE_READER_TYPES.some((type) => type === extension)
     : false;
 
-  // Filter annotations by supported types (only when annotatable)
+  // Filter annotations by supported types
   const activeAnnotations = React.useMemo(
-    () => (isAnnotatable ? annotations.filter((a) => a.type === 'pdf' || a.type === 'epub') : []),
-    [annotations, isAnnotatable],
+    () =>
+      isAnnotatable
+        ? localAnnotations.filter((a) => a.type === 'pdf' || a.type === 'epub')
+        : [],
+    [localAnnotations, isAnnotatable],
   );
 
-  // Section change handler — receives index and total from FoliateViewer
+  // Section change handler
   const handleSectionChange = useCallback(
     (
       currentIndex: number,
@@ -282,15 +273,19 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
     key: targetFile,
     file: targetFile,
     annotations: activeAnnotations,
-    ...(isAnnotatable ? { onAddAnnotation: addAnnotation } : {}),
-    onOutlineLoaded: onOutlineLoaded,
-    onBookMetadataLoaded: onBookMetadataLoaded,
-    navigationTarget: navigationTarget,
+    ...(isAnnotatable ? {
+      onAddAnnotation: addAnnotation,
+      onDeleteAnnotation: deleteAnnotation,
+    } : {}),
+    highlightColors,
+    onOutlineLoaded,
+    onBookMetadataLoaded,
+    navigationTarget,
     sectionTarget: sectionTarget?.index ?? null,
-    pageTurnTarget: pageTurnTarget,
+    pageTurnTarget,
     flowMode: readerFlowMode,
-    columnMode: columnMode,
-    fontSize: fontSize,
+    columnMode,
+    fontSize,
     onSectionChange: handleSectionChange,
     sectionIndicator:
       sectionInfo.totalSections > 0 &&
@@ -299,13 +294,17 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
         totalSections: sectionInfo.totalSections,
         canGoPrev: sectionInfo.canGoPrev ?? sectionInfo.currentIndex > 0,
         canGoNext:
-          sectionInfo.canGoNext ?? sectionInfo.currentIndex < sectionInfo.totalSections - 1,
+          sectionInfo.canGoNext ??
+          sectionInfo.currentIndex < sectionInfo.totalSections - 1,
         onPrev: () => {
           if (readerFlowMode === 'paginated') {
             setPageTurnTarget({ direction: 'prev', nonce: Date.now() });
             return;
           }
-          setSectionTarget({ index: Math.max(0, sectionInfo.currentIndex - 1), nonce: Date.now() });
+          setSectionTarget({
+            index: Math.max(0, sectionInfo.currentIndex - 1),
+            nonce: Date.now(),
+          });
         },
         onNext: () => {
           if (readerFlowMode === 'paginated') {
@@ -313,7 +312,10 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
             return;
           }
           setSectionTarget({
-            index: Math.min(sectionInfo.totalSections - 1, sectionInfo.currentIndex + 1),
+            index: Math.min(
+              sectionInfo.totalSections - 1,
+              sectionInfo.currentIndex + 1,
+            ),
             nonce: Date.now(),
           });
         },
@@ -322,25 +324,21 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
 };
 
 // ──────────────────────────────────────────
-// Obsidian ItemView — only calls root.render() when targetFile changes.
-// All other updates (annotations, navigation) flow through the inner
-// component's React state, preserving the FoliateViewer DOM.
+// Obsidian ItemView (extends BaseReactView)
 // ──────────────────────────────────────────
-export class ReaderView extends ItemView {
-  private targetFile: string | null = null;
+export class ReaderView extends BaseReactView<object> {
   /** Public for multi-reader lookup by ViewCoordinator. */
+  targetFile: string | null = null;
   sourcePath: string | null = null;
-  private annotations: Annotation[] = [];
-  private initialNavigationTarget: NavigationTarget | null = null;
-  private reactRoot: HTMLElement;
-  private root: Root;
   private onSwitchToOutlineCallback: (() => void) | null = null;
   private onSwitchToAnnotationsCallback: (() => void) | null = null;
   private onOutlineLoadedCallback: ((items: OutlineItem[]) => void) | null = null;
   private onBookMetadataLoadedCallback: ((metadata: BookMetadata) => void) | null = null;
   private onSectionChangedCallback: ((section: ReaderSectionState) => void) | null = null;
   private onAnnotationsChangedCallback: ((annotations: Annotation[]) => void) | null = null;
+  private onDeleteAnnotationCallback: ((id: string) => void) | null = null;
   private onCloseCallback: (() => void) | null = null;
+  private highlightColors: import('../constants').HighlightColor[] | undefined;
   private readerFlowMode: ReaderFlowMode = 'paginated';
   private readerFlowModeAction: HTMLElement | null = null;
   private columnMode: ColumnMode = 'double';
@@ -348,15 +346,10 @@ export class ReaderView extends ItemView {
   private fontSize = 100;
   private decreaseFontSizeAction: HTMLElement | null = null;
   private increaseFontSizeAction: HTMLElement | null = null;
-  private apiRef: React.MutableRefObject<ReaderViewApi | null> = { current: null };
-  /** Pending data that arrived before React mounted. */
-  private pendingNavigationTarget: NavigationTarget | null = null;
 
   constructor(leaf: WorkspaceLeaf) {
-    super(leaf);
+    super(leaf, 'reader-view-container');
     this.contentEl.style.position = 'relative';
-    this.reactRoot = this.contentEl.createDiv({ cls: 'reader-view-container' });
-    this.root = createRoot(this.reactRoot);
   }
 
   getViewType() {
@@ -429,6 +422,11 @@ export class ReaderView extends ItemView {
     this.render();
   }
 
+  async onClose() {
+    this.onCloseCallback?.();
+    await super.onClose();
+  }
+
   setOnSwitchToOutline(callback: () => void) {
     this.onSwitchToOutlineCallback = callback;
   }
@@ -446,7 +444,6 @@ export class ReaderView extends ItemView {
   private updateReaderFlowModeAction() {
     const action = this.readerFlowModeAction;
     if (!action) return;
-
     const isScrolled = this.readerFlowMode === 'scrolled';
     const label = isScrolled ? '切换到分页模式' : '切换到滚动模式';
     action.setAttribute('aria-label', label);
@@ -462,7 +459,6 @@ export class ReaderView extends ItemView {
   private updateColumnModeAction() {
     const action = this.columnModeAction;
     if (!action) return;
-
     const isSingle = this.columnMode === 'single';
     const label = isSingle ? '切换为双列' : '切换为单列';
     action.setAttribute('aria-label', label);
@@ -500,7 +496,6 @@ export class ReaderView extends ItemView {
 
   private updateFontSizeAction(action: HTMLElement | null, label: string, disabled: boolean) {
     if (!action) return;
-
     action.setAttribute('aria-label', `${label}（当前 ${this.fontSize}%）`);
     action.setAttribute('aria-disabled', disabled ? 'true' : 'false');
     action.classList.toggle('is-disabled', disabled);
@@ -522,79 +517,52 @@ export class ReaderView extends ItemView {
     this.onAnnotationsChangedCallback = callback;
   }
 
+  setOnDeleteAnnotation(callback: (id: string) => void) {
+    this.onDeleteAnnotationCallback = callback;
+  }
+
+  setHighlightColors(colors: import('../constants').HighlightColor[] | undefined) {
+    this.highlightColors = colors;
+    this.render();
+  }
+
   setOnClose(callback: () => void) {
     this.onCloseCallback = callback;
   }
 
-  /** Navigate to a target — updates React state without destroying FoliateViewer */
-  setNavigationTarget(target: NavigationTarget | null) {
-    if (this.apiRef.current) {
-      this.apiRef.current.setNavigationTarget(target);
-    } else {
-      this.pendingNavigationTarget = target;
-    }
-  }
-
-  /** Set external annotations — updates React state without destroying FoliateViewer */
-  setExternalAnnotations(annotations: Annotation[] | null) {
-    this.annotations = annotations ?? [];
-    if (this.apiRef.current) {
-      this.apiRef.current.setExternalAnnotations(annotations);
-    } else {
-      this.render();
-    }
-  }
-
-  async onClose() {
-    this.onCloseCallback?.();
-    this.root.unmount();
-  }
-
-  /** Change the target file — this DOES trigger a full re-mount via root.render() */
+  /** Change the target file — triggers a full re-mount via render() */
   setTargetFile(
     fileName: string | null,
     sourcePath: string | null,
-    annotations: Annotation[] = [],
-    initialNavigationTarget?: NavigationTarget | null,
   ) {
     this.targetFile = fileName;
     this.sourcePath = sourcePath;
-    this.annotations = annotations;
-    this.initialNavigationTarget = initialNavigationTarget ?? null;
     (this.leaf as any)?.updateHeader();
     this.render();
   }
 
-  /** Only called for structural changes (new file).
-   *  Annotation/navigation updates flow through apiRef instead. */
-  private render() {
-    this.root.render(
-      React.createElement(
-        AppContext.Provider,
-        { value: this.app },
-        React.createElement(ReaderViewInner, {
-          targetFile: this.targetFile,
-          sourcePath: this.sourcePath,
-          initialAnnotations: this.annotations,
-          initialNavigationTarget: this.initialNavigationTarget,
-          readerFlowMode: this.readerFlowMode,
-          columnMode: this.columnMode,
-          fontSize: this.fontSize,
-          onOutlineLoaded: (items: OutlineItem[]) => {
-            this.onOutlineLoadedCallback?.(items);
-          },
-          onBookMetadataLoaded: (metadata: BookMetadata) => {
-            this.onBookMetadataLoadedCallback?.(metadata);
-          },
-          onSectionChanged: (section: ReaderSectionState) => {
-            this.onSectionChangedCallback?.(section);
-          },
-          onAnnotationsChanged: (annotations: Annotation[]) => {
-            this.onAnnotationsChangedCallback?.(annotations);
-          },
-          apiRef: this.apiRef,
-        }),
-      ),
-    );
+  protected renderReact() {
+    return React.createElement(ReaderViewInner, {
+      targetFile: this.targetFile,
+      readerFlowMode: this.readerFlowMode,
+      columnMode: this.columnMode,
+      fontSize: this.fontSize,
+      onOutlineLoaded: (items: OutlineItem[]) => {
+        this.onOutlineLoadedCallback?.(items);
+      },
+      onBookMetadataLoaded: (metadata: BookMetadata) => {
+        this.onBookMetadataLoadedCallback?.(metadata);
+      },
+      onSectionChanged: (section: ReaderSectionState) => {
+        this.onSectionChangedCallback?.(section);
+      },
+      onAnnotationsChanged: (annotations: Annotation[]) => {
+        this.onAnnotationsChangedCallback?.(annotations);
+      },
+      onDeleteAnnotation: (id: string) => {
+        this.onDeleteAnnotationCallback?.(id);
+      },
+      highlightColors: this.highlightColors,
+    });
   }
 }

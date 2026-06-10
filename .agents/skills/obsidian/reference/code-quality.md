@@ -9,6 +9,7 @@ Code quality ensures maintainability, reliability, and better user experience.
 - [API Usage Best Practices](#api-usage-best-practices)
 - [Async/Await Patterns](#asyncawait-patterns)
 - [DOM Helpers](#dom-helpers)
+- [Deprecated & Replaceable Packages](#deprecated--replaceable-packages)
 - [Miscellaneous Rules](#miscellaneous-rules)
 
 ---
@@ -123,8 +124,8 @@ Rationale: Avoid using the `navigator` API to detect the operating system. Use O
 
 ---
 
-### Use window.setTimeout and window.setInterval
-Rule: Platform compatibility
+### Use activeWindow.setTimeout and activeWindow.setInterval
+Rule: `obsidianmd/prefer-active-window-timers`
 
 ❌ **INCORRECT**:
 ```typescript
@@ -139,20 +140,20 @@ const interval = setInterval(() => {
 
 ✅ **CORRECT**:
 ```typescript
-const timer: number = window.setTimeout(() => {
+const timer: number = activeWindow.setTimeout(() => {
   // do something
 }, 1000);
 
-const interval: number = window.setInterval(() => {
+const interval: number = activeWindow.setInterval(() => {
   // do something
 }, 1000);
 
 // Clear them with:
-window.clearTimeout(timer);
-window.clearInterval(interval);
+activeWindow.clearTimeout(timer);
+activeWindow.clearInterval(interval);
 ```
 
-Rationale: Use `window.setTimeout/setInterval` with `number` type instead of `NodeJS.Timeout` for browser compatibility.
+Rationale: Use `activeWindow.setTimeout/setInterval` for popout window compatibility. Also use `number` type instead of `NodeJS.Timeout` for browser compatibility.
 
 ---
 
@@ -286,6 +287,40 @@ Rationale: When reconfiguring editor extensions, use `updateOptions()` to flush 
 
 ---
 
+### Target Main Workspace from Settings (v1.13.0+)
+Rule: Multi-window compatibility
+
+As of Obsidian 1.13.0, settings open in a **new window** instead of a modal. Code using `activeDocument` from settings callbacks will get the settings window's document, not the main vault window.
+
+❌ **INCORRECT** (breaks in 1.13.0+):
+```typescript
+// In settings tab or settings callback
+updateMainUI() {
+  // activeDocument points to settings window, not main vault!
+  const container = activeDocument.querySelector('.nav-files-container');
+  container?.addClass('my-plugin-active');
+}
+```
+
+✅ **CORRECT** (works in all versions):
+```typescript
+// In settings tab or settings callback
+updateMainUI() {
+  // Always targets the main workspace window
+  const doc = this.app.workspace.containerEl.ownerDocument;
+  const container = doc.querySelector('.nav-files-container');
+  container?.addClass('my-plugin-active');
+}
+```
+
+**When to use which:**
+- **Main workspace UI** (nav, sidebar, workspace elements): Use `this.app.workspace.containerEl.ownerDocument`
+- **Same-window UI** (modal contents, settings elements): `activeDocument` or `this.containerEl.ownerDocument` both work
+
+Rationale: `workspace.containerEl.ownerDocument` always points to the main vault window regardless of which window triggered the call. This is backwards compatible with older Obsidian versions.
+
+---
+
 ## Async/Await Patterns
 
 ### Prefer async/await over Promise chains
@@ -354,6 +389,41 @@ const fragment = createFragment();
 ```
 
 Rationale: Obsidian's helper functions (`createDiv()`, `createSpan()`, `createEl()`, `createFragment()`) are more concise and integrate better with the API.
+
+---
+
+## Deprecated & Replaceable Packages
+
+The Obsidian community plugin scanner checks for npm packages that have been superseded by Node.js built-ins. Using flagged packages produces warnings that lower your Scorecard score.
+
+### Replace `builtin-modules` with `node:module`
+Rule: Scanner warning — deprecated package
+
+The `builtin-modules` package provides a list of Node.js built-in module names. Node.js has shipped this natively as `module.builtinModules` since v9.3.0.
+
+❌ **INCORRECT** (`esbuild.config.mjs`):
+```javascript
+import builtins from "builtin-modules";
+// ...
+external: [...builtins],
+```
+
+✅ **CORRECT** (`esbuild.config.mjs`):
+```javascript
+import { builtinModules } from "node:module";
+// ...
+external: [...builtinModules],
+```
+
+Then remove `builtin-modules` from `package.json` devDependencies.
+
+### General Guidance
+
+When the scanner flags a package with a "should be replaced with an alternative" warning:
+1. Check [es-tooling/module-replacements](https://github.com/es-tooling/module-replacements) for the recommended replacement
+2. Replace the import with the Node.js built-in or recommended alternative
+3. Remove the flagged package from `package.json`
+4. Verify the build still passes
 
 ---
 

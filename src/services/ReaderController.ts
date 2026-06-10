@@ -1,8 +1,8 @@
 import { App, MarkdownView, TFile, type WorkspaceLeaf } from 'obsidian';
-import type { Annotation, BookMetadata, NavigationTarget, OutlineItem } from '../types/annotations';
-import type { AnnotationIndexService } from '../datacore';
-import type { AnnotationRepository } from './AnnotationRepository';
-import type { ReaderSectionState, ReaderSessionStore } from './ReaderSessionStore';
+import type { Annotation, NavigationTarget } from '../types/annotations';
+import type { AnnotationService } from './AnnotationService';
+import type { ReaderEventBus } from './ReaderEventBus';
+import type { ReaderSessionStore } from './ReaderSessionStore';
 import type { TargetResolver } from './TargetResolver';
 import type { ViewCoordinator } from './ViewCoordinator';
 
@@ -23,11 +23,19 @@ export interface ReaderController {
   deleteAnnotation(id: string): Promise<void>;
 }
 
+/**
+ * 阅读器控制器（瘦协调器）。
+ *
+ * 职责：
+ * - 开关阅读会话（SessionStore.startSession / clearSession）
+ * - 打开/切换视图（ViewCoordinator）
+ * - 路由用户操作到 AnnotationService
+ *
+ * 数据同步：View 通过 useSessionStore() 直接订阅 SessionStore，
+ * 不再需要 Controller 手动推送。
+ */
 export class DefaultReaderController implements ReaderController {
   private currentReaderSourcePath: string | null = null;
-  private persistInProgress = false;
-  /** Unsubscribe from session store when session ends. */
-  private unsubscribeSession: (() => void) | null = null;
   /** Whether callbacks for outline/annotations view have been wired. */
   private outlineCallbacksWired = false;
   private annotationsCallbacksWired = false;
@@ -35,10 +43,10 @@ export class DefaultReaderController implements ReaderController {
   constructor(
     private app: App,
     private targetResolver: TargetResolver,
-    private annotationRepository: AnnotationRepository,
+    private annotationService: AnnotationService,
     private sessionStore: ReaderSessionStore,
     private viewCoordinator: ViewCoordinator,
-    private annotationIndex: AnnotationIndexService,
+    private bus: ReaderEventBus,
   ) {}
 
   async openFromMarkdownLeaf(leaf: WorkspaceLeaf): Promise<void> {
@@ -47,14 +55,12 @@ export class DefaultReaderController implements ReaderController {
     const sourceFile = leaf.view.file;
     if (!sourceFile) return;
 
-    // Pass the leaf so the reader replaces this specific Markdown pane
     await this.openFromSourceFile(sourceFile, null, leaf);
   }
 
   async openFromSourceFile(
     sourceFile: TFile,
     initialNavigationTarget?: NavigationTarget | null,
-    /** The leaf to convert to a reader view (from openFromMarkdownLeaf). */
     targetLeaf?: WorkspaceLeaf,
   ): Promise<void> {
     const target = this.targetResolver.resolve(sourceFile);
@@ -62,41 +68,52 @@ export class DefaultReaderController implements ReaderController {
 
     let annotations: Annotation[] = [];
     try {
-      annotations = await this.annotationRepository.load(sourceFile, target.targetUri);
+      annotations = await this.annotationService.load(sourceFile, target.targetUri);
     } catch (e) {
       console.warn('[Annotator Lite] 加载标注数据失败:', e);
     }
 
-    // Start session (clears previous session + subscribe cleanup)
-    // target.type may be null for unsupported types; but target is only returned
-    // if resolved successfully, so it should always be a valid type here.
     if (!target.type) return;
-    this.sessionStore.startSession({ ...target, type: target.type }, annotations);
-    this.currentReaderSourcePath = target.sourcePath;
 
-    // Subscribe to session changes and push to views
-    this.startSessionSync();
+    // Start session — this is the single state source; views subscribe via useSessionStore
+    this.sessionStore.startSession({ ...target, type: target.type }, annotations);
+
+    // Set initial navigation target in the store (for "show annotation" links)
+    if (initialNavigationTarget) {
+      this.sessionStore.setNavigationTarget(initialNavigationTarget);
+    }
+
+    this.currentReaderSourcePath = target.sourcePath;
 
     const readerView = await this.viewCoordinator.openReader(targetLeaf);
     if (!readerView) return;
 
-    readerView.setTargetFile(
-      target.targetPath,
-      target.sourcePath,
-      annotations,
-      initialNavigationTarget,
+    // Only pass file info — annotations/navigation come from the store
+    readerView.setTargetFile(target.targetPath, target.sourcePath);
+
+    // Pass highlight colors from plugin settings
+    readerView.setHighlightColors(
+      (this.app as any).plugins?.plugins?.['obsidian-annotator-lite']?.settings?.highlightColors,
     );
+
+    // Wire callbacks for FoliateViewer → store updates
     readerView.setOnOutlineLoaded((items) => {
       this.sessionStore.setOutline(items);
+      this.bus.emit('outline:loaded', { items });
     });
     readerView.setOnBookMetadataLoaded((metadata) => {
       this.sessionStore.setMetadata(metadata);
+      this.bus.emit('metadata:loaded', { metadata });
     });
     readerView.setOnSectionChanged((section) => {
       this.sessionStore.setSection(section);
+      this.bus.emit('section:changed', { section });
     });
     readerView.setOnAnnotationsChanged((changedAnnotations) => {
-      this.handleAnnotationsChanged(changedAnnotations);
+      this.annotationService.handleUserAnnotationsChanged(
+        changedAnnotations,
+        this.currentReaderSourcePath,
+      );
     });
     readerView.setOnClose(() => {
       this.closeCurrentSession();
@@ -110,13 +127,13 @@ export class DefaultReaderController implements ReaderController {
   }
 
   closeCurrentSession(): void {
-    this.unsubscribeSession?.();
-    this.unsubscribeSession = null;
     this.viewCoordinator.closeCompanionViews();
     this.currentReaderSourcePath = null;
     this.outlineCallbacksWired = false;
     this.annotationsCallbacksWired = false;
     this.sessionStore.clearSession();
+    this.bus.emit('session:closed', {});
+    this.bus.clear();
   }
 
   revealReader(): void {
@@ -136,7 +153,7 @@ export class DefaultReaderController implements ReaderController {
     const outlineView = this.viewCoordinator.getOutlineView();
     if (!outlineView) return;
 
-    // Wire callbacks once per session (toggle keeps the same view instance)
+    // Wire action callbacks once per session
     if (!this.outlineCallbacksWired) {
       this.outlineCallbacksWired = true;
       outlineView.setOnNavigate((target) => {
@@ -146,15 +163,7 @@ export class DefaultReaderController implements ReaderController {
         this.revealReader();
       });
     }
-
-    // Push initial data from session
-    const state = this.sessionStore.getSnapshot();
-    if (state) {
-      outlineView.setOutline(state.outline);
-      if (state.metadata) {
-        outlineView.setBookMetadata(state.metadata);
-      }
-    }
+    // Data comes from the store via useSessionStore — no manual push needed
   }
 
   async toggleAnnotations(): Promise<void> {
@@ -162,7 +171,7 @@ export class DefaultReaderController implements ReaderController {
     const annotationsView = this.viewCoordinator.getAnnotationsView();
     if (!annotationsView) return;
 
-    // Wire callbacks once per session
+    // Wire action callbacks once per session
     if (!this.annotationsCallbacksWired) {
       this.annotationsCallbacksWired = true;
       annotationsView.setOnNavigate((target) => {
@@ -178,17 +187,13 @@ export class DefaultReaderController implements ReaderController {
         void this.deleteAnnotation(id);
       });
     }
-
-    // Push initial data from session
-    const state = this.sessionStore.getSnapshot();
-    if (state) {
-      annotationsView.setAnnotations(state.annotations);
-    }
+    // Data comes from the store via useSessionStore — no manual push needed
   }
 
   navigateToTarget(target: NavigationTarget): void {
     this.sessionStore.setNavigationTarget(target);
-    this.viewCoordinator.getReaderView()?.setNavigationTarget(target);
+    // View reads from store via useSessionStore — no direct view call needed
+    this.bus.emit('navigation:target', { target });
   }
 
   async navigateToAnnotation(annotationId: string): Promise<void> {
@@ -201,7 +206,7 @@ export class DefaultReaderController implements ReaderController {
 
     let annotations: Annotation[] = [];
     try {
-      annotations = await this.annotationRepository.load(sourceFile, null);
+      annotations = await this.annotationService.load(sourceFile, null);
     } catch (e) {
       console.warn('[Annotator Lite] 加载标注数据失败:', e);
       return;
@@ -219,18 +224,15 @@ export class DefaultReaderController implements ReaderController {
 
     const navTarget: NavigationTarget = { href: annotation.cfiRange };
 
-    // 如果阅读器不存在，或者阅读器存在但显示的是不同的书籍，都需要重新打开
     const needOpen =
       !this.viewCoordinator.getReaderView() || this.currentReaderSourcePath !== sourceFile.path;
 
     if (needOpen) {
-      // 将导航目标作为初始目标传递，FoliateViewer 在 init() 后直接跳转，无闪现
-      // Pass the active markdown leaf so the reader replaces it
       await this.openFromSourceFile(sourceFile, navTarget, activeView.leaf);
       return;
     }
 
-    // 阅读器已打开且显示的是同一本书，直接导航
+    // Reader is open with the same book — just navigate
     if (this.currentReaderSourcePath === sourceFile.path) {
       this.sessionStore.setAnnotations(annotations);
     }
@@ -239,100 +241,12 @@ export class DefaultReaderController implements ReaderController {
   }
 
   async updateAnnotation(id: string, updates: Partial<Annotation>): Promise<void> {
-    const state = this.sessionStore.getSnapshot();
-    if (!state || !this.currentReaderSourcePath) return;
-
-    const idx = state.annotations.findIndex((a) => a.id === id);
-    if (idx === -1) return;
-
-    const updated = {
-      ...state.annotations[idx],
-      ...updates,
-      updated: new Date().toISOString(),
-    };
-    const newAnnotations = [...state.annotations];
-    newAnnotations[idx] = updated;
-
-    await this.persistAnnotations(newAnnotations);
+    if (!this.currentReaderSourcePath) return;
+    await this.annotationService.update(id, updates, this.currentReaderSourcePath);
   }
 
   async deleteAnnotation(id: string): Promise<void> {
     if (!this.currentReaderSourcePath) return;
-
-    const state = this.sessionStore.getSnapshot();
-    if (!state) return;
-
-    const newAnnotations = state.annotations.filter((a) => a.id !== id);
-    await this.persistAnnotations(newAnnotations);
-  }
-
-  private handleAnnotationsChanged(changedAnnotations: Annotation[]): void {
-    if (this.persistInProgress) return;
-
-    const state = this.sessionStore.getSnapshot();
-    if (!state) return;
-
-    const oldAnnotations = state.annotations;
-    const hasChanged =
-      changedAnnotations.length !== oldAnnotations.length ||
-      changedAnnotations.some(
-        (a, i) => a.id !== oldAnnotations[i]?.id || a.text !== oldAnnotations[i]?.text,
-      );
-
-    if (!hasChanged) return;
-
-    this.sessionStore.setAnnotations(changedAnnotations);
-    void this.persistAnnotations(changedAnnotations);
-  }
-
-  /**
-   * Subscribe session store → push state to side-panel views.
-   * Called once when session starts; cleanup on session close.
-   */
-  private startSessionSync(): void {
-    this.unsubscribeSession?.();
-    this.unsubscribeSession = this.sessionStore.subscribe((state) => {
-      if (!state) return;
-
-      // Push to already-open views (if toggled)
-      const outlineView = this.viewCoordinator.getOutlineView();
-      if (outlineView) {
-        outlineView.setOutline(state.outline);
-        if (state.metadata) {
-          outlineView.setBookMetadata(state.metadata);
-        }
-      }
-
-      const annotationsView = this.viewCoordinator.getAnnotationsView();
-      if (annotationsView) {
-        annotationsView.setAnnotations(state.annotations);
-      }
-    });
-  }
-
-  private async persistAnnotations(annotations: Annotation[]): Promise<void> {
-    if (!this.currentReaderSourcePath) {
-      this.sessionStore.setAnnotations(annotations);
-      return;
-    }
-
-    this.persistInProgress = true;
-
-    try {
-      const file = this.app.vault.getAbstractFileByPath(this.currentReaderSourcePath);
-      if (!(file instanceof TFile)) {
-        this.sessionStore.setAnnotations(annotations);
-        return;
-      }
-
-      await this.annotationRepository.save(file, annotations);
-      this.sessionStore.setAnnotations(annotations);
-      this.annotationIndex.rebuildIndex(this.currentReaderSourcePath, annotations);
-      this.viewCoordinator.getReaderView()?.setExternalAnnotations(annotations);
-    } catch (e) {
-      console.error('Failed to persist annotations:', e);
-    } finally {
-      this.persistInProgress = false;
-    }
+    await this.annotationService.delete(id, this.currentReaderSourcePath);
   }
 }
