@@ -7,6 +7,7 @@ export interface NoteModalResult {
 
 export class NoteModal extends Modal {
   private note = '';
+  private saved = false;
   private resolvePromise!: (value: NoteModalResult) => void;
   private promise: Promise<NoteModalResult>;
 
@@ -41,7 +42,7 @@ export class NoteModal extends Modal {
       }
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
-        this.resolvePromise({ note: this.note, cancelled: false });
+        this.saved = true;
         this.close();
       }
     });
@@ -52,13 +53,12 @@ export class NoteModal extends Modal {
           .setButtonText('保存')
           .setCta()
           .onClick(() => {
-            this.resolvePromise({ note: this.note, cancelled: false });
+            this.saved = true;
             this.close();
           });
       })
       .addButton((btn) => {
         btn.setButtonText('取消').onClick(() => {
-          this.resolvePromise({ note: '', cancelled: true });
           this.close();
         });
       });
@@ -69,6 +69,6 @@ export class NoteModal extends Modal {
   }
 
   onClose(): void {
-    this.resolvePromise({ note: this.note, cancelled: true });
+    this.resolvePromise({ note: this.saved ? this.note : '', cancelled: !this.saved });
   }
 }
