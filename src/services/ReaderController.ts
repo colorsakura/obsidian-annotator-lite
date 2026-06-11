@@ -200,9 +200,7 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
     }
 
     // Reader is open with the same book — just navigate
-    if (this.currentReaderSourcePath === sourceFile.path) {
-      this.sessionStore.setAnnotations(annotations);
-    }
+    this.sessionStore.setAnnotations(annotations);
     this.navigateToTarget(navTarget);
     this.viewCoordinator.revealReader();
   }
