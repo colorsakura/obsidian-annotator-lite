@@ -60,7 +60,7 @@ declare module 'foliate-js/view.js' {
     detail: {
       fraction: number;
       section: { current: number; total: number };
-      location: { current: { index: number; href: string }; next?: { index: number; href: string }; total: number };
+      location: { current: number; next: number; total: number };
       time: { section: number; total: number };
       tocItem?: { label: string; href: string };
       pageItem?: { label: string };
@@ -77,7 +77,7 @@ declare module 'foliate-js/view.js' {
 
   interface FoliateDrawAnnotationEvent extends CustomEvent {
     detail: {
-      draw: (annotation: { value: string; color: string }) => void;
+      draw: (drawFunc: (range: Range, options: { color: string }) => SVGGraphicsElement[], options?: { color: string }) => void;
       annotation: { value: string; text: string; color: string };
       doc: Document;
       range: Range;
