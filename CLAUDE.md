@@ -65,15 +65,15 @@ Plugin (main.ts)
 
 1. **打开阅读器**：用户点击 Markdown 文件中右键菜单的 "Annotate" → `ReaderController.openFromMarkdownLeaf()` → `TargetResolver` 解析 `annotation-target` → `ViewCoordinator.openReader()` 替换当前 Markdown leaf 为 `ReaderView` → `ReaderView.setTargetFile()` 触发 React root.render() → `ReaderViewInner` 订阅 SessionStore → `FoliateViewer` 用 foliate-js 打开文件
 
-2. **标注持久化**：`FoliateViewer` 内部的 `useContextMenu` hook 监听 iframe contextmenu → PC 端走 `useDesktopMenu`（自定义 React SelectionMenu），移动端走 `useMobileMenu`（Obsidian Menu 回退） → 用户选择颜色/添加笔记 → `onAddAnnotation` 回调 → `ReaderViewInner` 更新 localAnnotations → 通过 `bus.emit('view:annotations-changed')` 通知 Controller → `AnnotationService.handleUserAnnotationsChanged()` → `AnnotationRepository.save()` 写入 Markdown 文件（`vault.process`） → `ReaderSessionStore` 更新状态 → 通过 `ReaderStoreContext` 同步到所有 React 组件
+2. **标注持久化**：`FoliateViewer` 内部的 `useContextMenu` hook 监听 iframe contextmenu → PC 端走 `useSelectionMenu`（自定义 React `SelectionMenu` 组件，通过 `createPortal` 渲染），移动端走 `useMobileMenu`（Obsidian Menu 回退） → 用户选择颜色/添加笔记 → `onAddAnnotation` 回调 → `ReaderViewInner` 更新 localAnnotations → 通过 `bus.emit('view:annotations-changed')` 通知 Controller → `AnnotationService.handleUserAnnotationsChanged()` → `AnnotationRepository.save()` 写入 Markdown 文件（`vault.process`） → `ReaderSessionStore` 更新状态 → 通过 `ReaderStoreContext` 同步到所有 React 组件
 
-3. **事件通信**：`ReaderEventBus` 提供类型安全的事件发布/订阅机制。事件分两类：
-   - **Controller → View**（通过 SessionStore 广播）：`annotations:changed`、`navigation:target`、`outline:loaded`、`metadata:loaded`、`section:changed`、`session:closed`、`view:switch`
+3. **事件通信**：`ReaderEventBus` 提供类型安全的事件发布/订阅机制。事件单向流动：
    - **View → Controller**（通过 bus.emit）：`view:outline-loaded`、`view:metadata-loaded`、`view:section-changed`、`view:annotations-changed`、`view:session-close`
+   - **Controller → View**：通过 `ReaderSessionStore` 广播状态变化，View 通过 `useSessionStore()` / `useSessionField()` 订阅
 
 4. **标注格式**：使用 obsidian-annotator 兼容的 blockquote 格式，嵌入 `%%annotation-json%%` 代码块，以 `^annotationId` 结尾
 
-5. **选择菜单系统**：采用分层架构——`useContextMenu` 作为分发器，根据 `Platform.isDesktop` 选择 `useDesktopMenu`（自定义 React `SelectionMenu` 组件，通过 `createPortal` 渲染）或 `useMobileMenu`（Obsidian 原生 `Menu`）。`foliateSelection.ts` 提供移动端的 `showSelectionMenu()` 函数和 `NoteModal` 弹窗
+5. **选择菜单系统**：采用分层架构——`useContextMenu` 作为分发器，根据 `Platform.isDesktop` 选择 `useSelectionMenu`（自定义 React `SelectionMenu` 组件，通过 `createPortal` 渲染）或 `useMobileMenu`（Obsidian 原生 `Menu`）。`foliateSelection.ts` 提供移动端的 `showSelectionMenu()` 函数和 `NoteModal` 弹窗
 
 ### 关键设计决策
 
@@ -108,10 +108,9 @@ Plugin (main.ts)
 | `useBookLoader`          | 加载书籍文件，处理 foliate-js 打开流程                        |
 | `useAnnotationRendering` | 标注渲染和高亮显示（渲染层）                                  |
 | `useAnnotationOverlays`  | 标注覆盖层管理（叠加层）                                      |
-| `useContextMenu`         | 右键菜单分发器（PC → useDesktopMenu，移动端 → useMobileMenu） |
-| `useDesktopMenu`         | PC 端自定义 React 选择菜单（委托 useSelectionMenu）           |
-| `useMobileMenu`          | 移动端 Obsidian Menu 回退                                     |
+| `useContextMenu`         | 右键菜单分发器（PC → useSelectionMenu，移动端 → useMobileMenu）|
 | `useSelectionMenu`       | 选择菜单核心逻辑（contextmenu 监听、坐标转换、标注检测）      |
+| `useMobileMenu`          | 移动端 Obsidian Menu 回退                                     |
 | `useNavigationTarget`    | 导航目标跳转（点击目录/标注跳转）                             |
 | `useSectionTarget`       | 章节目标跳转                                                  |
 | `usePageTurnTarget`      | 翻页控制                                                      |
@@ -138,6 +137,13 @@ Plugin (main.ts)
 | `foliateNavigation.ts`   | foliate-js 导航逻辑（CFI 跳转、章节切换）    |
 | `foliateSelection.ts`    | 选择处理（CFI 提取、上下文提取、移动端菜单） |
 
+### 其他关键模块
+
+| 模块                       | 位置                                  | 职责                                                |
+| -------------------------- | ------------------------------------- | --------------------------------------------------- |
+| `readerHeader.ts`          | `src/views/readerHeader.ts`           | ReaderView header 按钮逻辑（滚动/分页、单列/双列、字体大小）|
+| `foliate-js.d.ts`          | `src/types/foliate-js.d.ts`           | foliate-js 类型定义（FoliateView、Book、Renderer 等）|
+
 ### 插件设置系统
 
 设置通过 `AnnotatorLiteSettings` 接口定义（`src/services/Settings.ts`）：
@@ -145,10 +151,13 @@ Plugin (main.ts)
 ```typescript
 interface AnnotatorLiteSettings {
   highlightColors: HighlightColor[]; // 自定义高亮颜色列表
+  defaultFontSize: number;           // 默认字体大小百分比（80-160）
+  defaultColumnMode: ColumnMode;     // 默认分栏模式（'single' | 'double'）
+  defaultFlowMode: ReaderFlowMode;   // 默认翻页模式（'paginated' | 'scrolled'）
 }
 ```
 
-设置在 `main.ts` 中通过 `loadData()`/`saveData()` 持久化，并通过 `SettingTab` 提供 UI 配置界面。`FoliateViewer` 通过 props 接收 `highlightColors` 并传递给 `useContextMenu`。
+设置在 `main.ts` 中通过 `loadData()`/`saveData()` 持久化，并通过 `SettingTab` 提供 UI 配置界面。`ReaderController` 在打开阅读器时将设置传递给 `ReaderView`，`ReaderView` 在 `setTargetFile()` 时重置为插件默认值。
 
 ### 关键符号速查
 
@@ -172,13 +181,12 @@ interface AnnotatorLiteSettings {
 | `SelectionMenu`                | `src/components/SelectionMenu.tsx`      | 自定义右键菜单（颜色选择、笔记、删除）              |
 | `SectionIndicator`             | `src/components/SectionIndicator.tsx`   | 章节导航指示器（上/下一章按钮）                     |
 | `NoteModal`                    | `src/components/NoteModal.ts`           | 添加笔记弹窗（移动端使用）                          |
-| `useContextMenu`               | `src/viewers/hooks/useContextMenu.ts`   | 右键菜单分发器（PC/移动端）                         |
-| `useDesktopMenu`               | `src/viewers/hooks/useDesktopMenu.ts`   | PC 端菜单（委托 useSelectionMenu）                  |
+| `useContextMenu`               | `src/viewers/hooks/useContextMenu.ts`   | 右键菜单分发器（PC → useSelectionMenu，移动端 → useMobileMenu）|
+| `useSelectionMenu`             | `src/viewers/hooks/useSelectionMenu.ts` | 选择菜单核心逻辑（contextmenu 监听、坐标转换、标注检测）|
 | `useMobileMenu`                | `src/viewers/hooks/useMobileMenu.ts`    | 移动端菜单（Obsidian Menu）                         |
-| `useSelectionMenu`             | `src/viewers/hooks/useSelectionMenu.ts` | 选择菜单核心逻辑                                    |
 | `ReaderStoreContext`           | `src/contexts/ReaderStoreContext.ts`    | ReaderSessionStore 的 React Context                 |
 | `ReaderAPIContext`             | `src/contexts/ReaderAPIContext.ts`      | ReaderAPI 的 React Context + useReader() hook       |
-| `AnnotatorLiteSettings`        | `src/services/Settings.ts`              | 插件设置接口（高亮颜色配置）                        |
+| `AnnotatorLiteSettings`        | `src/services/Settings.ts`              | 插件设置接口（高亮颜色、字体大小、分栏、翻页模式）  |
 | `HighlightColor`               | `src/constants.ts`                      | 高亮颜色类型定义                                    |
 | `markdownStorage.ts`           | `src/utils/markdownStorage.ts`          | 标注 ↔ Markdown 格式转换                            |
 | `constants.ts`                 | `src/constants.ts`                      | 视图类型常量、前置元字段名、图标名、默认高亮颜色    |
