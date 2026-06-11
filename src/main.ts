@@ -53,7 +53,7 @@ export default class AnnotatorLitePlugin extends Plugin {
 
     // 初始化 Datacore 适配器和标注索引服务
     this.datacoreAdapter = new DatacoreAdapter(this.app);
-    this.annotationIndex = new AnnotationIndexService(this.datacoreAdapter);
+    this.annotationIndex = new AnnotationIndexService();
     this.annotationRepository = new MarkdownAnnotationRepository(this.app.vault);
     this.targetResolver = new ObsidianTargetResolver(this.app, (propertyName, file) =>
       this.getPropertyValue(propertyName, file),

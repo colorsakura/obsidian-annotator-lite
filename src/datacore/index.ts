@@ -1,2 +1,2 @@
 export { DatacoreAdapter } from './adapter';
-export { AnnotationIndexService, type AnnotationIndexEntry } from './annotationIndex';
+export { AnnotationIndexService } from './annotationIndex';
