@@ -8,8 +8,9 @@ declare module 'foliate-js/view.js' {
     prev(): void;
     getCFI(index: number, range: Range): string;
     resolveNavigation(cfiRange: string): { index: number };
-    addAnnotation(annotation: { value: string; text: string; color: string }): void;
+    addAnnotation(annotation: { value: string; text: string; color: string }, remove?: boolean): Promise<void>;
     deleteAnnotation(annotation: { value: string }): void;
+    showAnnotation(annotation: { value: string }): Promise<void>;
 
     book: FoliateBook;
     renderer: FoliateRenderer;
@@ -18,6 +19,7 @@ declare module 'foliate-js/view.js' {
   }
 
   interface FoliateBook {
+    dir: 'ltr' | 'rtl';
     sections: FoliateSection[];
     rendition: FoliateRendition;
     metadata?: Record<string, string | undefined>;
@@ -46,7 +48,6 @@ declare module 'foliate-js/view.js' {
     getContents(): FoliateContent[];
     atStart: boolean;
     atEnd: boolean;
-    tagName: string;
     setStyles(css: string): void;
   }
 
@@ -57,11 +58,14 @@ declare module 'foliate-js/view.js' {
 
   interface FoliateRelocateEvent extends CustomEvent {
     detail: {
-      index: number;
-      total: number;
-      label: string;
-      canGoPrev: boolean;
-      canGoNext: boolean;
+      fraction: number;
+      section: { current: number; total: number };
+      location: { current: { index: number; href: string }; next?: { index: number; href: string }; total: number };
+      time: { section: number; total: number };
+      tocItem?: { label: string; href: string };
+      pageItem?: { label: string };
+      cfi?: string;
+      range?: Range;
     };
   }
 
@@ -73,16 +77,16 @@ declare module 'foliate-js/view.js' {
 
   interface FoliateDrawAnnotationEvent extends CustomEvent {
     detail: {
-      value: string;
-      color: string;
+      draw: (annotation: { value: string; color: string }) => void;
+      annotation: { value: string; text: string; color: string };
+      doc: Document;
+      range: Range;
     };
   }
 
   interface FoliateCreateOverlayEvent extends CustomEvent {
     detail: {
-      value: string;
-      text: string;
-      color: string;
+      index: number;
     };
   }
 }
