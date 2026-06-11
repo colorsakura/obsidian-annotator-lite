@@ -12,10 +12,7 @@ const SUPPORTED_READER_TYPES = [
   'cbz',
 ] as const satisfies readonly ReaderTargetType[];
 
-const ANNOTATABLE_READER_TYPES = [
-  'pdf',
-  'epub',
-] as const satisfies readonly ReaderTargetType[];
+const ANNOTATABLE_READER_TYPES = ['pdf', 'epub'] as const satisfies readonly ReaderTargetType[];
 
 type ResolvedReaderTarget = Omit<ReaderTarget, 'type'> & {
   type: ReaderTargetType | null;

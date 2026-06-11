@@ -8,7 +8,10 @@ declare module 'foliate-js/view.js' {
     prev(): void;
     getCFI(index: number, range: Range): string;
     resolveNavigation(cfiRange: string): { index: number };
-    addAnnotation(annotation: { value: string; text: string; color: string }, remove?: boolean): Promise<void>;
+    addAnnotation(
+      annotation: { value: string; text: string; color: string },
+      remove?: boolean,
+    ): Promise<void>;
     deleteAnnotation(annotation: { value: string }): void;
     showAnnotation(annotation: { value: string }): Promise<void>;
 
@@ -77,7 +80,10 @@ declare module 'foliate-js/view.js' {
 
   interface FoliateDrawAnnotationEvent extends CustomEvent {
     detail: {
-      draw: (drawFunc: (range: Range, options: { color: string }) => SVGGraphicsElement[], options?: { color: string }) => void;
+      draw: (
+        drawFunc: (range: Range, options: { color: string }) => SVGGraphicsElement[],
+        options?: { color: string },
+      ) => void;
       annotation: { value: string; text: string; color: string };
       doc: Document;
       range: Range;

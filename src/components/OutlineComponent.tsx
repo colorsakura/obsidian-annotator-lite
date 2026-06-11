@@ -97,12 +97,7 @@ export const OutlineComponent: React.FC<OutlineComponentProps> = ({
       ) : (
         <div className="annotator-outline-tree">
           {items.map((item, i) => (
-            <OutlineNodeItem
-              key={`d0-${i}`}
-              item={item}
-              depth={0}
-              onNavigate={onNavigate}
-            />
+            <OutlineNodeItem key={`d0-${i}`} item={item} depth={0} onNavigate={onNavigate} />
           ))}
         </div>
       )}
