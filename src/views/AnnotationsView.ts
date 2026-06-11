@@ -34,9 +34,6 @@ export class AnnotationsView extends BaseReactView<object> {
   }
 
   async onOpen() {
-    this.addAction('file-text', 'Open reading view', () => {
-      // Header button — will be wired via useReader() in Phase 2
-    });
     this.render();
   }
 
