@@ -33,9 +33,9 @@ export function setupReaderHeader(
     '切换滚动模式',
     callbacks.toggleReaderFlowMode,
   );
+  const columnModeAction = view.addAction('columns', '切换为单列', callbacks.toggleColumnMode);
   const decreaseFontSizeAction = view.addAction('zoom-out', '减小字体', callbacks.decreaseFontSize);
   const increaseFontSizeAction = view.addAction('zoom-in', '增大字体', callbacks.increaseFontSize);
-  const columnModeAction = view.addAction('columns', '切换为单列', callbacks.toggleColumnMode);
   const comebackAction = view.addAction('left-arrow', '返回笔记', callbacks.goBack);
 
   const setupHeader = () => {
@@ -49,14 +49,6 @@ export function setupReaderHeader(
       leftGroup.prepend(outlineAction);
     } else {
       header.prepend(outlineAction);
-    }
-    const viewActions = header.querySelector('.view-actions');
-    if (viewActions) {
-      viewActions.appendChild(decreaseFontSizeAction);
-      viewActions.appendChild(increaseFontSizeAction);
-      viewActions.appendChild(columnModeAction);
-      viewActions.appendChild(readerFlowModeAction);
-      viewActions.appendChild(annotationsAction);
     }
   };
 
