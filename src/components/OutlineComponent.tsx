@@ -10,9 +10,8 @@ interface OutlineComponentProps {
 const OutlineNodeItem: React.FC<{
   item: OutlineItem;
   depth: number;
-  index: number; // position among siblings, used in key construction
   onNavigate: (target: NavigationTarget) => void;
-}> = ({ item, depth, index: _index, onNavigate }) => {
+}> = ({ item, depth, onNavigate }) => {
   const [expanded, setExpanded] = useState(true);
   const hasChildren = item.children.length > 0;
 
@@ -46,7 +45,6 @@ const OutlineNodeItem: React.FC<{
             key={`d${depth + 1}-${i}`}
             item={child}
             depth={depth + 1}
-            index={i}
             onNavigate={onNavigate}
           />
         ))}
@@ -103,7 +101,6 @@ export const OutlineComponent: React.FC<OutlineComponentProps> = ({
               key={`d0-${i}`}
               item={item}
               depth={0}
-              index={i}
               onNavigate={onNavigate}
             />
           ))}
