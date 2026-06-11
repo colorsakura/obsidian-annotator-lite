@@ -9,7 +9,7 @@ export interface LoadedBookInfo {
 /**
  * Convert foliate-js TOC items to our OutlineItem type.
  */
-export function convertFoliateToc(items: any[] | undefined): OutlineItem[] {
+function convertFoliateToc(items: any[] | undefined): OutlineItem[] {
   if (!items) return [];
   return items
     .filter((item: any) => item && item.label)
@@ -24,7 +24,7 @@ export function convertFoliateToc(items: any[] | undefined): OutlineItem[] {
  * Extract a plain string from a foliate-js metadata value.
  * Values can be a plain string, a LanguageMap object, or null.
  */
-export function extractMetadataString(v: unknown): string | null {
+function extractMetadataString(v: unknown): string | null {
   if (!v) return null;
   if (typeof v === 'string') return v;
   if (typeof v === 'object' && !Array.isArray(v))

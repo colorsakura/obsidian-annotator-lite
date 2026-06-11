@@ -30,7 +30,7 @@ const _textMap = new Map<string, string>();
 const _origCreateObjectURL = URL.createObjectURL.bind(URL);
 let _blobPatchActive = false;
 
-export function enableBlobPatch() {
+function enableBlobPatch() {
   if (_blobPatchActive) return;
   _blobPatchActive = true;
   URL.createObjectURL = function (blob: Blob): string {
@@ -40,7 +40,7 @@ export function enableBlobPatch() {
   };
 }
 
-export function disableBlobPatch() {
+function disableBlobPatch() {
   if (!_blobPatchActive) return;
   URL.createObjectURL = _origCreateObjectURL;
   _blobPatchActive = false;

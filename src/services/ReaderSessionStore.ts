@@ -26,7 +26,7 @@ export interface ReaderSessionState {
   navigationTarget: NavigationTarget | null;
 }
 
-export type ReaderSessionListener = (state: ReaderSessionState | null) => void;
+type ReaderSessionListener = (state: ReaderSessionState | null) => void;
 
 export class ReaderSessionStore {
   private state: ReaderSessionState | null = null;

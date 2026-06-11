@@ -2,7 +2,7 @@ import { App, normalizePath, TFile } from 'obsidian';
 import { ANNOTATION_TARGET_PROPERTY } from '../constants';
 import type { ReaderTarget, ReaderTargetType } from './ReaderSessionStore';
 
-export const SUPPORTED_READER_TYPES = [
+const SUPPORTED_READER_TYPES = [
   'pdf',
   'epub',
   'mobi',
@@ -12,12 +12,12 @@ export const SUPPORTED_READER_TYPES = [
   'cbz',
 ] as const satisfies readonly ReaderTargetType[];
 
-export const ANNOTATABLE_READER_TYPES = [
+const ANNOTATABLE_READER_TYPES = [
   'pdf',
   'epub',
 ] as const satisfies readonly ReaderTargetType[];
 
-export type ResolvedReaderTarget = Omit<ReaderTarget, 'type'> & {
+type ResolvedReaderTarget = Omit<ReaderTarget, 'type'> & {
   type: ReaderTargetType | null;
 };
 
@@ -72,7 +72,7 @@ export class ObsidianTargetResolver implements TargetResolver {
   }
 }
 
-export function getReaderTargetType(targetPath: string): ReaderTargetType | null {
+function getReaderTargetType(targetPath: string): ReaderTargetType | null {
   const extension = targetPath.split('.').pop()?.toLowerCase();
   if (!extension) return null;
   return isReaderTargetType(extension) ? extension : null;
