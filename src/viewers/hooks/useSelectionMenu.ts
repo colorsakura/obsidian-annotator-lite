@@ -261,7 +261,6 @@ export function useSelectionMenu(opts: {
       onHighlight: handleHighlight,
       onAddNote: handleAddNote,
       onDelete: handleDelete,
-      onClose: handleClose,
     },
     menuRef,
   };
