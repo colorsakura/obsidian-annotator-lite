@@ -7,6 +7,7 @@ import {
   READER_FONT_SIZE_MIN,
   READER_FONT_SIZE_MAX,
   READER_FONT_SIZE_STEP,
+  READER_FONT_SIZE_DEFAULT,
 } from '../constants';
 import { BaseReactView } from './BaseReactView';
 import { getReaderAPI } from '../contexts/ReaderAPIContext';
@@ -25,11 +26,11 @@ export class ReaderView extends BaseReactView<object> {
   /** Plugin default settings — set by ReaderController before setTargetFile(). */
   defaultFlowMode: ReaderFlowMode = 'paginated';
   defaultColumnMode: ColumnMode = 'double';
-  defaultFontSize = 100;
+  defaultFontSize = READER_FONT_SIZE_DEFAULT;
 
   private readerFlowMode: ReaderFlowMode = 'paginated';
   private columnMode: ColumnMode = 'double';
-  private fontSize = 100;
+  private fontSize = READER_FONT_SIZE_DEFAULT;
   private headerHandle: ReaderHeaderHandle | null = null;
 
   constructor(leaf: WorkspaceLeaf) {
