@@ -1,23 +1,8 @@
-import type { Annotation, BookMetadata, NavigationTarget, OutlineItem } from '../types/annotations';
+import type { Annotation, BookMetadata, OutlineItem } from '../types/annotations';
 import type { ReaderSectionState } from './ReaderSessionStore';
 
 // ─── Event map ────────────────────────────────────────────────────────────
 export interface ReaderEventMap {
-  /** 标注发生变化（用户操作或外部更新） */
-  'annotations:changed': { annotations: Annotation[]; source: 'user' | 'external' };
-  /** 导航目标变化（点击目录/标注跳转） */
-  'navigation:target': { target: NavigationTarget };
-  /** 目录加载完成 */
-  'outline:loaded': { items: OutlineItem[] };
-  /** 书籍元数据加载完成 */
-  'metadata:loaded': { metadata: BookMetadata };
-  /** 章节位置变化 */
-  'section:changed': { section: ReaderSectionState };
-  /** 会话关闭 */
-  'session:closed': Record<string, never>;
-  /** 切换视图 */
-  'view:switch': { to: 'outline' | 'annotations' | 'reader' };
-
   // ── View → Controller 事件（由 View emit，Controller 监听） ──────────
   'view:outline-loaded': { items: OutlineItem[] };
   'view:metadata-loaded': { metadata: BookMetadata };

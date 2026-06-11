@@ -65,7 +65,6 @@ export default class AnnotatorLitePlugin extends Plugin {
       this.annotationRepository,
       this.annotationIndex,
       this.sessionStore,
-      bus,
     );
     this.readerController = new DefaultReaderController(
       this.app,

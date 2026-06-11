@@ -111,7 +111,6 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
     this.viewCoordinator.closeCompanionViews();
     this.currentReaderSourcePath = null;
     this.sessionStore.clearSession();
-    this.bus.emit('session:closed', {});
     this.bus.clear();
   }
 
@@ -162,8 +161,6 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
 
   navigateToTarget(target: NavigationTarget): void {
     this.sessionStore.setNavigationTarget(target);
-    // View reads from store via useSessionStore — no direct view call needed
-    this.bus.emit('navigation:target', { target });
   }
 
   async navigateToAnnotation(annotationId: string): Promise<void> {

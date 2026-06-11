@@ -2,7 +2,6 @@ import { App, TFile } from 'obsidian';
 import type { Annotation } from '../types/annotations';
 import type { AnnotationIndexService } from '../datacore';
 import type { AnnotationRepository } from './AnnotationRepository';
-import type { ReaderEventBus } from './ReaderEventBus';
 import type { ReaderSessionStore } from './ReaderSessionStore';
 
 /**
@@ -23,7 +22,6 @@ export class AnnotationService {
     private repository: AnnotationRepository,
     private annotationIndex: AnnotationIndexService,
     private sessionStore: ReaderSessionStore,
-    private bus: ReaderEventBus,
   ) {}
 
   /**
@@ -85,10 +83,6 @@ export class AnnotationService {
     if (!hasChanged) return;
 
     this.sessionStore.setAnnotations(changedAnnotations);
-    this.bus.emit('annotations:changed', {
-      annotations: changedAnnotations,
-      source: 'user',
-    });
     void this.persist(changedAnnotations, sourcePath);
   }
 
@@ -114,10 +108,6 @@ export class AnnotationService {
       await this.repository.save(file, annotations);
       this.sessionStore.setAnnotations(annotations);
       this.annotationIndex.rebuildIndex(sourcePath, annotations);
-      this.bus.emit('annotations:changed', {
-        annotations,
-        source: 'external',
-      });
     } catch (e) {
       console.error('Failed to persist annotations:', e);
     } finally {
