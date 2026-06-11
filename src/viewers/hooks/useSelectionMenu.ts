@@ -18,7 +18,6 @@ export interface SelectionMenuActions {
   onHighlight: (color: string) => void;
   onAddNote: () => void;
   onDelete: (annotationId: string) => void;
-  onClose: () => void;
 }
 
 export function useSelectionMenu(opts: {
@@ -60,6 +59,7 @@ export function useSelectionMenu(opts: {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
+        pendingRef.current = null;
         setMenuState(null);
       }
     };
@@ -72,6 +72,7 @@ export function useSelectionMenu(opts: {
     if (!menuState?.visible) return;
     const handleClick = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        pendingRef.current = null;
         setMenuState(null);
       }
     };
@@ -253,11 +254,6 @@ export function useSelectionMenu(opts: {
     },
     [onDeleteAnnotation],
   );
-
-  const handleClose = useCallback(() => {
-    pendingRef.current = null;
-    setMenuState(null);
-  }, []);
 
   return {
     menuState,
