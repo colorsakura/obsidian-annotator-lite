@@ -21,7 +21,7 @@ export function setupReaderHeader(
   callbacks: ReaderHeaderCallbacks,
 ): ReaderHeaderHandle {
   const outlineAction = view.addAction('list-tree', 'Open outline', callbacks.toggleOutline);
-  const annotationsAction = view.addAction(
+  view.addAction(
     'highlighter',
     'Open annotations',
     callbacks.toggleAnnotations,
@@ -45,7 +45,6 @@ export function setupReaderHeader(
     if (leftGroup) {
       leftGroup.prepend(comebackAction);
       leftGroup.prepend(outlineAction);
-      leftGroup.prepend(annotationsAction);
     } else {
       header.prepend(outlineAction);
     }
