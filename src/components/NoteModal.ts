@@ -17,9 +17,6 @@ export class NoteModal extends Modal {
     });
 
     this.titleEl.setText('添加笔记');
-    this.setCloseCallback(() => {
-      this.resolvePromise({ note: '', cancelled: true });
-    });
 
     const textarea = this.contentEl.createEl('textarea', {
       attr: {
