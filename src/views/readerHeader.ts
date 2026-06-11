@@ -1,8 +1,6 @@
 import type { ReaderFlowMode, ColumnMode } from '../constants';
+import { READER_FONT_SIZE_MIN, READER_FONT_SIZE_MAX } from '../constants';
 import type { ReaderView } from './ReaderView';
-
-const READER_FONT_SIZE_MIN = 80;
-const READER_FONT_SIZE_MAX = 160;
 
 export interface ReaderHeaderCallbacks {
   toggleReaderFlowMode: () => void;

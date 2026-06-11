@@ -22,3 +22,8 @@ export const DEFAULT_HIGHLIGHT_COLOR = '#ffe066';
 
 export type ReaderFlowMode = 'paginated' | 'scrolled';
 export type ColumnMode = 'single' | 'double';
+
+export const READER_FONT_SIZE_MIN = 80;
+export const READER_FONT_SIZE_MAX = 160;
+export const READER_FONT_SIZE_STEP = 10;
+export const READER_FONT_SIZE_DEFAULT = 100;

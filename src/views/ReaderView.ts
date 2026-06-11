@@ -1,14 +1,17 @@
 import React from 'react';
 import { TFile, type WorkspaceLeaf } from 'obsidian';
-import { READER_VIEW_TYPE, type ReaderFlowMode, type ColumnMode } from '../constants';
+import {
+  READER_VIEW_TYPE,
+  type ReaderFlowMode,
+  type ColumnMode,
+  READER_FONT_SIZE_MIN,
+  READER_FONT_SIZE_MAX,
+  READER_FONT_SIZE_STEP,
+} from '../constants';
 import { BaseReactView } from './BaseReactView';
 import { getReaderAPI } from '../contexts/ReaderAPIContext';
 import ReaderViewInner from '../components/ReaderViewInner';
 import { setupReaderHeader, type ReaderHeaderHandle } from './readerHeader';
-
-const READER_FONT_SIZE_MIN = 80;
-const READER_FONT_SIZE_MAX = 160;
-const READER_FONT_SIZE_STEP = 10;
 
 // ──────────────────────────────────────────
 // Obsidian ItemView (extends BaseReactView)
