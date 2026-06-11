@@ -17,4 +17,6 @@ export interface ReaderAPI {
   toggleOutline(): Promise<void>;
   toggleAnnotations(): Promise<void>;
   closeSession(): void;
+  /** 保存当前阅读进度到历史记录 */
+  saveProgress(): Promise<void>;
 }

@@ -54,6 +54,7 @@ interface ViewerCallbacks {
     currentLabel?: string,
     canGoPrev?: boolean,
     canGoNext?: boolean,
+    cfi?: string,
   ) => void;
   onAddAnnotation?: (params: {
     type: 'pdf' | 'epub';
@@ -101,8 +102,9 @@ const FoliateViewer: React.FC<FoliateViewerProps> = React.memo(({ target, config
       currentLabel?: string,
       canGoPrev?: boolean,
       canGoNext?: boolean,
+      cfi?: string,
     ) => {
-      onSectionChangeRef.current?.(currentIndex, totalSections, currentLabel, canGoPrev, canGoNext);
+      onSectionChangeRef.current?.(currentIndex, totalSections, currentLabel, canGoPrev, canGoNext, cfi);
     },
     [],
   );

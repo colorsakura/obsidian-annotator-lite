@@ -9,6 +9,8 @@ export interface ReaderEventMap {
   'view:section-changed': { section: ReaderSectionState };
   'view:annotations-changed': { annotations: Annotation[] };
   'view:session-close': Record<string, never>;
+  /** 位置变化（含 CFI） */
+  'view:location-changed': { cfi: string; sectionIndex: number };
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────

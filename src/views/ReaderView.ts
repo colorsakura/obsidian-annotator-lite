@@ -58,6 +58,9 @@ export class ReaderView extends BaseReactView<object> {
       toggleOutline: () => getReaderAPI()?.toggleOutline(),
       toggleAnnotations: () => getReaderAPI()?.toggleAnnotations(),
       goBack: () => {
+        // 保存阅读进度
+        void getReaderAPI()?.saveProgress();
+        // 返回笔记
         if (this.sourcePath) {
           const file = this.app.vault.getAbstractFileByPath(this.sourcePath);
           if (file instanceof TFile) {

@@ -45,6 +45,7 @@ export function setupReaderHeader(
     if (leftGroup) {
       leftGroup.prepend(comebackAction);
       leftGroup.prepend(outlineAction);
+      leftGroup.prepend(annotationsAction);
     } else {
       header.prepend(outlineAction);
     }

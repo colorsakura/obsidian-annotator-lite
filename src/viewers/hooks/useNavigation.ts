@@ -57,6 +57,7 @@ export function useRelocateListener(
     currentLabel?: string,
     canGoPrev?: boolean,
     canGoNext?: boolean,
+    cfi?: string,
   ) => void,
 ): void {
   useEffect(() => {

@@ -7,6 +7,8 @@ export interface ReaderTarget {
   targetPath: string;
   targetUri: string;
   type: ReaderTargetType;
+  /** frontmatter 中的 id，用于关联阅读历史 */
+  id?: string;
 }
 
 export interface ReaderSectionState {

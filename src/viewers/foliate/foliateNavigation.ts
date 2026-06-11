@@ -63,6 +63,7 @@ export function installRelocateListener(
     currentLabel?: string,
     canGoPrev?: boolean,
     canGoNext?: boolean,
+    cfi?: string,
   ) => void,
 ): () => void {
   const handleRelocate = ({ detail }: any) => {
@@ -91,7 +92,10 @@ export function installRelocateListener(
     const canGoNext =
       typeof renderer?.atEnd === 'boolean' ? !renderer.atEnd : index < totalSections - 1;
 
-    onSectionChange(index, totalSections, currentLabel, canGoPrev, canGoNext);
+    // 获取 CFI
+    const cfi = detail.cfi;
+
+    onSectionChange(index, totalSections, currentLabel, canGoPrev, canGoNext, cfi);
   };
 
   // Clean up previous listener

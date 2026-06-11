@@ -16,6 +16,7 @@ export interface BookLoaderCallbacks {
     currentLabel?: string,
     canGoPrev?: boolean,
     canGoNext?: boolean,
+    cfi?: string,
   ) => void;
 }
 

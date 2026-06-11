@@ -129,6 +129,7 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
       currentLabel?: string,
       canGoPrev?: boolean,
       canGoNext?: boolean,
+      cfi?: string,
     ) => {
       const section = {
         currentIndex,
@@ -139,6 +140,11 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
       };
       setSectionInfo(section);
       bus.emit('view:section-changed', { section });
+
+      // 发射位置变化事件（含 CFI）
+      if (cfi) {
+        bus.emit('view:location-changed', { cfi, sectionIndex: currentIndex });
+      }
     },
     [bus],
   );

@@ -7,7 +7,10 @@ import type { ReaderAPI } from './ReaderAPI';
 import type { TargetResolver } from './TargetResolver';
 import type { ViewCoordinator } from './ViewCoordinator';
 import type { HighlightColor } from '../constants';
+import { ANNOTATOR_ID_PROPERTY } from '../constants';
 import type { AnnotatorLiteSettings } from './Settings';
+import type { ReadingHistoryService } from './ReadingHistoryService';
+import { ensureFrontmatterId } from '../utils/frontmatter';
 
 export interface ReaderController {
   openFromMarkdownLeaf(leaf: WorkspaceLeaf): Promise<void>;
@@ -39,6 +42,8 @@ export interface ReaderController {
  */
 export class DefaultReaderController implements ReaderController, ReaderAPI {
   private currentReaderSourcePath: string | null = null;
+  private lastKnownCfi: string | null = null;
+  private saveInterval: ReturnType<typeof setInterval> | null = null;
   readonly bus: ReaderEventBus;
 
   constructor(
@@ -50,6 +55,8 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
     bus: ReaderEventBus,
     private getHighlightColors: () => HighlightColor[],
     private getSettings: () => AnnotatorLiteSettings,
+    private historyService: ReadingHistoryService,
+    private getFrontmatter: (file: TFile, key: string) => unknown,
   ) {
     this.bus = bus;
   }
@@ -71,6 +78,19 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
     const target = this.targetResolver.resolve(sourceFile);
     if (!target) return;
 
+    // 确保 frontmatter 有 id
+    const existingId = this.getFrontmatter(sourceFile, ANNOTATOR_ID_PROPERTY) as string | null;
+    const id = await ensureFrontmatterId(this.app.vault, sourceFile, existingId);
+
+    // 读取历史记录
+    let navigationTarget = initialNavigationTarget ?? null;
+    if (!navigationTarget) {
+      const record = await this.historyService.getRecord(id);
+      if (record?.cfi) {
+        navigationTarget = { href: record.cfi };
+      }
+    }
+
     let annotations: Annotation[] = [];
     try {
       annotations = await this.annotationService.load(sourceFile, target.targetUri);
@@ -80,12 +100,12 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
 
     if (!target.type) return;
 
-    // Start session — this is the single state source; views subscribe via useSessionStore
-    this.sessionStore.startSession({ ...target, type: target.type }, annotations);
+    // Start session with id
+    this.sessionStore.startSession({ ...target, type: target.type, id }, annotations);
 
-    // Set initial navigation target in the store (for "show annotation" links)
-    if (initialNavigationTarget) {
-      this.sessionStore.setNavigationTarget(initialNavigationTarget);
+    // Set navigation target in the store
+    if (navigationTarget) {
+      this.sessionStore.setNavigationTarget(navigationTarget);
     }
 
     this.currentReaderSourcePath = target.sourcePath;
@@ -105,11 +125,21 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
 
     // Wire view → controller events via bus
     this.wireViewEvents();
+
+    // Start periodic save
+    this.startPeriodicSave();
   }
 
   closeCurrentSession(): void {
+    // 保存最终位置
+    void this.saveReadingProgress();
+
+    // 停止定期保存
+    this.stopPeriodicSave();
+
     this.viewCoordinator.closeCompanionViews();
     this.currentReaderSourcePath = null;
+    this.lastKnownCfi = null;
     this.sessionStore.clearSession();
     this.bus.clear();
   }
@@ -137,6 +167,10 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
     this.bus.on('view:session-close', () => {
       this.closeCurrentSession();
     });
+    // 监听位置变化
+    this.bus.on('view:location-changed', ({ cfi }) => {
+      this.lastKnownCfi = cfi;
+    });
   }
 
   revealReader(): void {
@@ -157,6 +191,10 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
 
   async toggleAnnotations(): Promise<void> {
     await this.viewCoordinator.toggleAnnotations();
+  }
+
+  async saveProgress(): Promise<void> {
+    await this.saveReadingProgress();
   }
 
   navigateToTarget(target: NavigationTarget): void {
@@ -213,5 +251,39 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
   async deleteAnnotation(id: string): Promise<void> {
     if (!this.currentReaderSourcePath) return;
     await this.annotationService.delete(id, this.currentReaderSourcePath);
+  }
+
+  private async saveReadingProgress(): Promise<void> {
+    const state = this.sessionStore.getSnapshot();
+    if (!state || !this.lastKnownCfi || !state.target.id) return;
+
+    const { target, section } = state;
+    const id = state.target.id;
+
+    try {
+      await this.historyService.saveRecord(id, {
+        cfi: this.lastKnownCfi,
+        sectionIndex: section.currentIndex,
+        lastReadAt: new Date().toISOString(),
+        readingTime: 0,
+        targetFileName: target.targetPath.split('/').pop() ?? target.targetPath,
+      });
+    } catch (e) {
+      console.warn('[Annotator Lite] 保存阅读进度失败:', e);
+    }
+  }
+
+  private startPeriodicSave(): void {
+    this.stopPeriodicSave();
+    this.saveInterval = setInterval(() => {
+      void this.saveReadingProgress();
+    }, 30000);
+  }
+
+  private stopPeriodicSave(): void {
+    if (this.saveInterval) {
+      clearInterval(this.saveInterval);
+      this.saveInterval = null;
+    }
   }
 }
