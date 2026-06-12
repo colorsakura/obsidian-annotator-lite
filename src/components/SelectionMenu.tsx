@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { StickyNote, Trash2 } from 'lucide-react';
+import { Copy, StickyNote, Trash2 } from 'lucide-react';
 import type { Annotation } from '../types/annotations';
 import type { HighlightColor } from '../constants';
 
@@ -12,6 +12,7 @@ interface SelectionMenuProps {
   onHighlight: (color: string) => void;
   onAddNote: () => void;
   onDelete: (annotationId: string) => void;
+  onCopy: () => void;
   menuRef: React.RefObject<HTMLDivElement | null>;
 }
 
@@ -23,6 +24,7 @@ const SelectionMenu: React.FC<SelectionMenuProps> = ({
   onHighlight,
   onAddNote,
   onDelete,
+  onCopy,
   menuRef,
 }) => {
   // Adjust position to stay within viewport
@@ -67,8 +69,10 @@ const SelectionMenu: React.FC<SelectionMenuProps> = ({
           />
         ))}
       </div>
-      <div className="selection-menu__separator" />
       <div className="selection-menu__actions">
+        <button className="selection-menu__item" onClick={onCopy} title="复制">
+          <Copy className="selection-menu__icon" size={16} />
+        </button>
         <button className="selection-menu__item" onClick={onAddNote} title="添加笔记">
           <StickyNote className="selection-menu__icon" size={16} />
         </button>

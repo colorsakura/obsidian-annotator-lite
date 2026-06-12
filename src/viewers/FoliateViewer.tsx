@@ -180,6 +180,7 @@ const FoliateViewer: React.FC<FoliateViewerProps> = React.memo(({ target, config
           onHighlight={menuResult.menuActions.onHighlight}
           onAddNote={menuResult.menuActions.onAddNote}
           onDelete={menuResult.menuActions.onDelete}
+          onCopy={menuResult.menuActions.onCopy}
           menuRef={menuResult.menuRef}
         />
       )}
