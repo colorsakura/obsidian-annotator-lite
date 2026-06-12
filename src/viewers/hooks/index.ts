@@ -10,3 +10,4 @@ export {
 } from './useNavigation';
 export { useFlowMode, useColumnMode, useFontSize } from './useReaderSettings';
 export { useContentVirtualization } from './useContentVirtualization';
+export { useVirtualScrolling } from './useVirtualScrolling';

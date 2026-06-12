@@ -17,8 +17,8 @@ import {
   useColumnMode,
   useFontSize,
   useContentVirtualization,
+  useVirtualScrolling,
 } from './hooks';
-import { useVirtualScrolling } from './hooks/useVirtualScrolling';
 import { installKeyboardNavigation } from './foliate/foliateKeyboard';
 import SelectionMenu from '../components/SelectionMenu';
 import type { ReaderFlowMode, ColumnMode } from '../constants';
