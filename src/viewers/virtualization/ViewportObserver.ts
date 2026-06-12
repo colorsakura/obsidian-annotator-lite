@@ -19,6 +19,9 @@ export class ViewportObserver {
   private elementToBlockId = new Map<Element, number>();
 
   constructor(doc: Document, config: ViewportObserverConfig) {
+    // 确保 rootMargin 格式正确（必须是像素或百分比）
+    const rootMargin = config.rootMargin || '0px';
+
     this.observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
@@ -33,8 +36,10 @@ export class ViewportObserver {
         }
       },
       {
-        root: doc.documentElement,
-        rootMargin: config.rootMargin,
+        // 使用 null 作为 root 表示使用 viewport
+        // 在 iframe 中，这会使用 iframe 的 viewport
+        root: null,
+        rootMargin,
         threshold: 0,
       }
     );

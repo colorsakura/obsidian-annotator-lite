@@ -28,36 +28,47 @@ export function useVirtualScrolling(
       return;
     }
 
-    const contents = view.renderer.getContents();
-    if (!contents || contents.length === 0) return;
+    let instance: VirtualScrollManager | null = null;
+    let cleanupResize: (() => void) | null = null;
 
-    const doc = contents[0].doc as Document | undefined;
-    if (!doc) return;
+    try {
+      const contents = view.renderer.getContents();
+      if (!contents || contents.length === 0) return;
 
-    const instance = new VirtualScrollManager(doc, fullConfig);
-    instance.initialize();
-    setManager(instance);
+      const doc = contents[0]?.doc as Document | undefined;
+      if (!doc || !doc.documentElement) return;
 
-    // 窗口 resize 时重建管理器（区块尺寸可能需要重新计算）
-    const iframe = doc.defaultView;
-    if (iframe) {
-      const handleResize = () => {
-        instance.destroy();
-        instance.initialize();
-      };
+      instance = new VirtualScrollManager(doc, fullConfig);
+      instance.initialize();
+      setManager(instance);
 
-      iframe.addEventListener('resize', handleResize);
+      // 窗口 resize 时重建管理器（区块尺寸可能需要重新计算）
+      const iframe = doc.defaultView;
+      if (iframe) {
+        const handleResize = () => {
+          if (instance) {
+            instance.destroy();
+            instance.initialize();
+          }
+        };
 
-      return () => {
-        iframe.removeEventListener('resize', handleResize);
-        instance.destroy();
-        setManager(null);
-      };
+        iframe.addEventListener('resize', handleResize);
+        cleanupResize = () => {
+          iframe.removeEventListener('resize', handleResize);
+        };
+      }
+    } catch (error) {
+      console.warn('[Annotator Lite] Virtual scrolling initialization failed:', error);
+      // 虚拟滚动初始化失败，降级到 content-visibility
+      return;
     }
 
     return () => {
-      instance.destroy();
-      setManager(null);
+      cleanupResize?.();
+      if (instance) {
+        instance.destroy();
+        setManager(null);
+      }
     };
   }, [view, isLoaded, fullConfig.enabled]);
 
