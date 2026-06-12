@@ -61,6 +61,63 @@ export class AnnotatorLiteSettingTab extends PluginSettingTab {
         });
       });
 
+    // ─── 虚拟滚动设置 ────────────────────────────────────────────────
+    containerEl.createEl('h3', { text: '虚拟滚动' });
+
+    new Setting(containerEl)
+      .setName('启用虚拟滚动')
+      .setDesc('启用区块级虚拟滚动以提升大文档的渲染性能')
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.virtualScroll.enabled)
+          .onChange(async (value) => {
+            this.plugin.settings.virtualScroll.enabled = value;
+            await this.plugin.saveSettings();
+          }),
+      );
+
+    new Setting(containerEl)
+      .setName('区块大小')
+      .setDesc('每个虚拟块的高度（像素），控制单次渲染的内容量')
+      .addSlider((slider) =>
+        slider
+          .setLimits(500, 2000, 100)
+          .setValue(this.plugin.settings.virtualScroll.blockSize)
+          .setDynamicTooltip()
+          .onChange(async (value) => {
+            this.plugin.settings.virtualScroll.blockSize = value;
+            await this.plugin.saveSettings();
+          }),
+      );
+
+    new Setting(containerEl)
+      .setName('预加载边距')
+      .setDesc('在可视区域上下额外渲染的范围（像素）')
+      .addSlider((slider) =>
+        slider
+          .setLimits(50, 500, 50)
+          .setValue(this.plugin.settings.virtualScroll.preloadMargin)
+          .setDynamicTooltip()
+          .onChange(async (value) => {
+            this.plugin.settings.virtualScroll.preloadMargin = value;
+            await this.plugin.saveSettings();
+          }),
+      );
+
+    new Setting(containerEl)
+      .setName('最大缓存块数')
+      .setDesc('内存中保留的最大虚拟块数量，超出时回收最远的块')
+      .addSlider((slider) =>
+        slider
+          .setLimits(5, 30, 1)
+          .setValue(this.plugin.settings.virtualScroll.maxCachedBlocks)
+          .setDynamicTooltip()
+          .onChange(async (value) => {
+            this.plugin.settings.virtualScroll.maxCachedBlocks = value;
+            await this.plugin.saveSettings();
+          }),
+      );
+
     // ─── Highlight Colors ────────────────────────────────────────────
     containerEl.createEl('h3', { text: '高亮颜色' });
 
