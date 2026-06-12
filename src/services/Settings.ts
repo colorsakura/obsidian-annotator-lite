@@ -22,6 +22,18 @@ export interface ReadingRecord {
 /** 阅读历史存储结构，key 是 frontmatter id */
 export type ReadingHistoryMap = Record<string, ReadingRecord>;
 
+/** 虚拟滚动配置 */
+export interface VirtualScrollSettings {
+  /** 是否启用虚拟滚动 */
+  enabled: boolean;
+  /** 每个虚拟块的渲染单元大小（px），控制块内渲染的内容量 */
+  blockSize: number;
+  /** 预加载边距（px），在可视区域上下额外渲染的范围 */
+  preloadMargin: number;
+  /** 最大缓存块数，超出时回收最远的块 */
+  maxCachedBlocks: number;
+}
+
 export interface AnnotatorLiteSettings {
   highlightColors: HighlightColor[];
   defaultFontSize: number;
@@ -29,6 +41,8 @@ export interface AnnotatorLiteSettings {
   defaultFlowMode: ReaderFlowMode;
   /** 阅读历史记录 */
   readingHistory: ReadingHistoryMap;
+  /** 虚拟滚动配置 */
+  virtualScroll: VirtualScrollSettings;
 }
 
 export const DEFAULT_SETTINGS: AnnotatorLiteSettings = {
@@ -37,4 +51,10 @@ export const DEFAULT_SETTINGS: AnnotatorLiteSettings = {
   defaultColumnMode: 'double',
   defaultFlowMode: 'paginated',
   readingHistory: {},
+  virtualScroll: {
+    enabled: true,
+    blockSize: 1000,
+    preloadMargin: 200,
+    maxCachedBlocks: 10,
+  },
 };
