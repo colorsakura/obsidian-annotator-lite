@@ -75,6 +75,14 @@ export function useMobileMenu(
     view.addEventListener('load', handleLoad as any);
     loadHandlerRef.current = handleLoad as any;
 
+    // 如果 renderer 已有内容（初始 load 事件在 useBookLoader 的异步 init 中已触发），
+    // 立即为当前 section 设置 contextmenu 监听器，避免错过首次 load 事件。
+    const viewApi = view as any;
+    const existingContents = viewApi.renderer?.getContents?.();
+    if (existingContents?.length > 0 && existingContents[0].doc) {
+      handleLoad({ detail: { doc: existingContents[0].doc } });
+    }
+
     return () => {
       if (loadHandlerRef.current) {
         view.removeEventListener('load', loadHandlerRef.current as any);

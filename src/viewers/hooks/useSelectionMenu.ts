@@ -44,8 +44,12 @@ export function useSelectionMenu(opts: {
     onAddAnnotation,
     onDeleteAnnotation,
     app,
-    colors = DEFAULT_HIGHLIGHT_COLORS,
   } = opts;
+
+  // 稳定 colors 引用：避免每次渲染创建新默认值导致 contextmenu effect 重建
+  const colorsRef = useRef<HighlightColor[]>(opts.colors ?? DEFAULT_HIGHLIGHT_COLORS);
+  if (opts.colors) colorsRef.current = opts.colors;
+  const colors = colorsRef.current;
 
   const [menuState, setMenuState] = useState<SelectionMenuState | null>(null);
   const pendingRef = useRef<PendingSelection | null>(null);

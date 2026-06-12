@@ -80,8 +80,7 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
 
       // 乐观更新：立即写入 QueryClient 缓存
       const currentAnnotations =
-        queryClient.getQueryData<Annotation[]>(annotationKeys.byFile(sourcePath)) ??
-        storeAnnotations;
+        queryClient.getQueryData<Annotation[]>(annotationKeys.byFile(sourcePath)) ?? [];
       const newAnnotations = [...currentAnnotations, annotation];
       queryClient.setQueryData(annotationKeys.byFile(sourcePath), newAnnotations);
 
@@ -91,7 +90,7 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
         annotations: newAnnotations,
       });
     },
-    [targetUri, sourcePath, queryClient, storeAnnotations, batchUpdateMutation],
+    [targetUri, sourcePath, queryClient, batchUpdateMutation],
   );
 
   // Delete annotation callback
@@ -101,8 +100,7 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
 
       // 乐观更新：立即从 QueryClient 缓存中移除
       const currentAnnotations =
-        queryClient.getQueryData<Annotation[]>(annotationKeys.byFile(sourcePath)) ??
-        storeAnnotations;
+        queryClient.getQueryData<Annotation[]>(annotationKeys.byFile(sourcePath)) ?? [];
       const newAnnotations = currentAnnotations.filter((a) => a.id !== id);
       queryClient.setQueryData(annotationKeys.byFile(sourcePath), newAnnotations);
 
@@ -115,7 +113,7 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
       // 通知 Controller（用于其他需要知道标注删除的场景）
       reader.deleteAnnotation(id);
     },
-    [sourcePath, queryClient, storeAnnotations, batchUpdateMutation, reader],
+    [sourcePath, queryClient, batchUpdateMutation, reader],
   );
 
   // Determine annotatability from the file extension
