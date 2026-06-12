@@ -18,6 +18,7 @@ export interface SelectionMenuActions {
   onHighlight: (color: string) => void;
   onAddNote: () => void;
   onDelete: (annotationId: string) => void;
+  onCopy: () => void;
 }
 
 export function useSelectionMenu(opts: {
@@ -259,12 +260,33 @@ export function useSelectionMenu(opts: {
     [onDeleteAnnotation],
   );
 
+  const handleCopy = useCallback(async () => {
+    const sel = pendingRef.current;
+    if (!sel) return;
+    try {
+      await navigator.clipboard.writeText(sel.text);
+    } catch {
+      // Fallback for older browsers or non-secure contexts
+      const textarea = document.createElement('textarea');
+      textarea.value = sel.text;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    }
+    pendingRef.current = null;
+    setMenuState(null);
+  }, []);
+
   return {
     menuState,
     menuActions: {
       onHighlight: handleHighlight,
       onAddNote: handleAddNote,
       onDelete: handleDelete,
+      onCopy: handleCopy,
     },
     menuRef,
   };
