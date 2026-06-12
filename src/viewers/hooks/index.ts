@@ -9,3 +9,4 @@ export {
   useRelocateListener,
 } from './useNavigation';
 export { useFlowMode, useColumnMode, useFontSize } from './useReaderSettings';
+export { useContentVirtualization } from './useContentVirtualization';

@@ -32,6 +32,65 @@ import { type AnnotatorLiteSettings, DEFAULT_SETTINGS } from './services/Setting
 import { AnnotatorLiteSettingTab } from './components/SettingsTab';
 import { ReadingHistoryService } from './services/ReadingHistoryService';
 
+// ---------------------------------------------------------------------------
+// ResizeObserver 防抖包装器
+// ---------------------------------------------------------------------------
+// foliate-js 的 Paginator 类内部使用无防抖的 ResizeObserver 监听容器尺寸。
+// Obsidian 侧边栏开关动画（~200-300ms）期间，每帧都会触发 render()，
+// 导致滚动模式下产生大量昂贵的同步 reflow。
+// 以下包装器在侧边栏切换期间临时启用 100ms 防抖，将约 12 次 render 降到 1-2 次。
+
+let _restoreOriginalResizeObserver: (() => void) | null = null;
+
+/**
+ * 安装全局 ResizeObserver 防抖包装器。
+ * 默认放行所有回调（零开销）；调用返回的 activateThrottle() 后启用 100ms 防抖。
+ */
+function installResizeObserverThrottle(): { activateThrottle: () => void } {
+  const OriginalResizeObserver = window.ResizeObserver;
+  let throttleActive = false;
+
+  class DebouncedResizeObserver extends OriginalResizeObserver {
+    private _timer: ReturnType<typeof setTimeout> | null = null;
+    private _lastEntries: ResizeObserverEntry[] = [];
+
+    constructor(callback: ResizeObserverCallback) {
+      const debouncedCallback: ResizeObserverCallback = (entries, observer) => {
+        if (!throttleActive) {
+          callback(entries, observer);
+          return;
+        }
+        // 防抖模式：延迟执行，只保留最后一次
+        this._lastEntries = entries;
+        if (this._timer) clearTimeout(this._timer);
+        this._timer = setTimeout(() => {
+          this._timer = null;
+          callback(this._lastEntries, observer);
+        }, 100);
+      };
+      super(debouncedCallback);
+    }
+  }
+
+  (window as unknown as { ResizeObserver: typeof OriginalResizeObserver }).ResizeObserver =
+    DebouncedResizeObserver;
+
+  _restoreOriginalResizeObserver = () => {
+    (window as unknown as { ResizeObserver: typeof OriginalResizeObserver }).ResizeObserver =
+      OriginalResizeObserver;
+    _restoreOriginalResizeObserver = null;
+  };
+
+  return {
+    activateThrottle() {
+      throttleActive = true;
+      setTimeout(() => {
+        throttleActive = false;
+      }, 300);
+    },
+  };
+}
+
 export default class AnnotatorLitePlugin extends Plugin {
   private annotationRepository!: AnnotationRepository;
   private targetResolver!: TargetResolver;
@@ -39,6 +98,7 @@ export default class AnnotatorLitePlugin extends Plugin {
   private viewCoordinator!: ViewCoordinator;
   private readerController!: DefaultReaderController;
   private historyService!: ReadingHistoryService;
+  private activateThrottle: (() => void) | null = null;
 
   /** Datacore 适配器（优先 Datacore API，回退 metadataCache） */
   datacoreAdapter!: DatacoreAdapter;
@@ -56,6 +116,10 @@ export default class AnnotatorLitePlugin extends Plugin {
   }
 
   async onload() {
+    // 安装 ResizeObserver 防抖包装器（缓解侧边栏动画期间的 reflow 卡顿）
+    const { activateThrottle } = installResizeObserverThrottle();
+    this.activateThrottle = activateThrottle;
+
     // 注册模块级单例
     setSessionStore(this.sessionStore);
     setQueryClient(createConfiguredQueryClient());
@@ -69,7 +133,9 @@ export default class AnnotatorLitePlugin extends Plugin {
     this.targetResolver = new ObsidianTargetResolver(this.app, (propertyName, file) =>
       this.getPropertyValue(propertyName, file),
     );
-    this.viewCoordinator = new ObsidianViewCoordinator(this.app);
+    this.viewCoordinator = new ObsidianViewCoordinator(this.app, () =>
+      this.activateThrottle?.(),
+    );
     const bus = new ReaderEventBus();
 
     this.historyService = new ReadingHistoryService(
@@ -159,7 +225,9 @@ export default class AnnotatorLitePlugin extends Plugin {
     });
   }
 
-  onunload() {}
+  onunload() {
+    _restoreOriginalResizeObserver?.();
+  }
 
   /**
    * 读取前置元字段值

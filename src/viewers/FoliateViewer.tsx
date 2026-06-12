@@ -16,6 +16,7 @@ import {
   useFlowMode,
   useColumnMode,
   useFontSize,
+  useContentVirtualization,
 } from './hooks';
 import { installKeyboardNavigation } from './foliate/foliateKeyboard';
 import SelectionMenu from '../components/SelectionMenu';
@@ -134,6 +135,9 @@ const FoliateViewer: React.FC<FoliateViewerProps> = React.memo(({ target, config
   useFlowMode(view, isLoaded, flowMode);
   useColumnMode(view, isLoaded, columnMode);
   useFontSize(view, isLoaded, fontSize);
+
+  // ─── Content virtualization (scrolled mode perf) ─────────────────────
+  useContentVirtualization(view, isLoaded);
 
   // ─── Annotations ──────────────────────────────────────────────────────
   const fileType = getAnnotatableType(file);

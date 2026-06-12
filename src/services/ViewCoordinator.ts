@@ -31,7 +31,11 @@ export interface ViewCoordinator {
 }
 
 export class ObsidianViewCoordinator implements ViewCoordinator {
-  constructor(private app: App) {}
+  constructor(
+    private app: App,
+    /** 侧边栏切换前回调（用于激活 ResizeObserver 防抖） */
+    private onBeforeToggle?: () => void,
+  ) {}
 
   async openReader(targetLeaf?: WorkspaceLeaf): Promise<ReaderView | null> {
     let leaf: WorkspaceLeaf | undefined;
@@ -95,10 +99,12 @@ export class ObsidianViewCoordinator implements ViewCoordinator {
   async toggleOutline(): Promise<void> {
     const leaf = this.app.workspace.getLeavesOfType(OUTLINE_VIEW_TYPE)[0];
     if (leaf?.getRoot()) {
+      this.onBeforeToggle?.();
       leaf.detach();
       return;
     }
 
+    this.onBeforeToggle?.();
     await this.openOutline();
   }
 
@@ -126,10 +132,12 @@ export class ObsidianViewCoordinator implements ViewCoordinator {
   async toggleAnnotations(): Promise<void> {
     const leaf = this.app.workspace.getLeavesOfType(ANNOTATIONS_VIEW_TYPE)[0];
     if (leaf?.getRoot()) {
+      this.onBeforeToggle?.();
       leaf.detach();
       return;
     }
 
+    this.onBeforeToggle?.();
     await this.openAnnotations();
   }
 
