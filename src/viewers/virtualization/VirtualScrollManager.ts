@@ -30,8 +30,10 @@ export class VirtualScrollManager {
     this.registry = new BlockRegistry();
     this.blockCache = new BlockCache({ maxSize: config.maxCachedBlocks });
     this.annotationCache = new AnnotationCache();
+    // 使用较小的 rootMargin 避免过早触发区块切换
+    const margin = Math.min(config.preloadMargin, 100);
     this.observer = new ViewportObserver(doc, {
-      rootMargin: `${config.preloadMargin}px 0px`,
+      rootMargin: `${margin}px 0px`,
       onBlockEnter: (blockId) => this.handleBlockEnter(blockId),
       onBlockLeave: (blockId) => this.handleBlockLeave(blockId),
     });
@@ -58,6 +60,7 @@ export class VirtualScrollManager {
 
   /**
    * 处理区块进入视口：从缓存恢复区块内容
+   * 在 DOM 操作前后保持滚动位置稳定
    */
   handleBlockEnter(blockId: number): void {
     const block = this.registry.getBlock(blockId);
@@ -76,6 +79,9 @@ export class VirtualScrollManager {
     const nextSibling = placeholder.nextElementSibling;
     const parent = placeholder.parentNode;
 
+    // 保存当前滚动位置
+    const scrollTop = this.doc.documentElement.scrollTop || this.doc.body.scrollTop;
+
     // 移除占位符
     placeholder.remove();
     this.placeholderMap.delete(blockId);
@@ -91,6 +97,10 @@ export class VirtualScrollManager {
       }
     }
 
+    // 恢复滚动位置
+    this.doc.documentElement.scrollTop = scrollTop;
+    this.doc.body.scrollTop = scrollTop;
+
     this.registry.updateState(blockId, 'rendered');
     this.restoreAnnotations(blockId);
 
@@ -104,6 +114,7 @@ export class VirtualScrollManager {
 
   /**
    * 处理区块离开视口：缓存区块内容并替换为占位符
+   * 在 DOM 操作前后保持滚动位置稳定
    */
   handleBlockLeave(blockId: number): void {
     const block = this.registry.getBlock(blockId);
@@ -128,6 +139,9 @@ export class VirtualScrollManager {
     const nextSibling = lastElement.nextElementSibling;
     const parent = lastElement.parentNode;
 
+    // 保存当前滚动位置
+    const scrollTop = this.doc.documentElement.scrollTop || this.doc.body.scrollTop;
+
     // 从 DOM 中移除区块元素
     for (const element of block.elements) {
       if (element instanceof Element) {
@@ -144,6 +158,10 @@ export class VirtualScrollManager {
     } else if (parent) {
       parent.appendChild(placeholder);
     }
+
+    // 恢复滚动位置
+    this.doc.documentElement.scrollTop = scrollTop;
+    this.doc.body.scrollTop = scrollTop;
 
     // 观察占位符
     this.observer.observe(placeholder, blockId);
