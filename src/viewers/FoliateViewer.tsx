@@ -18,6 +18,7 @@ import {
   useFontSize,
   useContentVirtualization,
 } from './hooks';
+import { useVirtualScrolling } from './hooks/useVirtualScrolling';
 import { installKeyboardNavigation } from './foliate/foliateKeyboard';
 import SelectionMenu from '../components/SelectionMenu';
 import type { ReaderFlowMode, ColumnMode } from '../constants';
@@ -44,6 +45,13 @@ interface ViewerConfig {
   annotations: Annotation[];
   highlightColors?: import('../constants').HighlightColor[];
   sectionIndicator?: React.ReactNode;
+  /** 虚拟滚动配置（可选，未提供时使用默认值） */
+  virtualScroll?: {
+    enabled?: boolean;
+    blockSize?: number;
+    preloadMargin?: number;
+    maxCachedBlocks?: number;
+  };
 }
 
 interface ViewerCallbacks {
@@ -82,7 +90,7 @@ const FoliateViewer: React.FC<FoliateViewerProps> = React.memo(({ target, config
 
   const { file, navigationTarget, sectionTarget, pageTurnTarget } = target;
 
-  const { flowMode, columnMode, fontSize, annotations, highlightColors, sectionIndicator } = config;
+  const { flowMode, columnMode, fontSize, annotations, highlightColors, sectionIndicator, virtualScroll } = config;
 
   const {
     onOutlineLoaded,
@@ -136,8 +144,15 @@ const FoliateViewer: React.FC<FoliateViewerProps> = React.memo(({ target, config
   useColumnMode(view, isLoaded, columnMode);
   useFontSize(view, isLoaded, fontSize);
 
-  // ─── Content virtualization (scrolled mode perf) ─────────────────────
-  useContentVirtualization(view, isLoaded);
+  // ─── Virtual scrolling / content virtualization (scrolled mode perf) ──
+  // 虚拟滚动优先；启用时跳过 content-visibility 降级方案以避免冲突
+  const virtualScrollManager = useVirtualScrolling(view, isLoaded, {
+    enabled: virtualScroll?.enabled ?? true,
+    blockSize: virtualScroll?.blockSize,
+    preloadMargin: virtualScroll?.preloadMargin,
+    maxCachedBlocks: virtualScroll?.maxCachedBlocks,
+  });
+  useContentVirtualization(view, isLoaded, !virtualScrollManager);
 
   // ─── Annotations ──────────────────────────────────────────────────────
   const fileType = getAnnotatableType(file);

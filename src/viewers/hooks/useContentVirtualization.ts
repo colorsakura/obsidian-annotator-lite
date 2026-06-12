@@ -70,12 +70,16 @@ function patchRenderer(renderer: HTMLElement & { render(): void; scrolled?: bool
  * 在书籍加载完成后 patch renderer 的 render() 方法。
  * 后续每次 render（包括 resize 触发的 reflow）都会自动注入 CSS，
  * 使浏览器跳过屏幕外内容的 layout/paint。
+ *
+ * @param view - foliate-view 元素
+ * @param isLoaded - 书籍是否已加载完成
+ * @param enabled - 是否启用（当虚拟滚动激活时应传 false 以避免冲突）
  */
-export function useContentVirtualization(view: HTMLElement | null, isLoaded: boolean): void {
+export function useContentVirtualization(view: HTMLElement | null, isLoaded: boolean, enabled = true): void {
   const patchedRef = useRef(false);
 
   useEffect(() => {
-    if (!view || !isLoaded || patchedRef.current) return;
+    if (!view || !isLoaded || !enabled || patchedRef.current) return;
 
     const renderer = (view as any).renderer as
       | (HTMLElement & { render(): void })
@@ -84,5 +88,5 @@ export function useContentVirtualization(view: HTMLElement | null, isLoaded: boo
 
     patchRenderer(renderer);
     patchedRef.current = true;
-  }, [view, isLoaded]);
+  }, [view, isLoaded, enabled]);
 }
