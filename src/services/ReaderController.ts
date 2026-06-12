@@ -6,6 +6,8 @@ import type { ReaderSessionStore } from './ReaderSessionStore';
 import type { ReaderAPI } from './ReaderAPI';
 import type { TargetResolver } from './TargetResolver';
 import type { ViewCoordinator } from './ViewCoordinator';
+import { getQueryClient } from '../providers/QueryProvider';
+import { annotationKeys } from '../hooks/useAnnotations';
 import type { HighlightColor } from '../constants';
 import { ANNOTATOR_ID_PROPERTY } from '../constants';
 import type { AnnotatorLiteSettings } from './Settings';
@@ -100,8 +102,14 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
 
     if (!target.type) return;
 
+    // 将标注数据预热到 QueryClient 缓存
+    const queryClient = getQueryClient();
+    if (queryClient && target.sourcePath) {
+      queryClient.setQueryData(annotationKeys.byFile(target.sourcePath), annotations);
+    }
+
     // Start session with id
-    this.sessionStore.startSession({ ...target, type: target.type, id }, annotations);
+    this.sessionStore.startSession({ ...target, type: target.type, id });
 
     // Set navigation target in the store
     if (navigationTarget) {
@@ -137,6 +145,16 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
     // 停止定期保存
     this.stopPeriodicSave();
 
+    // 清理 QueryClient 缓存（避免内存泄漏）
+    if (this.currentReaderSourcePath) {
+      const queryClient = getQueryClient();
+      if (queryClient) {
+        queryClient.removeQueries({
+          queryKey: annotationKeys.byFile(this.currentReaderSourcePath),
+        });
+      }
+    }
+
     this.viewCoordinator.closeCompanionViews();
     this.currentReaderSourcePath = null;
     this.lastKnownCfi = null;
@@ -157,12 +175,6 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
     });
     this.bus.on('view:section-changed', ({ section }) => {
       this.sessionStore.setSection(section);
-    });
-    this.bus.on('view:annotations-changed', ({ annotations }) => {
-      this.annotationService.handleUserAnnotationsChanged(
-        annotations,
-        this.currentReaderSourcePath,
-      );
     });
     this.bus.on('view:session-close', () => {
       this.closeCurrentSession();
@@ -238,7 +250,11 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
     }
 
     // Reader is open with the same book — just navigate
-    this.sessionStore.setAnnotations(annotations);
+    // 更新 QueryClient 缓存
+    const queryClient = getQueryClient();
+    if (queryClient) {
+      queryClient.setQueryData(annotationKeys.byFile(sourceFile.path), annotations);
+    }
     this.navigateToTarget(navTarget);
     this.viewCoordinator.revealReader();
   }

@@ -21,11 +21,7 @@ export function setupReaderHeader(
   callbacks: ReaderHeaderCallbacks,
 ): ReaderHeaderHandle {
   const outlineAction = view.addAction('list-tree', 'Open outline', callbacks.toggleOutline);
-  view.addAction(
-    'highlighter',
-    'Open annotations',
-    callbacks.toggleAnnotations,
-  );
+  view.addAction('highlighter', 'Open annotations', callbacks.toggleAnnotations);
   const readerFlowModeAction = view.addAction(
     'scroll-text',
     '切换滚动模式',

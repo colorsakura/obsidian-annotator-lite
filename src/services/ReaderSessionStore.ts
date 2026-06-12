@@ -1,4 +1,4 @@
-import type { Annotation, BookMetadata, NavigationTarget, OutlineItem } from '../types/annotations';
+import type { BookMetadata, NavigationTarget, OutlineItem } from '../types/annotations';
 
 export type ReaderTargetType = 'pdf' | 'epub' | 'mobi' | 'azw3' | 'fb2' | 'fbz' | 'cbz';
 
@@ -21,7 +21,6 @@ export interface ReaderSectionState {
 
 export interface ReaderSessionState {
   target: ReaderTarget;
-  annotations: Annotation[];
   outline: OutlineItem[];
   metadata: BookMetadata | null;
   section: ReaderSectionState;
@@ -46,10 +45,9 @@ export class ReaderSessionStore {
     };
   }
 
-  startSession(target: ReaderTarget, annotations: Annotation[]): void {
+  startSession(target: ReaderTarget): void {
     this.state = {
       target,
-      annotations,
       outline: [],
       metadata: null,
       section: {
@@ -64,10 +62,6 @@ export class ReaderSessionStore {
   clearSession(): void {
     this.state = null;
     this.notify();
-  }
-
-  setAnnotations(annotations: Annotation[]): void {
-    this.update({ annotations });
   }
 
   setOutline(outline: OutlineItem[]): void {

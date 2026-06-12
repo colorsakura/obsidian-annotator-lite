@@ -2,17 +2,20 @@ import { App, TFile } from 'obsidian';
 import type { Annotation } from '../types/annotations';
 import type { AnnotationIndexService } from '../datacore';
 import type { AnnotationRepository } from './AnnotationRepository';
-import type { ReaderSessionStore } from './ReaderSessionStore';
+import type { QueryClient } from '@tanstack/react-query';
+import { annotationKeys } from '../hooks/useAnnotations';
 
 /**
  * 标注持久化服务。
  *
- * 从 ReaderController 中抽取，负责：
+ * 职责：
  * - 从 Markdown 文件加载标注
  * - 保存标注到 Markdown 文件
  * - 更新/删除单条标注
  * - 防重入保护（persistInProgress）
- * - 同步更新 SessionStore 和 AnnotationIndex
+ * - 同步更新 QueryClient 缓存和 AnnotationIndex
+ *
+ * 注：不再依赖 ReaderSessionStore，改用 QueryClient 缓存管理标注状态。
  */
 export class AnnotationService {
   private persistInProgress = false;
@@ -21,7 +24,7 @@ export class AnnotationService {
     private app: App,
     private repository: AnnotationRepository,
     private annotationIndex: AnnotationIndexService,
-    private sessionStore: ReaderSessionStore,
+    private queryClient: QueryClient,
   ) {}
 
   /**
@@ -35,18 +38,20 @@ export class AnnotationService {
    * 更新指定标注。
    */
   async update(id: string, updates: Partial<Annotation>, sourcePath: string): Promise<void> {
-    const state = this.sessionStore.getSnapshot();
-    if (!state) return;
+    const currentAnnotations = this.queryClient.getQueryData<Annotation[]>(
+      annotationKeys.byFile(sourcePath),
+    );
+    if (!currentAnnotations) return;
 
-    const idx = state.annotations.findIndex((a) => a.id === id);
+    const idx = currentAnnotations.findIndex((a) => a.id === id);
     if (idx === -1) return;
 
     const updated = {
-      ...state.annotations[idx],
+      ...currentAnnotations[idx],
       ...updates,
       updated: new Date().toISOString(),
     };
-    const newAnnotations = [...state.annotations];
+    const newAnnotations = [...currentAnnotations];
     newAnnotations[idx] = updated;
 
     await this.persist(newAnnotations, sourcePath);
@@ -56,43 +61,29 @@ export class AnnotationService {
    * 删除指定标注。
    */
   async delete(id: string, sourcePath: string): Promise<void> {
-    const state = this.sessionStore.getSnapshot();
-    if (!state) return;
+    const currentAnnotations = this.queryClient.getQueryData<Annotation[]>(
+      annotationKeys.byFile(sourcePath),
+    );
+    if (!currentAnnotations) return;
 
-    const newAnnotations = state.annotations.filter((a) => a.id !== id);
+    const newAnnotations = currentAnnotations.filter((a) => a.id !== id);
     await this.persist(newAnnotations, sourcePath);
   }
 
   /**
-   * 处理来自 FoliateViewer 的标注变更（用户在阅读器中添加/删除标注）。
-   * 包含变更检测和防重入保护。
+   * 批量更新标注（由 mutation hook 调用）。
    */
-  handleUserAnnotationsChanged(changedAnnotations: Annotation[], sourcePath: string | null): void {
-    if (this.persistInProgress) return;
-
-    const state = this.sessionStore.getSnapshot();
-    if (!state) return;
-
-    const oldAnnotations = state.annotations;
-    const hasChanged =
-      changedAnnotations.length !== oldAnnotations.length ||
-      changedAnnotations.some(
-        (a, i) => a.id !== oldAnnotations[i]?.id || a.text !== oldAnnotations[i]?.text,
-      );
-
-    if (!hasChanged) return;
-
-    this.sessionStore.setAnnotations(changedAnnotations);
-    void this.persist(changedAnnotations, sourcePath);
+  async batchUpdate(annotations: Annotation[], sourcePath: string): Promise<void> {
+    await this.persist(annotations, sourcePath);
   }
 
   /**
    * 持久化标注到 Markdown 文件。
-   * 同步更新 SessionStore、AnnotationIndex，并通知 ReaderView。
+   * 同步更新 QueryClient 缓存和 AnnotationIndex。
    */
   private async persist(annotations: Annotation[], sourcePath: string | null): Promise<void> {
     if (!sourcePath) {
-      this.sessionStore.setAnnotations(annotations);
+      // 无 sourcePath 时仅更新缓存
       return;
     }
 
@@ -101,12 +92,14 @@ export class AnnotationService {
     try {
       const file = this.app.vault.getAbstractFileByPath(sourcePath);
       if (!(file instanceof TFile)) {
-        this.sessionStore.setAnnotations(annotations);
+        // 文件不存在，仅更新缓存
+        this.queryClient.setQueryData(annotationKeys.byFile(sourcePath), annotations);
         return;
       }
 
       await this.repository.save(file, annotations);
-      this.sessionStore.setAnnotations(annotations);
+      // 持久化成功后更新缓存（确保一致性）
+      this.queryClient.setQueryData(annotationKeys.byFile(sourcePath), annotations);
       this.annotationIndex.rebuildIndex(sourcePath, annotations);
     } catch (e) {
       console.error('Failed to persist annotations:', e);

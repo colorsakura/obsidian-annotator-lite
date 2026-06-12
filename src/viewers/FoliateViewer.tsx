@@ -104,7 +104,14 @@ const FoliateViewer: React.FC<FoliateViewerProps> = React.memo(({ target, config
       canGoNext?: boolean,
       cfi?: string,
     ) => {
-      onSectionChangeRef.current?.(currentIndex, totalSections, currentLabel, canGoPrev, canGoNext, cfi);
+      onSectionChangeRef.current?.(
+        currentIndex,
+        totalSections,
+        currentLabel,
+        canGoPrev,
+        canGoNext,
+        cfi,
+      );
     },
     [],
   );

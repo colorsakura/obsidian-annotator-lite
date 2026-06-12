@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import FoliateViewer from '../viewers/FoliateViewer';
 import {
   type Annotation,
@@ -10,11 +11,13 @@ import type { ReaderSectionState } from '../services/ReaderSessionStore';
 import { isAnnotatableType, isReaderTargetType } from '../services/TargetResolver';
 import { useSessionField } from '../contexts/ReaderStoreContext';
 import { useReader } from '../contexts/ReaderAPIContext';
+import { useAnnotations, useBatchUpdateAnnotations, annotationKeys } from '../hooks/useAnnotations';
 import type { HighlightColor, ReaderFlowMode, ColumnMode } from '../constants';
 import SectionIndicator from './SectionIndicator';
 
 export interface ReaderViewInnerProps {
   targetFile: string | null;
+  sourcePath: string | null;
   readerFlowMode: ReaderFlowMode;
   columnMode: ColumnMode;
   fontSize: number;
@@ -22,11 +25,12 @@ export interface ReaderViewInnerProps {
 }
 
 // ──────────────────────────────────────────
-// Inner React component — reads annotations/navigation from SessionStore.
-// Uses useReader() to emit events to Controller via EventBus.
+// Inner React component — uses TanStack Query for annotation data.
+// Reads navigation from SessionStore via useSessionField.
 // ──────────────────────────────────────────
 const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
   targetFile,
+  sourcePath,
   readerFlowMode,
   columnMode,
   fontSize,
@@ -34,11 +38,10 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
 }) => {
   const reader = useReader();
   const bus = reader.bus;
+  const queryClient = useQueryClient();
 
-  const storeAnnotations = useSessionField('annotations') ?? [];
   const navigationTarget = useSessionField('navigationTarget') ?? null;
 
-  const [localAnnotations, setLocalAnnotations] = useState<Annotation[]>(storeAnnotations);
   const [sectionTarget, setSectionTarget] = useState<{ index: number; nonce: number } | null>(null);
   const [pageTurnTarget, setPageTurnTarget] = useState<{
     direction: 'prev' | 'next';
@@ -49,38 +52,17 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
     totalSections: 0,
   });
 
-  // Track whether the last annotation change came from the store (external)
-  // vs from the user (local). This prevents the annotations-changed event
-  // from firing when the store pushes back the same data we just sent.
-  const isStoreUpdateRef = useRef(false);
-  const lastNotifiedAnnotationsRef = useRef<Annotation[]>(storeAnnotations);
-
   const targetUri = React.useMemo(() => (targetFile ? `urn:${targetFile}` : null), [targetFile]);
 
-  // Sync local annotations when store changes (external updates)
-  useEffect(() => {
-    isStoreUpdateRef.current = true;
-    lastNotifiedAnnotationsRef.current = storeAnnotations;
-    setLocalAnnotations(storeAnnotations);
-  }, [storeAnnotations]);
+  // TanStack Query: 从缓存加载标注数据
+  const { data: annotationsData } = useAnnotations({
+    sourcePath,
+    targetUri,
+  });
+  const storeAnnotations = annotationsData ?? [];
 
-  // Notify Controller of annotation changes (user-added annotations) via EventBus
-  useEffect(() => {
-    if (isStoreUpdateRef.current) {
-      isStoreUpdateRef.current = false;
-      return;
-    }
-
-    const prev = lastNotifiedAnnotationsRef.current;
-    const changed =
-      localAnnotations.length !== prev.length ||
-      localAnnotations.some((a, i) => a.id !== prev[i]?.id || a.text !== prev[i]?.text);
-
-    if (changed) {
-      lastNotifiedAnnotationsRef.current = localAnnotations;
-      bus.emit('view:annotations-changed', { annotations: localAnnotations });
-    }
-  }, [localAnnotations, bus]);
+  // TanStack Query: 标注持久化 mutation（含乐观更新）
+  const batchUpdateMutation = useBatchUpdateAnnotations();
 
   // Add annotation callback (user highlights text in FoliateViewer)
   const addAnnotation = useCallback(
@@ -93,20 +75,47 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
       note?: string;
       color?: string;
     }) => {
-      if (!targetUri) return;
+      if (!targetUri || !sourcePath) return;
       const annotation = createAnnotation({ ...params, uri: targetUri });
-      setLocalAnnotations((prev) => [...prev, annotation]);
+
+      // 乐观更新：立即写入 QueryClient 缓存
+      const currentAnnotations =
+        queryClient.getQueryData<Annotation[]>(annotationKeys.byFile(sourcePath)) ??
+        storeAnnotations;
+      const newAnnotations = [...currentAnnotations, annotation];
+      queryClient.setQueryData(annotationKeys.byFile(sourcePath), newAnnotations);
+
+      // 异步持久化到 Markdown
+      batchUpdateMutation.mutate({
+        sourcePath,
+        annotations: newAnnotations,
+      });
     },
-    [targetUri],
+    [targetUri, sourcePath, queryClient, storeAnnotations, batchUpdateMutation],
   );
 
   // Delete annotation callback
   const deleteAnnotation = useCallback(
     (id: string) => {
-      setLocalAnnotations((prev) => prev.filter((a) => a.id !== id));
+      if (!sourcePath) return;
+
+      // 乐观更新：立即从 QueryClient 缓存中移除
+      const currentAnnotations =
+        queryClient.getQueryData<Annotation[]>(annotationKeys.byFile(sourcePath)) ??
+        storeAnnotations;
+      const newAnnotations = currentAnnotations.filter((a) => a.id !== id);
+      queryClient.setQueryData(annotationKeys.byFile(sourcePath), newAnnotations);
+
+      // 异步持久化到 Markdown
+      batchUpdateMutation.mutate({
+        sourcePath,
+        annotations: newAnnotations,
+      });
+
+      // 通知 Controller（用于其他需要知道标注删除的场景）
       reader.deleteAnnotation(id);
     },
-    [reader],
+    [sourcePath, queryClient, storeAnnotations, batchUpdateMutation, reader],
   );
 
   // Determine annotatability from the file extension
@@ -117,8 +126,8 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
   // Filter annotations by supported types
   const activeAnnotations = React.useMemo(
     () =>
-      isAnnotatable ? localAnnotations.filter((a) => a.type === 'pdf' || a.type === 'epub') : [],
-    [localAnnotations, isAnnotatable],
+      isAnnotatable ? storeAnnotations.filter((a) => a.type === 'pdf' || a.type === 'epub') : [],
+    [storeAnnotations, isAnnotatable],
   );
 
   // Section change handler

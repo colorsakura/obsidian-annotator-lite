@@ -22,6 +22,12 @@ import { DefaultReaderController } from './services/ReaderController';
 import { ObsidianViewCoordinator, type ViewCoordinator } from './services/ViewCoordinator';
 import { setSessionStore } from './contexts/ReaderStoreContext';
 import { setReaderAPI } from './contexts/ReaderAPIContext';
+import { setAnnotationRepository, setApp } from './hooks/useAnnotations';
+import {
+  setQueryClient,
+  createConfiguredQueryClient,
+  getQueryClient,
+} from './providers/QueryProvider';
 import { type AnnotatorLiteSettings, DEFAULT_SETTINGS } from './services/Settings';
 import { AnnotatorLiteSettingTab } from './components/SettingsTab';
 import { ReadingHistoryService } from './services/ReadingHistoryService';
@@ -50,13 +56,16 @@ export default class AnnotatorLitePlugin extends Plugin {
   }
 
   async onload() {
-    // 注册 SessionStore 到模块级单例，供 React 组件通过 useSessionStore() 访问
+    // 注册模块级单例
     setSessionStore(this.sessionStore);
+    setQueryClient(createConfiguredQueryClient());
+    setApp(this.app);
 
     // 初始化 Datacore 适配器和标注索引服务
     this.datacoreAdapter = new DatacoreAdapter(this.app);
     this.annotationIndex = new AnnotationIndexService();
     this.annotationRepository = new MarkdownAnnotationRepository(this.app.vault);
+    setAnnotationRepository(this.annotationRepository);
     this.targetResolver = new ObsidianTargetResolver(this.app, (propertyName, file) =>
       this.getPropertyValue(propertyName, file),
     );
@@ -68,11 +77,13 @@ export default class AnnotatorLitePlugin extends Plugin {
       (data) => this.saveData(data),
     );
 
+    const queryClient = getQueryClient();
+    if (!queryClient) throw new Error('QueryClient not initialized');
     const annotationService = new AnnotationService(
       this.app,
       this.annotationRepository,
       this.annotationIndex,
-      this.sessionStore,
+      queryClient,
     );
     this.readerController = new DefaultReaderController(
       this.app,

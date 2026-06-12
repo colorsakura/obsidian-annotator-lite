@@ -123,6 +123,7 @@ export class ReaderView extends BaseReactView<object> {
   protected renderReact() {
     return React.createElement(ReaderViewInner, {
       targetFile: this.targetFile,
+      sourcePath: this.sourcePath,
       readerFlowMode: this.readerFlowMode,
       columnMode: this.columnMode,
       fontSize: this.fontSize,

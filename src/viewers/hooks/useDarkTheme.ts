@@ -79,11 +79,7 @@ export function applyReaderStyles(
 
 // ─── React hook ──────────────────────────────────────────────────────
 
-export function useDarkTheme(
-  view: HTMLElement | null,
-  loaded: boolean,
-  fontSize: number,
-): void {
+export function useDarkTheme(view: HTMLElement | null, loaded: boolean, fontSize: number): void {
   const [dark, setDark] = useState(isDarkMode());
 
   useEffect(() => {

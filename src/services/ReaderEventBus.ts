@@ -1,4 +1,4 @@
-import type { Annotation, BookMetadata, OutlineItem } from '../types/annotations';
+import type { BookMetadata, OutlineItem } from '../types/annotations';
 import type { ReaderSectionState } from './ReaderSessionStore';
 
 // ─── Event map ────────────────────────────────────────────────────────────
@@ -7,7 +7,6 @@ export interface ReaderEventMap {
   'view:outline-loaded': { items: OutlineItem[] };
   'view:metadata-loaded': { metadata: BookMetadata };
   'view:section-changed': { section: ReaderSectionState };
-  'view:annotations-changed': { annotations: Annotation[] };
   'view:session-close': Record<string, never>;
   /** 位置变化（含 CFI） */
   'view:location-changed': { cfi: string; sectionIndex: number };
