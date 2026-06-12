@@ -24,14 +24,16 @@ export interface BlockDescriptor {
 export interface CachedAnnotation {
   /** 标注 ID */
   id: string;
-  /** 保存时的 DOM Range */
-  range: Range;
+  /** 保存时的 DOM Range（可选，文本恢复模式下不使用） */
+  range?: Range;
   /** 颜色 */
   color: string;
-  /** 标注文本（用于验证） */
+  /** 标注文本（用于文本定位恢复） */
   text: string;
   /** 所属区块 ID */
   blockId: number;
+  /** 文本在父元素内容中的偏移量（用于精确定位） */
+  textOffset?: number;
 }
 
 /**
