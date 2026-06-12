@@ -14,6 +14,21 @@ export class AnnotationCache {
    * 缓存标注
    */
   set(annotation: CachedAnnotation): void {
+    // 如果已存在同 ID 的旧记录，先从旧区块中移除
+    const existing = this.byId.get(annotation.id);
+    if (existing) {
+      const oldBlockAnnotations = this.byBlock.get(existing.blockId);
+      if (oldBlockAnnotations) {
+        const index = oldBlockAnnotations.indexOf(existing);
+        if (index > -1) {
+          oldBlockAnnotations.splice(index, 1);
+        }
+        if (oldBlockAnnotations.length === 0) {
+          this.byBlock.delete(existing.blockId);
+        }
+      }
+    }
+
     this.byId.set(annotation.id, annotation);
 
     const blockAnnotations = this.byBlock.get(annotation.blockId) || [];

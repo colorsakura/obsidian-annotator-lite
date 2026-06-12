@@ -44,4 +44,14 @@ describe('AnnotationCache', () => {
     cache.set(mockAnnotation);
     expect(cache.get('anno-1')).toBe(mockAnnotation);
   });
+
+  it('should handle duplicate set correctly', () => {
+    cache.set(mockAnnotation);
+    const updatedAnnotation = { ...mockAnnotation, blockId: 1 };
+    cache.set(updatedAnnotation);
+
+    expect(cache.get('anno-1')).toBe(updatedAnnotation);
+    expect(cache.getByBlock(0)).toHaveLength(0);
+    expect(cache.getByBlock(1)).toHaveLength(1);
+  });
 });
