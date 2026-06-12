@@ -67,7 +67,6 @@ const SelectionMenu: React.FC<SelectionMenuProps> = ({
           />
         ))}
       </div>
-      <div className="selection-menu__separator" />
       <div className="selection-menu__actions">
         <button className="selection-menu__item" onClick={onAddNote} title="添加笔记">
           <StickyNote className="selection-menu__icon" size={16} />
