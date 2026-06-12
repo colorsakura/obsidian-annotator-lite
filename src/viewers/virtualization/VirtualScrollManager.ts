@@ -20,6 +20,8 @@ export class VirtualScrollManager {
   private annotationCache: AnnotationCache;
   /** 占位符元素映射（blockId → placeholder） */
   private placeholderMap = new Map<number, Element>();
+  /** 每个区块当前被观察的元素（blockId → observed element） */
+  private observedElementMap = new Map<number, Element>();
 
   constructor(doc: Document, config: VirtualScrollConfig) {
     this.doc = doc;
@@ -37,6 +39,7 @@ export class VirtualScrollManager {
 
   /**
    * 初始化虚拟滚动：切分文档并注册所有区块
+   * 初始区块已经在 DOM 中（state: 'rendered'），直接观察实际区块元素
    */
   initialize(): void {
     const blocks = this.splitter.split(this.doc);
@@ -44,12 +47,12 @@ export class VirtualScrollManager {
     for (const block of blocks) {
       this.registry.register(block);
 
-      // 初始区块已经在 DOM 中（state: 'rendered'），无需额外操作
-      // 仅对区块创建占位符并观察，以便后续视口事件驱动缓存切换
-      const placeholder = this.createPlaceholder(block);
-      this.placeholderMap.set(block.id, placeholder);
-
-      this.observer.observe(placeholder, block.id);
+      // 观察区块的第一个元素，以便后续视口事件驱动缓存切换
+      if (block.elements.length > 0) {
+        const observeTarget = block.elements[0] as Element;
+        this.observer.observe(observeTarget, block.id);
+        this.observedElementMap.set(block.id, observeTarget);
+      }
     }
   }
 
@@ -63,21 +66,40 @@ export class VirtualScrollManager {
     const cachedElements = this.blockCache.get(blockId);
     if (!cachedElements) return;
 
-    // 移除占位符
     const placeholder = this.placeholderMap.get(blockId);
-    if (placeholder) {
-      placeholder.remove();
-      this.placeholderMap.delete(blockId);
-    }
+    if (!placeholder) return;
 
-    // 将缓存的 DOM 节点重新插入文档
-    const parent = this.doc.body;
+    // 取消观察占位符（M3）
+    this.observer.unobserve(placeholder);
+
+    // 记录占位符的位置，用于 insertBefore 保持文档顺序（C2）
+    const nextSibling = placeholder.nextElementSibling;
+    const parent = placeholder.parentNode;
+
+    // 移除占位符
+    placeholder.remove();
+    this.placeholderMap.delete(blockId);
+
+    // 在正确的位置恢复 DOM 元素（C2: 使用 insertBefore 保持顺序）
     for (const element of cachedElements) {
-      parent.appendChild(element);
+      if (element instanceof Element) {
+        if (nextSibling && parent) {
+          parent.insertBefore(element, nextSibling);
+        } else if (parent) {
+          parent.appendChild(element);
+        }
+      }
     }
 
     this.registry.updateState(blockId, 'rendered');
     this.restoreAnnotations(blockId);
+
+    // 重新观察区块的第一个元素（C3: 恢复的区块需要重新被观察）
+    if (cachedElements.length > 0) {
+      const observeTarget = cachedElements[0] as Element;
+      this.observer.observe(observeTarget, blockId);
+      this.observedElementMap.set(blockId, observeTarget);
+    }
   }
 
   /**
@@ -93,6 +115,19 @@ export class VirtualScrollManager {
     // 将区块元素缓存起来
     this.blockCache.set(blockId, block.elements);
 
+    // 取消观察区块元素
+    const observedElement = this.observedElementMap.get(blockId);
+    if (observedElement) {
+      this.observer.unobserve(observedElement);
+      this.observedElementMap.delete(blockId);
+    }
+
+    // 使用最后一个元素的 nextSibling 定位区块之后的位置（C2）
+    // 区块元素是连续的，firstElement 的 nextSibling 可能也是区块元素
+    const lastElement = block.elements[block.elements.length - 1] as Element;
+    const nextSibling = lastElement.nextElementSibling;
+    const parent = lastElement.parentNode;
+
     // 从 DOM 中移除区块元素
     for (const element of block.elements) {
       if (element instanceof Element) {
@@ -100,11 +135,18 @@ export class VirtualScrollManager {
       }
     }
 
-    // 用占位符替代，维持文档滚动高度
+    // 用占位符替代，在正确位置插入以维持文档顺序（C2）
     const placeholder = this.createPlaceholder(block);
     this.placeholderMap.set(blockId, placeholder);
-    this.doc.body.appendChild(placeholder);
 
+    if (nextSibling && parent) {
+      parent.insertBefore(placeholder, nextSibling);
+    } else if (parent) {
+      parent.appendChild(placeholder);
+    }
+
+    // 观察占位符
+    this.observer.observe(placeholder, blockId);
     this.registry.updateState(blockId, 'cached');
   }
 
@@ -121,26 +163,32 @@ export class VirtualScrollManager {
 
   /**
    * 保存区块中的标注数据到缓存
+   * 只查询区块内的元素（M2），保存文本元数据而非 Range 引用（M1）
    */
   private saveAnnotations(blockId: number): void {
     const block = this.registry.getBlock(blockId);
     if (!block) return;
 
-    const highlights = this.doc.querySelectorAll('[data-annotation-id]');
-    for (const highlight of highlights) {
-      const annotationId = highlight.getAttribute('data-annotation-id');
-      if (!annotationId) continue;
+    // 只查询区块内的标注元素（M2: 避免查询整个文档）
+    for (const node of block.elements) {
+      if (!(node instanceof Element)) continue;
 
-      if (this.isElementInBlock(highlight, block)) {
-        const range = this.doc.createRange();
-        range.selectNode(highlight);
+      const highlights = node.querySelectorAll('[data-annotation-id]');
+      for (const highlight of highlights) {
+        const annotationId = highlight.getAttribute('data-annotation-id');
+        if (!annotationId) continue;
+
+        // 保存标注的文本内容和相对位置信息（M1: 避免引用即将被移除的 DOM 节点）
+        const text = highlight.textContent || '';
+        const parentText = highlight.parentElement?.textContent || '';
+        const textOffset = parentText.indexOf(text);
 
         this.annotationCache.set({
           id: annotationId,
-          range,
           color: highlight.getAttribute('data-annotation-color') || '',
-          text: highlight.textContent || '',
+          text,
           blockId,
+          textOffset,
         });
       }
     }
@@ -148,52 +196,50 @@ export class VirtualScrollManager {
 
   /**
    * 恢复区块中已缓存的标注
+   * 使用文本内容匹配而非 Range 引用，避免引用已断开的 DOM 节点
    */
   private restoreAnnotations(blockId: number): void {
     const annotations = this.annotationCache.getByBlock(blockId);
     for (const annotation of annotations) {
-      if (this.isRangeValid(annotation.range)) {
-        this.createHighlightElement(annotation);
-      }
+      this.restoreAnnotationByText(annotation);
     }
   }
 
   /**
-   * 检查元素是否属于指定区块
+   * 基于文本内容在区块内查找并恢复标注高亮
    */
-  private isElementInBlock(element: Element, block: BlockDescriptor): boolean {
+  private restoreAnnotationByText(annotation: CachedAnnotation): void {
+    const block = this.registry.getBlock(annotation.blockId);
+    if (!block) return;
+
     for (const node of block.elements) {
-      if (node instanceof Element && node.contains(element)) {
-        return true;
+      if (!(node instanceof Element)) continue;
+
+      const walker = this.doc.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+
+      let currentNode: Node | null;
+      while ((currentNode = walker.nextNode())) {
+        const textContent = currentNode.textContent || '';
+        const index = textContent.indexOf(annotation.text);
+
+        if (index !== -1) {
+          const range = this.doc.createRange();
+          range.setStart(currentNode, index);
+          range.setEnd(currentNode, index + annotation.text.length);
+
+          const span = this.doc.createElement('span');
+          span.style.backgroundColor = annotation.color;
+          span.dataset.annotationId = annotation.id;
+          span.dataset.annotationColor = annotation.color;
+
+          try {
+            range.surroundContents(span);
+            return;
+          } catch (e) {
+            console.warn('Failed to restore annotation:', e);
+          }
+        }
       }
-    }
-    return false;
-  }
-
-  /**
-   * 检查 Range 是否仍然有效（起止节点仍连接在文档中）
-   */
-  private isRangeValid(range: Range): boolean {
-    try {
-      return range.startContainer.isConnected && range.endContainer.isConnected;
-    } catch {
-      return false;
-    }
-  }
-
-  /**
-   * 创建高亮元素包裹标注 Range
-   */
-  private createHighlightElement(annotation: CachedAnnotation): void {
-    const span = this.doc.createElement('span');
-    span.style.backgroundColor = annotation.color;
-    span.dataset.annotationId = annotation.id;
-    span.dataset.annotationColor = annotation.color;
-
-    try {
-      annotation.range.surroundContents(span);
-    } catch (e) {
-      console.warn('Failed to restore annotation:', e);
     }
   }
 
@@ -212,6 +258,14 @@ export class VirtualScrollManager {
   }
 
   /**
+   * 获取标注所属的区块 ID
+   */
+  getBlockForAnnotation(annotationId: string): number | undefined {
+    const annotation = this.annotationCache.get(annotationId);
+    return annotation?.blockId;
+  }
+
+  /**
    * 销毁管理器，清理所有资源
    */
   destroy(): void {
@@ -220,6 +274,7 @@ export class VirtualScrollManager {
     this.blockCache.clear();
     this.annotationCache.clear();
     this.placeholderMap.clear();
+    this.observedElementMap.clear();
     this.splitter.reset();
   }
 }

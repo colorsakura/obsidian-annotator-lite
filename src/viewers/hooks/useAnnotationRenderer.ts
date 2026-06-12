@@ -1,23 +1,39 @@
 import { useEffect, useRef } from 'react';
 import type { Annotation } from '../../types/annotations';
 import { installAnnotationRendering, applyAnnotationOverlays } from '../foliate/foliateAnnotations';
+import type { VirtualScrollManager } from '../virtualization/VirtualScrollManager';
 
 /**
  * 安装标注渲染处理器（draw-annotation / create-overlay 事件）。
  * 在 view 加载完成后调用，组件卸载时自动清理。
+ *
+ * 当提供 virtualScrollManager 时，会过滤掉属于已缓存区块的标注，
+ * 避免对屏幕外不可见的区块执行不必要的标注渲染。
  */
 export function useAnnotationRendering(
   view: HTMLElement | null,
   loaded: boolean,
   annotations: Annotation[],
   isAnnotatable: boolean,
+  virtualScrollManager?: VirtualScrollManager | null,
 ): void {
   const annotationsRef = useRef<Annotation[]>(annotations);
   annotationsRef.current = annotations;
+  const managerRef = useRef(virtualScrollManager);
+  managerRef.current = virtualScrollManager;
 
   useEffect(() => {
     if (!view || !loaded || !isAnnotatable) return;
-    return installAnnotationRendering(view, () => annotationsRef.current);
+    return installAnnotationRendering(view, () => {
+      const manager = managerRef.current;
+      if (!manager) return annotationsRef.current;
+      // 过滤掉属于已缓存区块的标注，避免对不可见区域执行渲染
+      return annotationsRef.current.filter((a) => {
+        const blockId = manager.getBlockForAnnotation(a.id);
+        if (blockId === undefined) return true; // 无区块信息时保留
+        return manager.getBlockState(blockId) !== 'cached';
+      });
+    });
   }, [view, loaded, isAnnotatable]);
 }
 
