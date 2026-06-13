@@ -141,6 +141,308 @@ ReaderEngine
   └── annotations-changed → adapter updates QueryClient + persists
 ```
 
+## 事件系统
+
+### 事件流架构
+
+```
+View 层 ──bus.emit()──→ ReaderEventBus ──on()──→ Controller 层
+    ↑                                               │
+    └──────ReaderSessionStore ←─────────────────────┘
+            (通过 Context 注入 React)
+```
+
+事件单向流动，遵循严格的分层原则：
+
+- **View → Controller**（通过 `bus.emit()`）：View 层主动通知 Controller 层状态变化
+- **Controller → View**：通过 `ReaderSessionStore` 广播状态变化，View 通过 `useSessionStore()` / `useSessionField()` 订阅
+
+#### 当前事件类型
+
+```typescript
+interface ReaderEventMap {
+  // View → Controller 事件（由 View emit，Controller 监听）
+  'view:outline-loaded':   { items: OutlineItem[] };
+  'view:metadata-loaded':  { metadata: BookMetadata };
+  'view:section-changed':  { section: ReaderSectionState };
+  'view:location-changed': { cfi: string; sectionIndex: number };
+  'view:session-close':    Record<string, never>;
+}
+```
+
+### 实际使用示例
+
+#### 示例 1：章节变化处理
+
+章节变化是阅读器中最常见的事件。当用户翻页或跳转到新章节时，FoliateViewer 会触发 `view:section-changed` 和 `view:location-changed` 事件。
+
+```typescript
+// 在 FoliateViewer.tsx 中
+const handleSectionChange = useCallback(
+  (
+    currentIndex: number,
+    totalSections: number,
+    currentLabel?: string,
+    canGoPrev?: boolean,
+    canGoNext?: boolean,
+    cfi?: string,
+  ) => {
+    // 1. 更新本地章节状态（用于 SectionIndicator 渲染）
+    const section = {
+      currentIndex,
+      totalSections,
+      currentLabel,
+      canGoPrev: canGoPrev ?? currentIndex > 0,
+      canGoNext: canGoNext ?? currentIndex < totalSections - 1,
+    };
+    setSectionInfo(section);
+
+    // 2. 通知 Controller 更新 SessionStore
+    bus.emit('view:section-changed', { section });
+
+    // 3. 如果有 CFI，同时通知位置变化（用于进度保存）
+    if (cfi) {
+      bus.emit('view:location-changed', { cfi, sectionIndex: currentIndex });
+    }
+  },
+  [bus],
+);
+```
+
+#### 示例 2：目录加载
+
+当 foliate-js 解析完书籍结构后，触发 `view:outline-loaded` 事件通知 Controller。
+
+```typescript
+// 在 FoliateViewer.tsx 中
+const handleOutlineLoaded = useCallback(
+  (items: OutlineItem[]) => {
+    bus.emit('view:outline-loaded', { items });
+  },
+  [bus],
+);
+
+// 通过 useBookLoader 传入回调
+const { view, isLoaded } = useBookLoader(
+  containerRef,
+  file,
+  { flowMode, columnMode, fontSize },
+  {
+    onOutlineLoaded: handleOutlineLoaded,
+    onBookMetadataLoaded: handleBookMetadataLoaded,
+    onSectionChanged: stableSectionChange,
+  },
+);
+```
+
+#### 示例 3：标注 CRUD 与乐观更新
+
+标注操作采用乐观更新模式，先更新 UI，再通过 ReaderAPI 触发持久化。
+
+```typescript
+// 在 FoliateViewer.tsx 中
+const defaultAddAnnotation = useCallback(
+  (params: AnnotationAddParams) => {
+    const annotation = createAnnotation({ ...params, uri: targetUri });
+
+    // 1. 乐观写：立即更新 QueryClient 缓存，UI 瞬间响应
+    const current =
+      queryClient.getQueryData<Annotation[]>(annotationKeys.byFile(sourcePath)) ?? [];
+    const next = [...current, annotation];
+    queryClient.setQueryData(annotationKeys.byFile(sourcePath), next);
+
+    // 2. 通过 ReaderAPI 触发持久化（Controller 负责写文件 + 确认缓存）
+    void reader.addAnnotation(annotation);
+  },
+  [targetUri, sourcePath, queryClient, reader],
+);
+```
+
+#### 示例 4：Controller 监听事件
+
+Controller 通过 `wireViewEvents()` 监听 View 层事件，并路由到相应的服务。
+
+```typescript
+// 在 ReaderController.ts 中
+private wireViewEvents(): void {
+  const unsubscribers: (() => void)[] = [];
+
+  // 监听目录加载
+  unsubscribers.push(
+    this.bus.on('view:outline-loaded', ({ items }) => {
+      this.sessionStore.update({ outline: items });
+    }),
+  );
+
+  // 监听元数据加载
+  unsubscribers.push(
+    this.bus.on('view:metadata-loaded', ({ metadata }) => {
+      this.sessionStore.update({ metadata });
+    }),
+  );
+
+  // 监听章节变化
+  unsubscribers.push(
+    this.bus.on('view:section-changed', ({ section }) => {
+      this.sessionStore.update({ section });
+    }),
+  );
+
+  // 监听位置变化（保存阅读进度）
+  unsubscribers.push(
+    this.bus.on('view:location-changed', ({ cfi, sectionIndex }) => {
+      this.sessionStore.update({ lastCfi: cfi, lastSectionIndex: sectionIndex });
+      this.saveReadingProgress(cfi);
+    }),
+  );
+
+  // 监听会话关闭
+  unsubscribers.push(
+    this.bus.on('view:session-close', () => {
+      this.closeSession();
+    }),
+  );
+
+  // 保存取消订阅函数，用于清理
+  this.unsubscribers = unsubscribers;
+}
+```
+
+### 事件最佳实践
+
+#### 1. 单向数据流
+
+事件只从 View 到 Controller，状态通过 Store 回流。避免在事件处理器中直接修改 View 状态。
+
+```typescript
+// ✅ 正确：通过 Store 广播状态
+bus.on('view:section-changed', ({ section }) => {
+  this.sessionStore.update({ section });  // Store 更新后，View 自动订阅
+});
+
+// ❌ 错误：在事件处理器中直接操作 View
+bus.on('view:section-changed', ({ section }) => {
+  this.view.setSectionInfo(section);  // 违反单向数据流原则
+});
+```
+
+#### 2. 类型安全
+
+使用 TypeScript 定义事件类型，确保编译时检查。
+
+```typescript
+// ✅ 正确：类型安全的事件定义
+interface ReaderEventMap {
+  'view:section-changed': { section: ReaderSectionState };
+  'view:location-changed': { cfi: string; sectionIndex: number };
+}
+
+// 使用时自动推断类型
+bus.emit('view:section-changed', { section: { ... } });  // TypeScript 检查
+
+// ❌ 错误：使用字符串字面量，无类型检查
+bus.emit('view:section-changed', { wrong: 'field' });  // 编译时无报错
+```
+
+#### 3. 避免循环依赖
+
+不要在事件处理器中触发相同事件，避免无限循环。
+
+```typescript
+// ❌ 错误：会导致无限循环
+bus.on('view:section-changed', ({ section }) => {
+  // ... 处理逻辑
+  bus.emit('view:section-changed', { section });  // 递归触发
+});
+
+// ✅ 正确：使用条件判断避免循环
+bus.on('view:section-changed', ({ section }) => {
+  if (this.lastSection?.currentIndex !== section.currentIndex) {
+    this.lastSection = section;
+    // ... 处理逻辑
+  }
+});
+```
+
+#### 4. 错误处理
+
+在事件处理器中捕获错误，避免崩溃。
+
+```typescript
+// ✅ 正确：捕获错误并记录日志
+bus.on('view:section-changed', ({ section }) => {
+  try {
+    this.sessionStore.update({ section });
+  } catch (e) {
+    log.error('Failed to update session store:', e);
+  }
+});
+
+// ReaderEventBus 内部已实现错误捕获
+emit<K extends keyof ReaderEventMap>(event: K, payload: ReaderEventMap[K]): void {
+  const set = this.listeners.get(event as string);
+  if (!set) return;
+  for (const handler of set) {
+    try {
+      handler(payload);
+    } catch (e) {
+      log.error(`Error in handler for "${event as string}":`, e);
+    }
+  }
+}
+```
+
+#### 5. 及时清理订阅
+
+组件卸载时必须取消订阅，避免内存泄漏。
+
+```typescript
+// ✅ 正确：使用 useEffect 清理
+useEffect(() => {
+  const unsub = bus.on('view:section-changed', handler);
+  return unsub;  // React 自动调用清理函数
+}, [bus]);
+
+// ✅ 正确：批量清理
+useEffect(() => {
+  const unsubscribers = [
+    bus.on('view:section-changed', handleSection),
+    bus.on('view:location-changed', handleLocation),
+  ];
+  return () => unsubscribers.forEach(unsub => unsub());
+}, [bus]);
+```
+
+#### 6. 选择性订阅
+
+通过 `useSessionField` 按字段订阅 SessionStore，避免无关状态变化引起重渲染。
+
+```typescript
+// ✅ 正确：只订阅需要的字段
+const navigationTarget = useSessionField('navigationTarget') ?? null;
+
+// ❌ 错误：订阅全量状态，任何字段变化都会触发重渲染
+const session = useSessionStore();
+const navigationTarget = session.navigationTarget;
+```
+
+#### 7. 回调稳定性
+
+频繁变化的回调使用 `useCallback` + ref 模式保持引用稳定。
+
+```typescript
+// ✅ 正确：使用 ref 模式保持引用稳定
+const handleSectionChangeRef = useRef(handleSectionChange);
+handleSectionChangeRef.current = handleSectionChange;
+
+const stableSectionChange = useCallback(
+  (currentIndex, totalSections, ...args) => {
+    handleSectionChangeRef.current(currentIndex, totalSections, ...args);
+  },
+  [],  // 空依赖 → 引用永远不变
+);
+```
+
 ## Error Handling
 
 ### Error Types
