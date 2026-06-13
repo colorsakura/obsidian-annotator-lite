@@ -6,6 +6,9 @@ import { loadBookMetadata } from '../foliate/foliateBookMetadata';
 import { applyReaderFlowMode, applyColumnMode, applyFontSize } from './useReaderSettings';
 import { enableAndroidPatches, disableAndroidPatches, wrapSectionLoadForAndroid } from './useAndroidPatches';
 import type { ReaderFlowMode, ColumnMode } from '../../constants';
+import { createLogger } from '../../utils/logger';
+
+const log = createLogger('BookLoader');
 
 export interface BookLoaderCallbacks {
   onOutlineLoaded?: (items: OutlineItem[]) => void;
@@ -147,8 +150,9 @@ export function useBookLoader(
 
         loadedFileRef.current = file;
         setIsLoaded(true);
+        log.debug('book loaded:', tfile.name, 'type:', ext, 'size:', data.byteLength, 'bytes');
       } catch (err) {
-        console.error('[annotator-lite] Failed to load file:', err);
+        log.error('Failed to load file:', err);
       } finally {
         loadingRef.current = false;
       }

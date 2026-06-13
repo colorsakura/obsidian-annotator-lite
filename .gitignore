@@ -1,5 +1,6 @@
 /node_modules/
 /.idea/
 /.npmrc.old
+.env
 main.js
 styles.css

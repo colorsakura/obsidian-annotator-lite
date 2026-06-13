@@ -13,6 +13,9 @@ import { ANNOTATOR_ID_PROPERTY } from '../constants';
 import type { AnnotatorLiteSettings } from './Settings';
 import type { ReadingHistoryService } from './ReadingHistoryService';
 import { ensureFrontmatterId } from '../utils/frontmatter';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('ReaderController');
 
 export interface ReaderController {
   openFromMarkdownLeaf(leaf: WorkspaceLeaf): Promise<void>;
@@ -77,8 +80,11 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
     initialNavigationTarget?: NavigationTarget | null,
     targetLeaf?: WorkspaceLeaf,
   ): Promise<void> {
+    const startTime = performance.now();
     const target = this.targetResolver.resolve(sourceFile);
     if (!target) return;
+
+    log.debug('openFromSourceFile:', { sourcePath: sourceFile.path, targetPath: target.targetPath, type: target.type });
 
     // 确保 frontmatter 有 id
     const existingId = this.getFrontmatter(sourceFile, ANNOTATOR_ID_PROPERTY) as string | null;
@@ -97,7 +103,7 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
     try {
       annotations = await this.annotationService.load(sourceFile, target.targetUri);
     } catch (e) {
-      console.warn('[Annotator Lite] 加载标注数据失败:', e);
+      log.warn('加载标注数据失败:', e);
     }
 
     if (!target.type) return;
@@ -120,6 +126,8 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
 
     const readerView = await this.viewCoordinator.openReader(targetLeaf);
     if (!readerView) return;
+
+    log.debug('Reader opened in', Math.round(performance.now() - startTime), 'ms, annotations:', annotations.length);
 
     // Pass settings from plugin BEFORE setTargetFile (which resets to defaults)
     const settings = this.getSettings();
@@ -216,7 +224,7 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
   async navigateToAnnotation(annotationId: string): Promise<void> {
     const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
     if (!activeView?.file) {
-      console.warn('[Annotator Lite] 无法获取当前 Markdown 视图');
+      log.warn('无法获取当前 Markdown 视图');
       return;
     }
     const sourceFile = activeView.file;
@@ -225,17 +233,17 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
     try {
       annotations = await this.annotationService.load(sourceFile, null);
     } catch (e) {
-      console.warn('[Annotator Lite] 加载标注数据失败:', e);
+      log.warn('加载标注数据失败:', e);
       return;
     }
 
     const annotation = annotations.find((a) => a.id === annotationId);
     if (!annotation) {
-      console.warn('[Annotator Lite] 未找到标注:', annotationId);
+      log.warn('未找到标注:', annotationId);
       return;
     }
     if (!annotation.cfiRange) {
-      console.warn('[Annotator Lite] 标注缺少 cfiRange:', annotationId);
+      log.warn('标注缺少 cfiRange:', annotationId);
       return;
     }
 
@@ -285,7 +293,7 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
         targetFileName: target.targetPath.split('/').pop() ?? target.targetPath,
       });
     } catch (e) {
-      console.warn('[Annotator Lite] 保存阅读进度失败:', e);
+      log.warn('保存阅读进度失败:', e);
     }
   }
 

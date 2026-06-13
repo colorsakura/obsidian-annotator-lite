@@ -1,5 +1,8 @@
 import type { BookMetadata, OutlineItem } from '../types/annotations';
 import type { ReaderSectionState } from './ReaderSessionStore';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('ReaderEventBus');
 
 // ─── Event map ────────────────────────────────────────────────────────────
 export interface ReaderEventMap {
@@ -52,13 +55,14 @@ export class ReaderEventBus {
    * 发布事件。所有订阅者同步调用。
    */
   emit<K extends keyof ReaderEventMap>(event: K, payload: ReaderEventMap[K]): void {
+    log.debug('emit:', event as string);
     const set = this.listeners.get(event as string);
     if (!set) return;
     for (const handler of set) {
       try {
         handler(payload);
       } catch (e) {
-        console.error(`[ReaderEventBus] Error in handler for "${event as string}":`, e);
+        log.error(`Error in handler for "${event as string}":`, e);
       }
     }
   }

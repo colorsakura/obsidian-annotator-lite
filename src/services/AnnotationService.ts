@@ -4,6 +4,9 @@ import type { AnnotationIndexService } from '../datacore';
 import type { AnnotationRepository } from './AnnotationRepository';
 import type { QueryClient } from '@tanstack/react-query';
 import { annotationKeys } from '../hooks/useAnnotations';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('AnnotationService');
 
 /**
  * 标注持久化服务。
@@ -97,12 +100,14 @@ export class AnnotationService {
         return;
       }
 
+      log.debug('persisting', annotations.length, 'annotations to', sourcePath);
       await this.repository.save(file, annotations);
+      log.debug('persist complete');
       // 持久化成功后更新缓存（确保一致性）
       this.queryClient.setQueryData(annotationKeys.byFile(sourcePath), annotations);
       this.annotationIndex.rebuildIndex(sourcePath, annotations);
     } catch (e) {
-      console.error('Failed to persist annotations:', e);
+      log.error('Failed to persist annotations:', e);
     } finally {
       this.persistInProgress = false;
     }

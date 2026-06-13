@@ -1,5 +1,8 @@
 import { App, TFile } from 'obsidian';
 import { type DatacoreApi, Link } from '@blacksmithgu/datacore';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('DatacoreAdapter');
 
 /**
  * Datacore 适配器
@@ -25,9 +28,9 @@ export class DatacoreAdapter {
     this.ready = !!this.api;
 
     if (this.ready) {
-      console.log('[Annotator Lite] Datacore 索引层已激活');
+      log.info('Datacore 索引层已激活');
     } else {
-      console.log('[Annotator Lite] Datacore 未启用，使用原生 metadataCache 回退');
+      log.info('Datacore 未启用，使用原生 metadataCache 回退');
     }
 
     return this.ready;

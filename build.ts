@@ -151,6 +151,7 @@ const buildConfig: esbuild.BuildOptions = {
   sourcemap: prod ? false : 'inline',
   define: {
     'process.env.NODE_ENV': JSON.stringify(prod ? 'production' : 'development'),
+    '__DEBUG__': JSON.stringify(!prod),
   },
   plugins: [foliatePdfPlugin(), ignoreCssPlugin()],
   // Suppress esbuild warnings about dynamic import — foliate-js uses them
@@ -158,19 +159,60 @@ const buildConfig: esbuild.BuildOptions = {
   logLevel: 'info',
 };
 
+const OUTPUT_FILES = ['main.js', 'styles.css', 'manifest.json'] as const;
+const PLUGIN_ID = 'annotator-lite';
+const VAULT_PATH = process.env.OBSIDIAN_VALTE_PATH;
+
+/**
+ * 将构建产物复制到 Obsidian Vault 插件目录。
+ * 仅在 .env 中定义了 OBSIDIAN_VALTE_PATH 时生效。
+ */
+async function deployToVault(): Promise<void> {
+  if (!VAULT_PATH) return;
+
+  const destDir = path.join(VAULT_PATH, '.obsidian', 'plugins', PLUGIN_ID);
+  await fs.promises.mkdir(destDir, { recursive: true });
+
+  for (const file of OUTPUT_FILES) {
+    const src = path.resolve(__dirname, file);
+    const dest = path.join(destDir, file);
+    await fs.promises.copyFile(src, dest);
+  }
+
+  console.log(`Deployed to ${destDir}`);
+}
+
+/**
+ * esbuild 插件：watch 模式下每次重新构建后自动部署到 Vault。
+ */
+function vaultDeployPlugin(): esbuild.Plugin {
+  return {
+    name: 'vault-deploy',
+    setup(build) {
+      build.onEnd(async () => {
+        await buildStyles();
+        await deployToVault();
+      });
+    },
+  };
+}
+
 async function main() {
   if (prod) {
-    // Production: one-shot build + styles
+    // Production: one-shot build + styles + deploy
     console.log('Building for production...');
     await esbuild.build(buildConfig);
     await buildStyles();
+    await deployToVault();
     console.log('Build complete.');
   } else {
-    // Development: watch mode + styles
+    // Development: watch mode + styles + deploy on rebuild
     console.log('Building for development (watch mode)...');
 
     await buildStyles();
+    await deployToVault();
 
+    buildConfig.plugins?.push(vaultDeployPlugin());
     const ctx = await esbuild.context(buildConfig);
     await ctx.watch();
     console.log('Watching for changes...');
