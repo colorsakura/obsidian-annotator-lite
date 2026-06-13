@@ -265,48 +265,34 @@ Controller 通过 `wireViewEvents()` 监听 View 层事件，并路由到相应�
 ```typescript
 // 在 ReaderController.ts 中
 private wireViewEvents(): void {
-  const unsubscribers: (() => void)[] = [];
-
   // 监听目录加载
-  unsubscribers.push(
-    this.bus.on('view:outline-loaded', ({ items }) => {
-      this.sessionStore.update({ outline: items });
-    }),
-  );
+  this.bus.on('view:outline-loaded', ({ items }) => {
+    this.sessionStore.setOutline(items);
+  });
 
   // 监听元数据加载
-  unsubscribers.push(
-    this.bus.on('view:metadata-loaded', ({ metadata }) => {
-      this.sessionStore.update({ metadata });
-    }),
-  );
+  this.bus.on('view:metadata-loaded', ({ metadata }) => {
+    this.sessionStore.setMetadata(metadata);
+  });
 
   // 监听章节变化
-  unsubscribers.push(
-    this.bus.on('view:section-changed', ({ section }) => {
-      this.sessionStore.update({ section });
-    }),
-  );
+  this.bus.on('view:section-changed', ({ section }) => {
+    this.sessionStore.setSection(section);
+  });
 
-  // 监听位置变化（保存阅读进度）
-  unsubscribers.push(
-    this.bus.on('view:location-changed', ({ cfi, sectionIndex }) => {
-      this.sessionStore.update({ lastCfi: cfi, lastSectionIndex: sectionIndex });
-      this.saveReadingProgress(cfi);
-    }),
-  );
+  // 监听位置变化
+  this.bus.on('view:location-changed', ({ cfi }) => {
+    this.lastKnownCfi = cfi;
+  });
 
   // 监听会话关闭
-  unsubscribers.push(
-    this.bus.on('view:session-close', () => {
-      this.closeSession();
-    }),
-  );
-
-  // 保存取消订阅函数，用于清理
-  this.unsubscribers = unsubscribers;
+  this.bus.on('view:session-close', () => {
+    this.closeCurrentSession();
+  });
 }
 ```
+
+> **订阅清理**：Controller 不需要逐个取消订阅。会话关闭时，`closeCurrentSession()` 调用 `bus.clear()` 一次性清除所有事件监听器。`ReaderEventBus.clear()` 内部执行 `this.listeners.clear()`，确保不会产生内存泄漏。
 
 ### 事件最佳实践
 
@@ -317,7 +303,7 @@ private wireViewEvents(): void {
 ```typescript
 // ✅ 正确：通过 Store 广播状态
 bus.on('view:section-changed', ({ section }) => {
-  this.sessionStore.update({ section });  // Store 更新后，View 自动订阅
+  this.sessionStore.setSection(section);  // Store 更新后，View 自动订阅
 });
 
 // ❌ 错误：在事件处理器中直接操作 View
