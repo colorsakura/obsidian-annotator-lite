@@ -95,7 +95,7 @@ Plugin (main.ts)
 
 - **移动端兼容**：`manifest.json` 中 `isDesktopOnly` 为 `false`，插件必须同时支持桌面端和移动端（Android/iOS）。Obsidian 移动端使用 WebView 渲染，所有 DOM 操作需兼容 WebView 环境
 
-- **Android WebView 兼容**：`FoliateViewer.tsx` 包含三个运行时补丁（iframe sandbox 移除、blob URL 拦截、srcdoc 注入），解决 Android WebView 上 foliate-js 的跨域和沙箱问题。移动端没有 popout window，`FoliateViewer` 使用 `document.createElement` 而非 `ownerDocument.createElement`
+- **Android WebView 兼容**：`useAndroidPatches.ts` 导出 `enableAndroidPatches()` / `disableAndroidPatches()` 三个运行时补丁（iframe sandbox 移除、blob URL 拦截、srcdoc 注入），解决 Android WebView 上 foliate-js 的跨域和沙箱问题。补丁必须在 `view.open()` 之前同步激活以拦截 blob URL 创建，由 `useBookLoader` 负责调用时机；内置 `Platform.isMobile` 检查，桌面端不生效。移动端没有 popout window，`FoliateViewer` 使用 `document.createElement` 而非 `ownerDocument.createElement`
 
 - **Datacore 集成**：如果用户安装了 Datacore 插件，`DatacoreAdapter` 自动激活，利用其 Link 类型解析和倒排索引；否则回退到 `metadataCache.getFileCache()`
 
@@ -122,7 +122,7 @@ Plugin (main.ts)
 | `useFlowMode`            | 滚动/分页模式切换                                               |
 | `useColumnMode`          | 单列/双列模式切换                                               |
 | `useFontSize`            | 字体大小控制                                                    |
-| `useAndroidPatches`      | Android WebView 兼容性补丁                                      |
+| `enableAndroidPatches` / `disableAndroidPatches` | Android WebView 兼容补丁（独立函数，非 hook）  |
 
 其他 hooks：
 
