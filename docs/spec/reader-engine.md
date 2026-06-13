@@ -375,6 +375,85 @@ useEffect(() => {
 - `wrapSectionLoadForAndroid()` 必须在 `view.open()` 之后、`view.init()` 之前对每个 section 调用
 - 组件卸载时必须调用 `disableAndroidPatches()` 恢复原始原型
 
+## CFI 寻址
+
+CFI（Content Fragment Identifier）是 EPUB 规范中用于精确定位文档内容的寻址机制。foliate-js 使用 CFI 来标识标注位置、实现跨章节导航和阅读进度恢复。
+
+### CFI 创建示例
+
+实际实现位于 `src/viewers/foliate/foliateSelection.ts`：
+
+```typescript
+// 从 foliateSelection.ts
+const viewApi = view as any;
+const contents = viewApi.renderer?.getContents?.();
+if (!contents || contents.length === 0) return;
+
+const cfi = viewApi.getCFI(contents[0].index, range);
+```
+
+使用示例：
+
+```typescript
+const selection = window.getSelection();
+if (selection.rangeCount > 0) {
+  const range = selection.getRangeAt(0);
+  const cfi = viewApi.getCFI(contents[0].index, range);
+  if (cfi) {
+    console.log('CFI:', cfi);
+  }
+}
+```
+
+### CFI 在实际场景中的应用
+
+#### 场景 1：标注保存
+
+```typescript
+// 用户选择文本后，保存标注位置
+const saveAnnotation = (range: Range) => {
+  const cfi = viewApi.getCFI(contents[0].index, range);
+  // 保存到 Markdown 文件
+  saveToMarkdown({
+    cfiRange: cfi,
+    text: range.toString(),
+    // ... 其他字段
+  });
+};
+```
+
+#### 场景 2：位置恢复
+
+```typescript
+// 打开书籍后，恢复上次阅读位置
+const restorePosition = async (lastCfi: string) => {
+  try {
+    await view.goTo(lastCfi);
+  } catch (err) {
+    // CFI 无效时，回退到开头
+    await view.goTo(0);
+  }
+};
+```
+
+#### 场景 3：跨章节导航
+
+```typescript
+// 从目录跳转到指定章节
+const navigateToChapter = async (chapterCfi: string) => {
+  await view.goTo(chapterCfi);
+  // 更新阅读进度
+  updateReadingProgress(chapterCfi);
+};
+```
+
+### CFI 最佳实践
+
+1. **始终验证 CFI**：使用前检查格式是否有效
+2. **提供回退方案**：CFI 无效时使用章节索引
+3. **缓存常用 CFI**：避免重复计算
+4. **序列化存储**：使用字符串格式存储 CFI
+
 ## Deletion Test
 
 Deleting ReaderEngine scatters these concerns into FoliateViewer adapter:
