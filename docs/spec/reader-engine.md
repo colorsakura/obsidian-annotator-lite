@@ -572,10 +572,10 @@ interface RangeSelector {
 
 ```typescript
 // 解析：从 Markdown 内容提取标注列表
-parseAnnotationsFromMarkdown(content: string, uri?: string | null): Annotation[]
+export function parseAnnotationsFromMarkdown(content: string, uri?: string | null): Annotation[]
 
 // 生成：将标注列表写入 Markdown 内容
-generateMarkdownWithAnnotations(originalContent: string, annotations: Annotation[]): string
+export function generateMarkdownWithAnnotations(originalContent: string, annotations: Annotation[]): string
 ```
 
 解析流程：
