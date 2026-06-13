@@ -4,7 +4,11 @@ import type { BookMetadata, OutlineItem } from '../../types/annotations';
 import { useObsidianApp } from '../../hooks/useObsidianApp';
 import { loadBookMetadata } from '../foliate/foliateBookMetadata';
 import { applyReaderFlowMode, applyColumnMode, applyFontSize } from './useReaderSettings';
-import { enableAndroidPatches, disableAndroidPatches, wrapSectionLoadForAndroid } from './useAndroidPatches';
+import {
+  enableAndroidPatches,
+  disableAndroidPatches,
+  wrapSectionLoadForAndroid,
+} from './useAndroidPatches';
 import type { ReaderFlowMode, ColumnMode } from '../../constants';
 import { createLogger } from '../../utils/logger';
 

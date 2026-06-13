@@ -107,22 +107,22 @@ Plugin (main.ts)
 
 `FoliateViewer` 将复杂逻辑拆分为多个自定义 hooks（位于 `src/viewers/hooks/`）：
 
-| Hook                     | 职责                                                            |
-| ------------------------ | --------------------------------------------------------------- |
-| `useBookLoader`          | 加载书籍文件，处理 foliate-js 打开流程                          |
-| `useAnnotationRendering` | 标注渲染和高亮显示（渲染层）                                    |
-| `useAnnotationOverlays`  | 标注覆盖层管理（叠加层）                                        |
-| `useContextMenu`         | 右键菜单分发器（PC → useSelectionMenu，移动端 → useMobileMenu） |
-| `useSelectionMenu`       | 选择菜单核心逻辑（contextmenu 监听、坐标转换、标注检测）        |
-| `useMobileMenu`          | 移动端 Obsidian Menu 回退                                       |
-| `useNavigationTarget`    | 导航目标跳转（点击目录/标注跳转）                               |
-| `useSectionTarget`       | 章节目标跳转                                                    |
-| `usePageTurnTarget`      | 翻页控制                                                        |
-| `useRelocateListener`    | 章节位置变化监听                                                |
-| `useFlowMode`            | 滚动/分页模式切换                                               |
-| `useColumnMode`          | 单列/双列模式切换                                               |
-| `useFontSize`            | 字体大小控制                                                    |
-| `enableAndroidPatches` / `disableAndroidPatches` | Android WebView 兼容补丁（独立函数，非 hook）  |
+| Hook                                             | 职责                                                            |
+| ------------------------------------------------ | --------------------------------------------------------------- |
+| `useBookLoader`                                  | 加载书籍文件，处理 foliate-js 打开流程                          |
+| `useAnnotationRendering`                         | 标注渲染和高亮显示（渲染层）                                    |
+| `useAnnotationOverlays`                          | 标注覆盖层管理（叠加层）                                        |
+| `useContextMenu`                                 | 右键菜单分发器（PC → useSelectionMenu，移动端 → useMobileMenu） |
+| `useSelectionMenu`                               | 选择菜单核心逻辑（contextmenu 监听、坐标转换、标注检测）        |
+| `useMobileMenu`                                  | 移动端 Obsidian Menu 回退                                       |
+| `useNavigationTarget`                            | 导航目标跳转（点击目录/标注跳转）                               |
+| `useSectionTarget`                               | 章节目标跳转                                                    |
+| `usePageTurnTarget`                              | 翻页控制                                                        |
+| `useRelocateListener`                            | 章节位置变化监听                                                |
+| `useFlowMode`                                    | 滚动/分页模式切换                                               |
+| `useColumnMode`                                  | 单列/双列模式切换                                               |
+| `useFontSize`                                    | 字体大小控制                                                    |
+| `enableAndroidPatches` / `disableAndroidPatches` | Android WebView 兼容补丁（独立函数，非 hook）                   |
 
 其他 hooks：
 

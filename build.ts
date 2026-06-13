@@ -151,7 +151,7 @@ const buildConfig: esbuild.BuildOptions = {
   sourcemap: prod ? false : 'inline',
   define: {
     'process.env.NODE_ENV': JSON.stringify(prod ? 'production' : 'development'),
-    '__DEBUG__': JSON.stringify(!prod),
+    __DEBUG__: JSON.stringify(!prod),
   },
   plugins: [foliatePdfPlugin(), ignoreCssPlugin()],
   // Suppress esbuild warnings about dynamic import — foliate-js uses them

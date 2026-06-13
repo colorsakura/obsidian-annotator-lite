@@ -84,7 +84,11 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
     const target = this.targetResolver.resolve(sourceFile);
     if (!target) return;
 
-    log.debug('openFromSourceFile:', { sourcePath: sourceFile.path, targetPath: target.targetPath, type: target.type });
+    log.debug('openFromSourceFile:', {
+      sourcePath: sourceFile.path,
+      targetPath: target.targetPath,
+      type: target.type,
+    });
 
     // 确保 frontmatter 有 id
     const existingId = this.getFrontmatter(sourceFile, ANNOTATOR_ID_PROPERTY) as string | null;
@@ -127,7 +131,12 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
     const readerView = await this.viewCoordinator.openReader(targetLeaf);
     if (!readerView) return;
 
-    log.debug('Reader opened in', Math.round(performance.now() - startTime), 'ms, annotations:', annotations.length);
+    log.debug(
+      'Reader opened in',
+      Math.round(performance.now() - startTime),
+      'ms, annotations:',
+      annotations.length,
+    );
 
     // Pass settings from plugin BEFORE setTargetFile (which resets to defaults)
     const settings = this.getSettings();
