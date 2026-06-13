@@ -141,6 +141,170 @@ ReaderEngine
   └── annotations-changed → adapter updates QueryClient + persists
 ```
 
+## 错误处理机制
+
+### 错误类型
+
+1. **文件加载错误**：文件不存在、格式不支持、损坏
+2. **渲染错误**：CSS 解析失败、布局异常、初始化失败
+3. **导航错误**：CFI 无效、章节不存在、跳转失败
+4. **标注错误**：选择失败、CFI 提取失败、保存失败
+
+### 错误处理策略
+
+#### 文件加载错误
+
+文件加载错误在 `useBookLoader.ts` 中处理。加载流程包含多层防护：
+
+```typescript
+// 文件存在性检查
+const tfile = app.vault.getAbstractFileByPath(file);
+if (!(tfile instanceof TFile)) {
+  loadingRef.current = false;
+  return;  // 静默失败，不显示错误
+}
+
+try {
+  const data = await app.vault.readBinary(tfile as any);
+  // ... 加载逻辑
+} catch (err) {
+  log.error('Failed to load file:', err);
+  // 当前实现：仅记录日志，不向用户显示错误
+}
+```
+
+**处理策略**：
+- 文件不存在：静默失败，不显示错误提示
+- 读取失败：记录错误日志，保持加载状态为 false
+- 格式不支持：依赖 foliate-js 内部错误处理
+
+#### 渲染错误
+
+渲染错误在 `view.init()` 失败时触发，采用回退策略：
+
+```typescript
+try {
+  await (view as any).init({ showTextStart: true });
+} catch {
+  // 初始化失败时，尝试跳转到开头
+  try {
+    await (view as any).goTo(0);
+  } catch {
+    /* ignore - 双重失败时静默忽略 */
+  }
+}
+```
+
+**处理策略**：
+- 初始化失败：自动回退到 `goTo(0)`
+- 回退失败：静默忽略，避免级联错误
+
+#### 导航错误
+
+导航错误在 CFI 跳转时可能触发，当前实现采用静默忽略策略：
+
+```typescript
+// foliateSelection.ts 中的 CFI 提取
+try {
+  const viewApi = view as any;
+  const contents = viewApi.renderer?.getContents?.();
+  if (!contents || contents.length === 0) return;
+
+  const cfi = viewApi.getCFI(contents[0].index, range);
+  // ... 继续处理
+} catch {
+  // Selection may not be convertible to CFI; silently ignore
+}
+```
+
+**处理策略**：
+- CFI 提取失败：静默忽略，不显示菜单
+- 章节不存在：依赖 foliate-js 内部边界检查
+
+#### 标注错误
+
+标注错误在 `AnnotationService.ts` 中处理，包含防重入保护：
+
+```typescript
+async persist(annotations: Annotation[], sourcePath: string | null): Promise<void> {
+  if (!sourcePath) {
+    // 无 sourcePath 时仅更新缓存，不写入文件
+    return;
+  }
+
+  this.persistInProgress = true;
+
+  try {
+    const file = this.app.vault.getAbstractFileByPath(sourcePath);
+    if (!(file instanceof TFile)) {
+      // 文件不存在，仅更新缓存
+      this.queryClient.setQueryData(annotationKeys.byFile(sourcePath), annotations);
+      return;
+    }
+
+    await this.repository.save(file, annotations);
+    // 持久化成功后更新缓存（确保一致性）
+    this.queryClient.setQueryData(annotationKeys.byFile(sourcePath), annotations);
+    this.annotationIndex.rebuildIndex(sourcePath, annotations);
+  } catch (e) {
+    log.error('Failed to persist annotations:', e);
+    // 当前实现：失败时仅记录日志，不回滚缓存
+  } finally {
+    this.persistInProgress = false;
+  }
+}
+```
+
+**处理策略**：
+- 无源文件路径：仅更新内存缓存
+- 文件不存在：仅更新缓存，不写入文件
+- 保存失败：记录错误日志，保持 `persistInProgress` 为 false
+- 防重入：通过 `persistInProgress` 标志防止并发保存
+
+### 错误恢复策略
+
+#### 优雅降级
+
+当前实现采用分层降级策略：
+
+1. **初始化降级**：`view.init()` 失败 → 回退到 `goTo(0)`
+2. **上下文降级**：DOM 遍历失败 → 返回空 prefix/suffix
+3. **缓存降级**：文件操作失败 → 仅更新内存缓存
+
+#### 静默忽略
+
+以下场景采用静默忽略策略（不向用户显示错误）：
+
+- 文件不存在
+- CFI 提取失败
+- 初始化/回退双重失败
+- 上下文提取失败
+
+**设计理念**：阅读器作为被动查看工具，非关键错误不应干扰用户阅读体验。
+
+#### 日志记录
+
+所有错误均通过 `createLogger` 记录到控制台，便于开发调试：
+
+```typescript
+const log = createLogger('BookLoader');
+log.error('Failed to load file:', err);
+
+const log = createLogger('AnnotationService');
+log.error('Failed to persist annotations:', e);
+```
+
+### 改进建议
+
+当前错误处理存在以下可改进点：
+
+1. **用户提示缺失**：关键错误（如文件损坏）应向用户显示通知
+2. **重试机制缺失**：网络相关错误（如 Datacore 同步）可添加自动重试
+3. **回滚不完整**：标注保存失败时，缓存可能与文件不一致
+4. **错误类型未细化**：统一使用 `catch` 捕获，未区分错误类型
+
+建议在 ReaderEngine 重构时引入统一的错误处理机制，通过事件总线向 UI 层报告错误状态。
+
 ## Android WebView 兼容性
 
 ### 问题背景
