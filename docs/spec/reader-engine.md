@@ -1100,6 +1100,138 @@ setLocalAnnotations(updatedAnnotations);
 bus.emit('view:annotations-changed', { annotations: updatedAnnotations });
 ```
 
+## 故障排除
+
+### 常见问题
+
+#### 1. Android WebView 显示空白
+
+**症状**：在 Android 设备上，阅读器显示空白页面。
+
+**原因**：Android WebView 的 sandbox 策略阻止了 `blob:` URL 加载。foliate-js 的分页器会创建带有 sandbox 属性的 iframe，但在 Chromium-based Android WebView 上，这个 sandbox 会阻止 `blob:` URL 加载，导致 `contentDocument` 不可访问。
+
+**解决方案**：
+- 确保在 `view.open()` 之前调用 `enableAndroidPatches()`
+- 检查 `Platform.isMobile` 是否为 `true`（补丁仅在移动端生效）
+- 确保在组件卸载时调用 `disableAndroidPatches()` 恢复原始原型
+- 验证 `wrapSectionLoadForAndroid()` 是否在 `view.open()` 之后对每个 section 调用
+
+**参考代码**：
+```typescript
+// 正确的调用时序
+enableAndroidPatches();  // 必须在 view.open() 之前
+await view.open(fileObj);
+
+// view.open() 之后，对每个 section 包装 load()
+const book = view.book;
+if (book?.sections) {
+  await Promise.all(book.sections.map(s => wrapSectionLoadForAndroid(s)));
+}
+
+await view.init({ showTextStart: true });
+```
+
+#### 2. CFI 导航失败
+
+**症状**：点击标注或目录跳转时无反应。
+
+**原因**：CFI 格式无效或目标位置不存在。
+
+**解决方案**：
+- 验证 CFI 格式是否正确：必须以 `epubcfi(` 开头
+- 提供回退方案：CFI 无效时使用章节索引
+- 检查目标章节是否已加载
+
+**参考代码**：
+```typescript
+// 位置恢复时的回退策略
+const restorePosition = async (lastCfi: string) => {
+  try {
+    await view.goTo(lastCfi);
+  } catch (err) {
+    // CFI 无效时，回退到开头
+    await view.goTo(0);
+  }
+};
+```
+
+#### 3. 标注保存失败
+
+**症状**：添加标注后，刷新页面标注丢失。
+
+**原因**：标注持久化失败。
+
+**解决方案**：
+- 检查 `sourcePath` 是否正确
+- 确保 Markdown 文件存在且可写
+- 检查 `AnnotationService.persist()` 是否抛出错误
+- 查看控制台日志，搜索 `AnnotationService` 相关的错误信息
+
+**调试步骤**：
+1. 打开开发者工具，查看控制台输出
+2. 搜索 `Failed to persist annotations` 错误信息
+3. 检查 `persistInProgress` 标志是否正常释放
+4. 验证 `vault.process()` 是否成功执行
+
+#### 4. 性能问题
+
+**症状**：大型 EPUB 文件加载缓慢或卡顿。
+
+**原因**：未启用预加载或内存泄漏。
+
+**解决方案**：
+- foliate-js 采用按需加载策略，不主动预加载相邻章节
+- 及时释放未使用的资源（Blob URL、封面图片等）
+- 检查是否有内存泄漏
+
+**资源释放检查清单**：
+```typescript
+// 组件卸载时的清理逻辑
+useEffect(() => {
+  return () => {
+    // 1. 禁用 Android 补丁
+    disableAndroidPatches();
+
+    // 2. 释放封面 Blob URL
+    if (coverUrlRef.current) {
+      URL.revokeObjectURL(coverUrlRef.current);
+      coverUrlRef.current = null;
+    }
+
+    // 3. 关闭 foliate-view 并清理引用
+    const view = viewRef.current;
+    if (view) {
+      try {
+        (view as any).close?.();
+      } catch {
+        /* ignore */
+      }
+      viewRef.current = null;
+      loadedFileRef.current = null;
+    }
+  };
+}, []);
+```
+
+### 错误日志
+
+所有错误均通过 `createLogger` 记录到控制台，便于开发调试：
+
+```typescript
+const log = createLogger('BookLoader');
+log.error('Failed to load file:', err);
+
+const log = createLogger('AnnotationService');
+log.error('Failed to persist annotations:', e);
+```
+
+### 调试技巧
+
+1. **启用详细日志**：在开发环境下，查看控制台的 `BookLoader` 和 `AnnotationService` 日志
+2. **检查文件路径**：确保 `annotation-target` 前置元数据指向正确的文件路径
+3. **验证文件格式**：确保 EPUB/PDF 文件未损坏，可以被 foliate-js 正常解析
+4. **清除缓存**：如果遇到持久化问题，尝试清除 QueryClient 缓存并重新加载
+
 ## Deletion Test
 
 Deleting ReaderEngine scatters these concerns into FoliateViewer adapter:
