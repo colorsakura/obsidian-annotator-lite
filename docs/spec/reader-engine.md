@@ -305,6 +305,151 @@ log.error('Failed to persist annotations:', e);
 
 建议在 ReaderEngine 重构时引入统一的错误处理机制，通过事件总线向 UI 层报告错误状态。
 
+## 性能优化
+
+### 资源管理
+
+阅读器在组件卸载时必须正确释放资源，避免内存泄漏。当前实现在 `useBookLoader.ts` 的 cleanup effect 中处理：
+
+```typescript
+// Cleanup on unmount
+useEffect(() => {
+  return () => {
+    // 1. 禁用 Android 补丁（恢复原始原型）
+    disableAndroidPatches();
+
+    // 2. 释放封面 Blob URL
+    if (coverUrlRef.current) {
+      URL.revokeObjectURL(coverUrlRef.current);
+      coverUrlRef.current = null;
+    }
+
+    // 3. 关闭 foliate-view 并清理引用
+    const view = viewRef.current;
+    if (view) {
+      try {
+        (view as any).close?.();
+      } catch {
+        /* ignore */
+      }
+      viewRef.current = null;
+      loadedFileRef.current = null;
+    }
+  };
+}, []);
+```
+
+**关键点**：
+- `URL.revokeObjectURL()` 释放 Blob URL，防止内存泄漏
+- `view.close()` 关闭 foliate-js 内部资源（iframe、事件监听器等）
+- 清空 ref 引用，帮助垃圾回收
+
+### React 渲染优化
+
+#### 组件记忆化
+
+`FoliateViewer` 使用 `React.memo` 包裹，避免父组件重渲染时不必要的更新：
+
+```typescript
+const FoliateViewer: React.FC<FoliateViewerProps> = React.memo(
+  ({ file, sourcePath, flowMode, columnMode, fontSize, highlightColors, ... }) => {
+    // ...
+  },
+);
+
+FoliateViewer.displayName = 'FoliateViewer';
+```
+
+#### 回调稳定性
+
+频繁变化的回调使用 `useCallback` + ref 模式保持引用稳定：
+
+```typescript
+// 原始回调（依赖 bus，可能变化）
+const handleSectionChange = useCallback(
+  (currentIndex, totalSections, currentLabel, canGoPrev, canGoNext, cfi) => {
+    // ...处理逻辑
+  },
+  [bus],
+);
+
+// 稳定回调（空依赖数组，引用不变）
+const handleSectionChangeRef = useRef(handleSectionChange);
+handleSectionChangeRef.current = handleSectionChange;
+
+const stableSectionChange = useCallback(
+  (currentIndex, totalSections, currentLabel, canGoPrev, canGoNext, cfi) => {
+    handleSectionChangeRef.current(currentIndex, totalSections, currentLabel, canGoPrev, canGoNext, cfi);
+  },
+  [],  // 空依赖 → 引用永远不变
+);
+```
+
+**用途**：`stableSectionChange` 传给 `useBookLoader`，避免书籍加载 effect 因回调变化而重新执行。
+
+#### 选择性订阅
+
+通过 `useSessionField` 按字段订阅 SessionStore，避免无关状态变化引起重渲染：
+
+```typescript
+// 只订阅 navigationTarget，其他字段变化不影响 FoliateViewer
+const navigationTarget = useSessionField('navigationTarget') ?? null;
+```
+
+### 乐观更新
+
+标注 CRUD 采用乐观更新模式，UI 瞬间响应，不等待文件写入完成：
+
+```typescript
+const defaultAddAnnotation = useCallback(
+  (params: AnnotationAddParams) => {
+    const annotation = createAnnotation({ ...params, uri: targetUri });
+
+    // 1. 乐观写：立即更新 QueryClient 缓存
+    const current =
+      queryClient.getQueryData<Annotation[]>(annotationKeys.byFile(sourcePath)) ?? [];
+    const next = [...current, annotation];
+    queryClient.setQueryData(annotationKeys.byFile(sourcePath), next);
+
+    // 2. 异步持久化：通过 ReaderAPI 触发文件写入
+    void reader.addAnnotation(annotation);
+  },
+  [targetUri, sourcePath, queryClient, reader],
+);
+```
+
+**优势**：
+- 用户操作后 UI 立即反馈，体验流畅
+- 持久化失败时缓存仍保持最新状态（由 Controller 负责一致性）
+
+### foliate-js 内置优化
+
+foliate-js 已内置以下优化，自定义开发时需注意避免冲突：
+
+1. **虚拟滚动**：分页模式下只渲染当前可见章节，其他章节不加载 DOM
+2. **懒加载**：章节内容按需加载（`section.load()`），非当前章节延迟加载
+3. **iframe 隔离**：每个章节在独立 iframe 中渲染，销毁时自动回收资源
+
+**注意**：
+- 不要手动预加载所有章节，会消耗大量内存
+- 标注渲染（`useAnnotationRendering`）基于当前章节的 DOM，无需额外优化
+- Android 补丁中的 `wrapSectionLoadForAndroid` 会预读取 blob 内容，这是为了解决 WebView 兼容性问题，非性能优化
+
+### 性能监控
+
+开发环境下可通过日志监控加载性能：
+
+```typescript
+const log = createLogger('BookLoader');
+
+log.debug('book loaded:', tfile.name, 'type:', ext, 'size:', data.byteLength, 'bytes');
+```
+
+建议在 ReaderEngine 重构时添加以下性能指标：
+- 书籍加载耗时（`view.open()` 到 `isLoaded`）
+- 章节切换耗时（`section-changed` 事件间隔）
+- 标注渲染耗时（`useAnnotationRendering` 执行时间）
+
 ## Android WebView 兼容性
 
 ### 问题背景
