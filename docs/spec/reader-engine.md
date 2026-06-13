@@ -381,28 +381,34 @@ CFI（Content Fragment Identifier）是 EPUB 规范中用于精确定位文档�
 
 ### CFI 创建示例
 
-实际实现位于 `src/viewers/foliate/foliateSelection.ts`：
+以下代码展示了 `showSelectionMenu()` 函数中从用户选择到 CFI 创建的完整流程（`src/viewers/foliate/foliateSelection.ts`）：
 
 ```typescript
-// 从 foliateSelection.ts
+// 1. 从 iframe 窗口获取选择（win 为 iframe 的 contentWindow）
+const iframeSelection = win.getSelection();
+if (!iframeSelection || iframeSelection.isCollapsed || !iframeSelection.rangeCount) return;
+
+// 2. 提取 Range 和文本
+const range = iframeSelection.getRangeAt(0);
+const text = iframeSelection.toString().trim();
+if (!text) return;
+
+// 3. 通过 foliate-js API 创建 CFI
 const viewApi = view as any;
 const contents = viewApi.renderer?.getContents?.();
 if (!contents || contents.length === 0) return;
 
 const cfi = viewApi.getCFI(contents[0].index, range);
-```
+const { prefix, suffix } = getSurroundingContext(range);
 
-使用示例：
-
-```typescript
-const selection = window.getSelection();
-if (selection.rangeCount > 0) {
-  const range = selection.getRangeAt(0);
-  const cfi = viewApi.getCFI(contents[0].index, range);
-  if (cfi) {
-    console.log('CFI:', cfi);
-  }
-}
+// 4. 构建 PendingSelection 对象，等待用户选择高亮颜色后保存
+pendingRef.current = {
+  type: fileType,
+  cfiRange: cfi,
+  text,
+  prefix,
+  suffix,
+};
 ```
 
 ### CFI 在实际场景中的应用
