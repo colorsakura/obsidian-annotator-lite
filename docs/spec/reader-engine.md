@@ -604,7 +604,7 @@ log.error('Failed to persist annotations:', e);
 // Cleanup on unmount
 useEffect(() => {
   return () => {
-    // 1. 禁用 Android 补丁（恢复原始原型）
+    // 1. 禁用补丁（恢复原始行为）
     disableAndroidPatches();
 
     // 2. 释放封面 Blob URL
@@ -813,7 +813,7 @@ if (book?.sections) {
 // 3. 初始化 renderer（此时 iframe src 设置会被 srcdoc 注入拦截）
 await view.init({ showTextStart: true });
 
-// 4. 组件卸载时禁用补丁
+// 4. 组件卸载时禁用补丁（恢复原始行为）
 useEffect(() => {
   return () => disableAndroidPatches();
 }, []);
@@ -835,7 +835,7 @@ useEffect(() => {
 - 补丁仅在 `Platform.isMobile` 时生效
 - 必须在 `view.open()` 之前调用 `enableAndroidPatches()`
 - `wrapSectionLoadForAndroid()` 必须在 `view.open()` 之后、`view.init()` 之前对每个 section 调用
-- 组件卸载时必须调用 `disableAndroidPatches()` 恢复原始原型
+- 组件卸载时必须调用 `disableAndroidPatches()` 禁用补丁（恢复原始行为）
 
 ## CFI 寻址
 
@@ -1113,7 +1113,7 @@ bus.emit('view:annotations-changed', { annotations: updatedAnnotations });
 **解决方案**：
 - 确保在 `view.open()` 之前调用 `enableAndroidPatches()`
 - 检查 `Platform.isMobile` 是否为 `true`（补丁仅在移动端生效）
-- 确保在组件卸载时调用 `disableAndroidPatches()` 恢复原始原型
+- 确保在组件卸载时调用 `disableAndroidPatches()` 禁用补丁（恢复原始行为）
 - 验证 `wrapSectionLoadForAndroid()` 是否在 `view.open()` 之后对每个 section 调用
 
 **参考代码**：
@@ -1144,12 +1144,23 @@ await view.init({ showTextStart: true });
 
 **参考代码**：
 ```typescript
-// 位置恢复时的回退策略
+// CFI 格式校验
+function isValidCfi(cfi: string | null | undefined): boolean {
+  return typeof cfi === 'string' && cfi.startsWith('epubcfi(');
+}
+
+// 位置恢复时的回退策略（含格式校验）
 const restorePosition = async (lastCfi: string) => {
+  // 1. 先校验 CFI 格式
+  if (!isValidCfi(lastCfi)) {
+    await view.goTo(0);
+    return;
+  }
+
+  // 2. 尝试导航，失败时回退到开头
   try {
     await view.goTo(lastCfi);
   } catch (err) {
-    // CFI 无效时，回退到开头
     await view.goTo(0);
   }
 };
@@ -1177,7 +1188,7 @@ const restorePosition = async (lastCfi: string) => {
 
 **症状**：大型 EPUB 文件加载缓慢或卡顿。
 
-**原因**：未启用预加载或内存泄漏。
+**原因**：章节按需加载机制的固有限制，或资源（Blob URL、iframe 等）未正确释放导致内存泄漏。
 
 **解决方案**：
 - foliate-js 采用按需加载策略，不主动预加载相邻章节
@@ -1189,7 +1200,7 @@ const restorePosition = async (lastCfi: string) => {
 // 组件卸载时的清理逻辑
 useEffect(() => {
   return () => {
-    // 1. 禁用 Android 补丁
+    // 1. 禁用补丁（恢复原始行为）
     disableAndroidPatches();
 
     // 2. 释放封面 Blob URL
@@ -1218,9 +1229,13 @@ useEffect(() => {
 所有错误均通过 `createLogger` 记录到控制台，便于开发调试：
 
 ```typescript
+// BookLoader 模块中的日志记录
 const log = createLogger('BookLoader');
 log.error('Failed to load file:', err);
+```
 
+```typescript
+// AnnotationService 模块中的日志记录
 const log = createLogger('AnnotationService');
 log.error('Failed to persist annotations:', e);
 ```
