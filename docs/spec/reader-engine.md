@@ -426,14 +426,42 @@ const defaultAddAnnotation = useCallback(
 
 foliate-js 已内置以下优化，自定义开发时需注意避免冲突：
 
-1. **虚拟滚动**：分页模式下只渲染当前可见章节，其他章节不加载 DOM
-2. **懒加载**：章节内容按需加载（`section.load()`），非当前章节延迟加载
-3. **iframe 隔离**：每个章节在独立 iframe 中渲染，销毁时自动回收资源
+#### 虚拟滚动与懒加载
+
+foliate-js 的 paginator（`node_modules/foliate-js/paginator.js`）采用基于 iframe 的章节隔离渲染模型：
+
+- **章节按需加载**：每个章节在独立 iframe 中渲染。paginator 仅在用户导航到某章节时才触发该章节的 `section.load()` 方法，将 EPUB 的 XHTML 片段加载为 iframe 可渲染的内容
+- **iframe 创建/销毁策略**：paginator 为当前可见章节创建 iframe；用户翻页离开后，旧章节的 iframe 保留在 DOM 中（不做主动销毁），但不会触发额外加载。书籍关闭时通过 `view.close()` 统一销毁所有 iframe 并回收资源
+- **渲染窗口**：分页模式下 paginator 计算滚动边界（`#scrollBounds`），通过 `requestAnimationFrame` 驱动平滑翻页动画，仅渲染当前分页视口内的内容
+- **非虚拟化**：已加载的章节 iframe 保留在 DOM 中，不会被回收重建。这意味着对于超大书籍（数百章节），DOM 节点数量会持续增长，但单章节的内存占用有限（iframe 内容可被浏览器 GC）
+
+**实现机制**：`view.open()` 后 foliate-js 解析书籍结构，获取 `book.sections` 数组。paginator 根据用户导航方向按序加载相邻章节，而非预加载全部章节。
+
+#### 预加载策略
+
+当前实现**不主动预加载相邻章节**，采用纯按需加载策略：
+
+- **foliate-js 层面**：paginator 在用户翻到下一章时才触发 `section.load()`，没有内置的相邻章节预加载机制。翻页时 `relocate` 事件通知上层应用当前章节索引变化
+- **应用层面**：`useBookLoader` 在 `view.open()` 后仅对所有章节执行 `wrapSectionLoadForAndroid()`（Android 平台的 blob → srcdoc 转换），这是一次性的兼容性处理，不是预加载优化
+- **ReaderEngine 重构建议**：如果需要优化大书籍的翻页体验，可在 Engine 层引入相邻章节预加载策略——监听 `relocate` 事件后，对 `currentIndex ± 1` 的章节调用 `section.load()` 进行预热。但需注意内存开销，建议限制预加载窗口为 ±1 个章节，且仅在桌面端启用
 
 **注意**：
-- 不要手动预加载所有章节，会消耗大量内存
-- 标注渲染（`useAnnotationRendering`）基于当前章节的 DOM，无需额外优化
+- 不要手动预加载所有章节（`Promise.all(book.sections.map(s => s.load()))`），会消耗大量内存
 - Android 补丁中的 `wrapSectionLoadForAndroid` 会预读取 blob 内容，这是为了解决 WebView 兼容性问题，非性能优化
+
+#### 防抖处理
+
+当前插件层**没有引入额外的防抖/节流机制**，原因是 foliate-js 内部已处理关键路径的防抖：
+
+- **滚动事件防抖（250ms）**：paginator 在滚动模式下对 scroll 事件做 250ms 防抖，避免频繁触发 `relocate` 事件和章节切换回调。这意味着 `useRelocateListener` 收到的事件频率已被 foliate-js 控制
+- **指针选择防抖（700ms）**：paginator 对指针选择检查做 700ms 防抖，防止用户拖选文本时误触发翻页
+- **标注覆盖层差量更新**：`useAnnotationOverlays` 通过 `appliedMapRef`（`Map<id, cfiRange>`）追踪已应用的标注，仅在标注列表实际变化时才触发 `applyAnnotationOverlays`，避免重复渲染。这是一种基于数据比较的天然节流
+- **React 渲染优化**：`React.memo` + `useCallback` + `useSessionField` 选择性订阅共同构成 React 层面的渲染控制，减少不必要的重渲染
+
+**ReaderEngine 重构建议**：以下场景可能需要引入防抖：
+1. **字体大小调整**：如果 Engine 暴露实时字体大小调整（如滑块拖动），应对 `updateSettings({ fontSize })` 做 100-200ms 防抖，避免高频触发 `renderer.setStyles()`
+2. **窗口 resize**：如果 Engine 需要响应容器尺寸变化重新布局，应对 resize 事件做 250ms 防抖
+3. **标注批量操作**：批量删除/导入标注时，应对 `annotations-changed` 事件做合并，避免逐条触发持久化
 
 ### 性能监控
 
