@@ -402,7 +402,7 @@ const navigationTarget = useSessionField('navigationTarget') ?? null;
 
 ```typescript
 const defaultAddAnnotation = useCallback(
-  (params: AnnotationAddParams) => {
+  (params: AddAnnotationParams) => {
     const annotation = createAnnotation({ ...params, uri: targetUri });
 
     // 1. 乐观写：立即更新 QueryClient 缓存
