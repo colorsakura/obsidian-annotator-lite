@@ -141,35 +141,35 @@ ReaderEngine
   └── annotations-changed → adapter updates QueryClient + persists
 ```
 
-## 错误处理机制
+## Error Handling
 
-### 错误类型
+### Error Types
 
 1. **文件加载错误**：文件不存在、格式不支持、损坏
 2. **渲染错误**：CSS 解析失败、布局异常、初始化失败
 3. **导航错误**：CFI 无效、章节不存在、跳转失败
 4. **标注错误**：选择失败、CFI 提取失败、保存失败
 
-### 错误处理策略
+### Error Handling Strategies
 
-#### 文件加载错误
+#### File Loading Errors
 
 文件加载错误在 `useBookLoader.ts` 中处理。加载流程包含多层防护：
 
 ```typescript
-// 文件存在性检查
+// File existence check
 const tfile = app.vault.getAbstractFileByPath(file);
 if (!(tfile instanceof TFile)) {
   loadingRef.current = false;
-  return;  // 静默失败，不显示错误
+  return;  // Silent failure, no error display
 }
 
 try {
   const data = await app.vault.readBinary(tfile as any);
-  // ... 加载逻辑
+  // ... loading logic
 } catch (err) {
   log.error('Failed to load file:', err);
-  // 当前实现：仅记录日志，不向用户显示错误
+  // Current implementation: only log, no user-facing error
 }
 ```
 
@@ -178,7 +178,7 @@ try {
 - 读取失败：记录错误日志，保持加载状态为 false
 - 格式不支持：依赖 foliate-js 内部错误处理
 
-#### 渲染错误
+#### Rendering Errors
 
 渲染错误在 `view.init()` 失败时触发，采用回退策略：
 
@@ -186,11 +186,11 @@ try {
 try {
   await (view as any).init({ showTextStart: true });
 } catch {
-  // 初始化失败时，尝试跳转到开头
+  // On init failure, try jumping to start
   try {
     await (view as any).goTo(0);
   } catch {
-    /* ignore - 双重失败时静默忽略 */
+    /* ignore - silently ignore on double failure */
   }
 }
 ```
@@ -199,19 +199,19 @@ try {
 - 初始化失败：自动回退到 `goTo(0)`
 - 回退失败：静默忽略，避免级联错误
 
-#### 导航错误
+#### Navigation Errors
 
 导航错误在 CFI 跳转时可能触发，当前实现采用静默忽略策略：
 
 ```typescript
-// foliateSelection.ts 中的 CFI 提取
+// CFI extraction in foliateSelection.ts
 try {
   const viewApi = view as any;
   const contents = viewApi.renderer?.getContents?.();
   if (!contents || contents.length === 0) return;
 
   const cfi = viewApi.getCFI(contents[0].index, range);
-  // ... 继续处理
+  // ... continue processing
 } catch {
   // Selection may not be convertible to CFI; silently ignore
 }
@@ -221,14 +221,14 @@ try {
 - CFI 提取失败：静默忽略，不显示菜单
 - 章节不存在：依赖 foliate-js 内部边界检查
 
-#### 标注错误
+#### Annotation Errors
 
 标注错误在 `AnnotationService.ts` 中处理，包含防重入保护：
 
 ```typescript
 async persist(annotations: Annotation[], sourcePath: string | null): Promise<void> {
   if (!sourcePath) {
-    // 无 sourcePath 时仅更新缓存，不写入文件
+    // No sourcePath: only update cache, skip file write
     return;
   }
 
@@ -237,18 +237,18 @@ async persist(annotations: Annotation[], sourcePath: string | null): Promise<voi
   try {
     const file = this.app.vault.getAbstractFileByPath(sourcePath);
     if (!(file instanceof TFile)) {
-      // 文件不存在，仅更新缓存
+      // File not found, only update cache
       this.queryClient.setQueryData(annotationKeys.byFile(sourcePath), annotations);
       return;
     }
 
     await this.repository.save(file, annotations);
-    // 持久化成功后更新缓存（确保一致性）
+    // Update cache after successful persistence (ensure consistency)
     this.queryClient.setQueryData(annotationKeys.byFile(sourcePath), annotations);
     this.annotationIndex.rebuildIndex(sourcePath, annotations);
   } catch (e) {
     log.error('Failed to persist annotations:', e);
-    // 当前实现：失败时仅记录日志，不回滚缓存
+    // Current implementation: only log on failure, no cache rollback
   } finally {
     this.persistInProgress = false;
   }
@@ -261,9 +261,9 @@ async persist(annotations: Annotation[], sourcePath: string | null): Promise<voi
 - 保存失败：记录错误日志，保持 `persistInProgress` 为 false
 - 防重入：通过 `persistInProgress` 标志防止并发保存
 
-### 错误恢复策略
+### Error Recovery Strategies
 
-#### 优雅降级
+#### Graceful Degradation
 
 当前实现采用分层降级策略：
 
@@ -271,7 +271,7 @@ async persist(annotations: Annotation[], sourcePath: string | null): Promise<voi
 2. **上下文降级**：DOM 遍历失败 → 返回空 prefix/suffix
 3. **缓存降级**：文件操作失败 → 仅更新内存缓存
 
-#### 静默忽略
+#### Silent Ignoring
 
 以下场景采用静默忽略策略（不向用户显示错误）：
 
@@ -282,7 +282,7 @@ async persist(annotations: Annotation[], sourcePath: string | null): Promise<voi
 
 **设计理念**：阅读器作为被动查看工具，非关键错误不应干扰用户阅读体验。
 
-#### 日志记录
+#### Logging
 
 所有错误均通过 `createLogger` 记录到控制台，便于开发调试：
 
@@ -294,7 +294,7 @@ const log = createLogger('AnnotationService');
 log.error('Failed to persist annotations:', e);
 ```
 
-### 改进建议
+### Improvement Suggestions
 
 当前错误处理存在以下可改进点：
 
