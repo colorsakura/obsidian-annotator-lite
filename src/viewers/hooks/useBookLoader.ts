@@ -4,7 +4,7 @@ import type { BookMetadata, OutlineItem } from '../../types/annotations';
 import { useObsidianApp } from '../../hooks/useObsidianApp';
 import { loadBookMetadata } from '../foliate/foliateBookMetadata';
 import { applyReaderFlowMode, applyColumnMode, applyFontSize } from './useReaderSettings';
-import { wrapSectionLoadForAndroid } from './useAndroidPatches';
+import { enableAndroidPatches, disableAndroidPatches, wrapSectionLoadForAndroid } from './useAndroidPatches';
 import type { ReaderFlowMode, ColumnMode } from '../../constants';
 
 export interface BookLoaderCallbacks {
@@ -96,7 +96,9 @@ export function useBookLoader(
           containerRef.current.appendChild(view);
         }
 
-        // Open the book
+        // Open the book — patches must be active before open() so that
+        // foliate-js's internal URL.createObjectURL() calls are intercepted.
+        enableAndroidPatches();
         const blob = new Blob([data]);
         const fileObj = new File([blob], tfile.name);
         const ext = tfile.name.split('.').pop()?.toLowerCase();
@@ -158,6 +160,7 @@ export function useBookLoader(
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      disableAndroidPatches();
       if (coverUrlRef.current) {
         URL.revokeObjectURL(coverUrlRef.current);
         coverUrlRef.current = null;

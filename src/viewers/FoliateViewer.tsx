@@ -12,7 +12,6 @@ import {
   useSectionTarget,
   usePageTurnTarget,
   useRelocateListener,
-  useAndroidPatches,
   useFlowMode,
   useColumnMode,
   useFontSize,
@@ -126,9 +125,6 @@ const FoliateViewer: React.FC<FoliateViewerProps> = React.memo(({ target, config
       onSectionChanged: handleSectionChange,
     },
   );
-
-  // ─── Android patches ──────────────────────────────────────────────────
-  useAndroidPatches(isLoaded);
 
   // ─── Reader settings ──────────────────────────────────────────────────
   useFlowMode(view, isLoaded, flowMode);

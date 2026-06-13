@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { Platform } from 'obsidian';
 
 // ─── Android iframe sandbox workaround ────────────────────────────────────
 // foliate-js's paginator creates sandboxed iframes for a WebKit bug.
@@ -43,6 +43,7 @@ function enableBlobPatch() {
 function disableBlobPatch() {
   if (!_blobPatchActive) return;
   URL.createObjectURL = _origCreateObjectURL;
+  _blobMap.clear();
   _blobPatchActive = false;
 }
 
@@ -109,22 +110,25 @@ function disableSrcPatch() {
   _srcPatchActive = false;
 }
 
-// ─── React hook ───────────────────────────────────────────────────────────
+// ─── Public API ───────────────────────────────────────────────────────────
 
 /**
- * 启用/禁用 Android WebView 兼容补丁（iframe sandbox、blob URL、srcdoc 注入）。
- * 在组件挂载时启用，卸载时禁用。
+ * 启用 Android WebView 兼容补丁（iframe sandbox、blob URL 拦截、srcdoc 注入）。
+ * 必须在 view.open() 之前调用，以确保 blob URL 创建时拦截生效。
+ * 仅在移动端生效。
  */
-export function useAndroidPatches(loaded: boolean): void {
-  useEffect(() => {
-    if (!loaded) return;
-    enableIframePatch();
-    enableBlobPatch();
-    enableSrcPatch();
-    return () => {
-      disableIframePatch();
-      disableBlobPatch();
-      disableSrcPatch();
-    };
-  }, [loaded]);
+export function enableAndroidPatches(): void {
+  if (!Platform.isMobile) return;
+  enableIframePatch();
+  enableBlobPatch();
+  enableSrcPatch();
+}
+
+/**
+ * 禁用 Android WebView 兼容补丁，恢复原始原型。
+ */
+export function disableAndroidPatches(): void {
+  disableIframePatch();
+  disableBlobPatch();
+  disableSrcPatch();
 }

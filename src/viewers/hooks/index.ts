@@ -1,4 +1,3 @@
-export { useAndroidPatches } from './useAndroidPatches';
 export { useBookLoader } from './useBookLoader';
 export { useAnnotationRendering, useAnnotationOverlays } from './useAnnotationRenderer';
 export { useContextMenu } from './useContextMenu';
