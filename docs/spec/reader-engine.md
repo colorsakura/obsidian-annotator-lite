@@ -148,33 +148,46 @@ ReaderEngine
 Android WebView 存在以下限制：
 
 - 跨域资源访问受限
-- Blob URL 创建受限
-- iframe sandbox 策略严格
+- iframe sandbox 策略严格，sandbox iframe 内 `blob:` URL 加载被阻止
 
-foliate-js 的分页器会创建带有 sandbox 属性的 iframe（用于解决 WebKit bug），但在 Chromium-based Android WebView 上，这个 sandbox 会阻止 `blob:` URL 加载，导致阅读器显示空白。
+foliate-js 的分页器会创建带有 sandbox 属性的 iframe（用于解决 WebKit bug），但在 Chromium-based Android WebView 上，这个 sandbox 会阻止 `blob:` URL 加载，导致 `contentDocument` 不可访问，阅读器显示空白。
 
 ### 解决方案
 
-使用 `useAndroidPatches` 模块提供的三个运行时补丁：
+使用 `useAndroidPatches` 模块提供的三个运行时补丁，配合 `wrapSectionLoadForAndroid()` 形成完整的解决链路：
 
-1. **iframe sandbox 移除**：拦截 `HTMLIFrameElement.prototype.setAttribute`，阻止设置 sandbox 属性
-2. **blob URL 拦截**：拦截 `URL.createObjectURL()` 调用，保存 blob 到 Map 中
-3. **srcdoc 注入**：拦截 iframe src setter，如果 URL 有预加载的文本，则使用 srcdoc 替代
+1. **iframe sandbox 移除**（`enableIframePatch`）：拦截 `HTMLIFrameElement.prototype.setAttribute`，阻止设置 sandbox 属性，使 iframe 可正常加载 blob URL
+2. **blob URL 拦截**（`enableBlobPatch`）：拦截 `URL.createObjectURL()` 调用，将 blob 保存到 `_blobMap` 中（中间步骤，为后续 srcdoc 注入做准备）
+3. **section 预读取**（`wrapSectionLoadForAndroid`）：包装每个 section 的 `load()` 方法，在加载时预读取 blob 内容为文本，保存到 `_textMap` 中
+4. **srcdoc 注入**（`enableSrcPatch`）：拦截 iframe src setter，如果 URL 在 `_textMap` 中有预加载文本，则使用 `srcdoc` 替代 `src`，实现同源加载
+
+完整流程：`view.open()` 内部 `URL.createObjectURL()` 被拦截 → blob 记录到 `_blobMap` → `wrapSectionLoadForAndroid()` 对每个 section 包装 `load()` → section 加载时从 blob 读取文本到 `_textMap` → iframe 设置 src 时拦截为 srcdoc 注入。
 
 ### 使用时机
 
-补丁必须在 `view.open()` 之前同步激活，以拦截 foliate-js 内部的 blob URL 创建。
+补丁必须在 `view.open()` 之前同步激活，以拦截 foliate-js 内部的 blob URL 创建。`wrapSectionLoadForAndroid()` 在 `view.open()` 之后对每个 section 调用。
 
 ### 代码示例
 
+以下为简化版本，完整实现见 `src/viewers/hooks/useBookLoader.ts`。
+
 ```typescript
-import { enableAndroidPatches, disableAndroidPatches } from './useAndroidPatches';
+import { enableAndroidPatches, disableAndroidPatches, wrapSectionLoadForAndroid } from './useAndroidPatches';
 
-// 在打开书籍前激活补丁
+// 1. view.open() 之前激活补丁（拦截 blob URL 创建）
 enableAndroidPatches();
-await view.open(book);
+await view.open(fileObj);
 
-// 在组件卸载时禁用补丁
+// 2. view.open() 之后，对每个 section 包装 load()（预读取 blob 内容）
+const book = view.book;
+if (book?.sections) {
+  await Promise.all(book.sections.map(s => wrapSectionLoadForAndroid(s)));
+}
+
+// 3. 初始化 renderer（此时 iframe src 设置会被 srcdoc 注入拦截）
+await view.init({ showTextStart: true });
+
+// 4. 组件卸载时禁用补丁
 useEffect(() => {
   return () => disableAndroidPatches();
 }, []);
@@ -184,15 +197,18 @@ useEffect(() => {
 
 实际实现位于 `src/viewers/hooks/useAndroidPatches.ts`，核心逻辑包括：
 
-1. **iframe patch**：拦截 `HTMLIFrameElement.prototype.setAttribute`，阻止设置 `sandbox="allow-same-origin allow-scripts"`
-2. **blob patch**：拦截 `URL.createObjectURL()`，将 blob 保存到 `_blobMap` 中
-3. **src patch**：拦截 iframe src setter，如果 URL 在 `_textMap` 中有预加载文本，则使用 `srcdoc` 替代
-4. **section load wrapper**：`wrapSectionLoadForAndroid()` 函数预读取 section HTML，保存到 `_textMap`
+1. **iframe patch**（`enableIframePatch`）：拦截 `HTMLIFrameElement.prototype.setAttribute`，阻止设置 `sandbox="allow-same-origin allow-scripts"`
+2. **blob patch**（`enableBlobPatch`）：拦截 `URL.createObjectURL()`，将 blob 保存到 `_blobMap` 中
+3. **section load wrapper**（`wrapSectionLoadForAndroid`）：包装 section 的 `load()` 方法，预读取 blob 内容为文本，保存到 `_textMap` 中
+4. **src patch**（`enableSrcPatch`）：拦截 iframe src setter，如果 URL 在 `_textMap` 中有预加载文本，则使用 `srcdoc` 替代
+
+调用时序见 `src/viewers/hooks/useBookLoader.ts` 的 `loadFile()` 函数：`enableAndroidPatches()` → `view.open()` → `wrapSectionLoadForAndroid()` → `view.init()`。
 
 ### 注意事项
 
 - 补丁仅在 `Platform.isMobile` 时生效
 - 必须在 `view.open()` 之前调用 `enableAndroidPatches()`
+- `wrapSectionLoadForAndroid()` 必须在 `view.open()` 之后、`view.init()` 之前对每个 section 调用
 - 组件卸载时必须调用 `disableAndroidPatches()` 恢复原始原型
 
 ## Deletion Test
