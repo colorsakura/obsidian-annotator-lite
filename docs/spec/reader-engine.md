@@ -162,11 +162,12 @@ View 层 ──bus.emit()──→ ReaderEventBus ──on()──→ Controller
 ```typescript
 interface ReaderEventMap {
   // View → Controller 事件（由 View emit，Controller 监听）
-  'view:outline-loaded':   { items: OutlineItem[] };
-  'view:metadata-loaded':  { metadata: BookMetadata };
-  'view:section-changed':  { section: ReaderSectionState };
-  'view:location-changed': { cfi: string; sectionIndex: number };
-  'view:session-close':    Record<string, never>;
+  'view:outline-loaded':      { items: OutlineItem[] };
+  'view:metadata-loaded':     { metadata: BookMetadata };
+  'view:section-changed':     { section: ReaderSectionState };
+  'view:location-changed':    { cfi: string; sectionIndex: number };
+  'view:annotations-changed': { annotations: Annotation[] };
+  'view:session-close':       Record<string, never>;
 }
 ```
 
@@ -242,7 +243,7 @@ const { view, isLoaded } = useBookLoader(
 ```typescript
 // 在 FoliateViewer.tsx 中
 const defaultAddAnnotation = useCallback(
-  (params: AnnotationAddParams) => {
+  (params: AddAnnotationParams) => {
     const annotation = createAnnotation({ ...params, uri: targetUri });
 
     // 1. 乐观写：立即更新 QueryClient 缓存，UI 瞬间响应
@@ -327,7 +328,7 @@ interface ReaderEventMap {
 bus.emit('view:section-changed', { section: { ... } });  // TypeScript 检查
 
 // ❌ 错误：使用字符串字面量，无类型检查
-bus.emit('view:section-changed', { wrong: 'field' });  // 编译时无报错
+bus.emit('view:section-changed', { wrong: 'field' });  // 编译时报错：类型不匹配
 ```
 
 #### 3. 避免循环依赖
@@ -358,7 +359,7 @@ bus.on('view:section-changed', ({ section }) => {
 // ✅ 正确：捕获错误并记录日志
 bus.on('view:section-changed', ({ section }) => {
   try {
-    this.sessionStore.update({ section });
+    this.sessionStore.setSection(section);
   } catch (e) {
     log.error('Failed to update session store:', e);
   }
