@@ -1,43 +1,43 @@
-# ReaderEngine Interface Design
+# ReaderEngine 接口设计
 
-> Architecture deepening: collapse FoliateViewer (shallow mega-component) into a deep ReaderEngine module.
+> 架构深化：将 FoliateViewer（浅层巨型组件）拆分为深层 ReaderEngine 模块。
 
-## Motivation
+## 设计动机
 
-FoliateViewer is a ~300-line React component that directly orchestrates 11 hooks, manages internal section state, annotation CRUD via TanStack Query, event bus emission, and renders both SelectionMenu and SectionIndicator. Its interface (6 props, 3 useState fields, 6 useCallback handlers) is nearly as complex as its implementation — a shallow module.
+FoliateViewer 是一个约 300 行的 React 组件，直接协调 11 个 hooks，管理内部章节状态、通过 TanStack Query 进行标注 CRUD、事件总线发射，并渲染 SelectionMenu 和 SectionIndicator。其接口（6 个 props、3 个 useState 字段、6 个 useCallback 处理器）几乎与实现一样复杂——这是一个浅层模块。
 
-ReaderEngine absorbs all foliate-js interaction logic behind a small interface: `open`, `navigate`, `setAnnotations`, `addAnnotation`, `deleteAnnotation`, `updateSettings`, `close`, plus event emission.
+ReaderEngine 将所有 foliate-js 交互逻辑封装在一个小型接口后面：`open`、`navigate`、`setAnnotations`、`addAnnotation`、`deleteAnnotation`、`updateSettings`、`close`，加上事件发射。
 
-## Decisions
+## 设计决策
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Runtime form | Pure TypeScript class (no React) | Engine's core logic is DOM ops; testable with JSDOM + mock |
-| Selection menu seam | Engine owns contextmenu + CFI extraction + coord conversion + overlap detection; emits `selection` event | Caller only renders UI (React SelectionMenu / Obsidian Menu) |
-| Annotation CRUD | Engine maintains internal list; `addAnnotation`/`deleteAnnotation` emit `annotations-changed` | Deep interface — engine owns annotation lifecycle |
-| Event model | Engine accepts `EngineEventBus` interface (same shape as `ReaderEventBus`) | Zero forwarding cost; engine doesn't know about ReaderEventBus |
-| State exposure | Getter methods (`getAnnotations()`, `getSectionInfo()`) | Explicit; no internal mutable state references leaked |
+| 决策         | 选择                                                                            | 理由                                                     |
+| ------------ | ------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| 运行时形式   | 纯 TypeScript 类（无 React）                                                    | 引擎核心逻辑是 DOM 操作；可通过 JSDOM + mock 测试        |
+| 选择菜单接缝 | 引擎拥有 contextmenu + CFI 提取 + 坐标转换 + 重叠检测；发射 `selection` 事件    | 调用方只需渲染 UI（React SelectionMenu / Obsidian Menu） |
+| 标注 CRUD    | 引擎维护内部列表；`addAnnotation`/`deleteAnnotation` 发射 `annotations-changed` | 深层接口——引擎拥有标注生命周期                           |
+| 事件模型     | 引擎接受 `EngineEventBus` 接口（与 `ReaderEventBus` 形状相同）                  | 零转发成本；引擎不知道 ReaderEventBus                    |
+| 状态暴露     | Getter 方法（`getAnnotations()`、`getSectionInfo()`）                           | 显式；不泄露内部可变状态引用                             |
 
-## Event Types
+## 事件类型
 
 ```typescript
 interface EngineEventMap {
-  'outline-loaded':      { items: OutlineItem[] };
-  'metadata-loaded':     { metadata: BookMetadata };
-  'section-changed':     { section: ReaderSectionState };
-  'selection':           {
+  'outline-loaded': { items: OutlineItem[] };
+  'metadata-loaded': { metadata: BookMetadata };
+  'section-changed': { section: ReaderSectionState };
+  selection: {
     selection: PendingSelection;
     existingAnnotation?: Annotation;
     position: { x: number; y: number };
   };
   'annotations-changed': { annotations: Annotation[] };
-  'location-changed':    { cfi: string; sectionIndex: number };
+  'location-changed': { cfi: string; sectionIndex: number };
 }
 ```
 
-## Bus Interface
+## 总线接口
 
-Engine depends on this minimal interface, not the full `ReaderEventBus`:
+引擎依赖此最小接口，而非完整的 `ReaderEventBus`：
 
 ```typescript
 interface EngineEventBus {
@@ -45,41 +45,41 @@ interface EngineEventBus {
 }
 ```
 
-`ReaderEventBus` already satisfies this contract — no adapter needed.
+`ReaderEventBus` 已满足此契约——无需适配器。
 
-## Engine Class
+## 引擎类
 
 ```typescript
 class ReaderEngine {
   constructor(container: HTMLElement, bus: EngineEventBus);
 
-  // ── Lifecycle ────────────────────────────────────────────
+  // ── 生命周期 ────────────────────────────────────────────
   open(file: string, opts?: OpenOptions): Promise<void>;
   close(): void;
 
-  // ── Annotation CRUD (engine maintains internal list + re-renders) ──
-  setAnnotations(list: Annotation[]): void;           // External bulk set
-  addAnnotation(params: AddAnnotationParams): void;   // Engine creates + emits
-  deleteAnnotation(id: string): void;                 // Engine removes + emits
+  // ── 标注 CRUD（引擎维护内部列表 + 重新渲染） ──
+  setAnnotations(list: Annotation[]): void; // 外部批量设置
+  addAnnotation(params: AddAnnotationParams): void; // 引擎创建 + 发射事件
+  deleteAnnotation(id: string): void; // 引擎移除 + 发射事件
 
-  // ── Navigation ────────────────────────────────────────────
+  // ── 导航 ────────────────────────────────────────────
   navigate(target: NavigationTarget): void;
   goToSection(index: number): void;
   goNext(): void;
   goPrev(): void;
 
-  // ── Settings ────────────────────────────────────────────
+  // ── 设置 ────────────────────────────────────────────
   updateSettings(settings: Partial<ReaderSettings>): void;
 
-  // ── State getters ────────────────────────────────────────
+  // ── 状态 getter ────────────────────────────────────────
   getAnnotations(): Annotation[];
   getSectionInfo(): ReaderSectionState;
   getIsLoaded(): boolean;
-  getView(): HTMLElement | null;          // foliate-view element (for debugging)
+  getView(): HTMLElement | null; // foliate-view 元素（用于调试）
 }
 ```
 
-## Supporting Types
+## 支持类型
 
 ```typescript
 interface ReaderSettings {
@@ -104,31 +104,31 @@ interface AddAnnotationParams {
 }
 ```
 
-## File Layout
+## 文件布局
 
 ```
 src/
   engine/
-    ReaderEngine.ts          ← Main class (~200 lines, absorbs useBookLoader + 11 hooks)
-    engineTypes.ts           ← EngineEventMap, EngineEventBus, ReaderSettings, OpenOptions
+    ReaderEngine.ts          ← 主类（约 200 行，吸收 useBookLoader + 11 个 hooks）
+    engineTypes.ts           ← EngineEventMap、EngineEventBus、ReaderSettings、OpenOptions
   viewers/
-    FoliateViewer.tsx        ← Shrinks from ~300 to ~80 lines (engine adapter + React UI)
-    foliate/                 ← Kept; engine calls these internally
-    hooks/                   ← Most absorbed by engine; only useContextMenu remains as adapter
+    FoliateViewer.tsx        ← 从约 300 行缩减到约 80 行（引擎适配器 + React UI）
+    foliate/                 ← 保留；引擎内部调用
+    hooks/                   ← 大部分被引擎吸收；仅 useContextMenu 作为适配器保留
 ```
 
-## Lifecycle State Machine
+## 生命周期状态机
 
 ```
-[uninitialized] ──open()──→ [loading] ──success──→ [ready]
-                                │                      │
-                              error                close()
-                                │                      │
-                                ▼                      ▼
-                           [uninitialized]      [destroyed]
+[未初始化] ──open()──→ [加载中] ──成功──→ [就绪]
+                          │                   │
+                         失败              close()
+                          │                   │
+                          ▼                   ▼
+                     [未初始化]          [已销毁]
 ```
 
-## Event Flow (engine → external)
+## 事件流（引擎 → 外部）
 
 ```
 ReaderEngine
@@ -137,11 +137,11 @@ ReaderEngine
   ├── metadata-loaded ─→ bus.emit('view:metadata-loaded')
   ├── section-changed ─→ bus.emit('view:section-changed')
   ├── location-changed → bus.emit('view:location-changed')
-  ├── selection ────────→ adapter renders SelectionMenu / Obsidian Menu
-  └── annotations-changed → adapter updates QueryClient + persists
+  ├── selection ────────→ 适配器渲染 SelectionMenu / Obsidian Menu
+  └── annotations-changed → 适配器更新 QueryClient + 持久化
 ```
 
-## 事件系统
+## 事件系统架构
 
 ### 事件流架构
 
@@ -157,17 +157,17 @@ View 层 ──bus.emit()──→ ReaderEventBus ──on()──→ Controller
 - **View → Controller**（通过 `bus.emit()`）：View 层主动通知 Controller 层状态变化
 - **Controller → View**：通过 `ReaderSessionStore` 广播状态变化，View 通过 `useSessionStore()` / `useSessionField()` 订阅
 
-#### 当前事件类型
+### 当前事件类型
 
 ```typescript
 interface ReaderEventMap {
   // View → Controller 事件（由 View emit，Controller 监听）
-  'view:outline-loaded':      { items: OutlineItem[] };
-  'view:metadata-loaded':     { metadata: BookMetadata };
-  'view:section-changed':     { section: ReaderSectionState };
-  'view:location-changed':    { cfi: string; sectionIndex: number };
+  'view:outline-loaded': { items: OutlineItem[] };
+  'view:metadata-loaded': { metadata: BookMetadata };
+  'view:section-changed': { section: ReaderSectionState };
+  'view:location-changed': { cfi: string; sectionIndex: number };
   'view:annotations-changed': { annotations: Annotation[] };
-  'view:session-close':       Record<string, never>;
+  'view:session-close': Record<string, never>;
 }
 ```
 
@@ -247,8 +247,7 @@ const defaultAddAnnotation = useCallback(
     const annotation = createAnnotation({ ...params, uri: targetUri });
 
     // 1. 乐观写：立即更新 QueryClient 缓存，UI 瞬间响应
-    const current =
-      queryClient.getQueryData<Annotation[]>(annotationKeys.byFile(sourcePath)) ?? [];
+    const current = queryClient.getQueryData<Annotation[]>(annotationKeys.byFile(sourcePath)) ?? [];
     const next = [...current, annotation];
     queryClient.setQueryData(annotationKeys.byFile(sourcePath), next);
 
@@ -304,12 +303,12 @@ private wireViewEvents(): void {
 ```typescript
 // ✅ 正确：通过 Store 广播状态
 bus.on('view:section-changed', ({ section }) => {
-  this.sessionStore.setSection(section);  // Store 更新后，View 自动订阅
+  this.sessionStore.setSection(section); // Store 更新后，View 自动订阅
 });
 
 // ❌ 错误：在事件处理器中直接操作 View
 bus.on('view:section-changed', ({ section }) => {
-  this.view.setSectionInfo(section);  // 违反单向数据流原则
+  this.view.setSectionInfo(section); // 违反单向数据流原则
 });
 ```
 
@@ -339,7 +338,7 @@ bus.emit('view:section-changed', { wrong: 'field' });  // 编译时报错：类�
 // ❌ 错误：会导致无限循环
 bus.on('view:section-changed', ({ section }) => {
   // ... 处理逻辑
-  bus.emit('view:section-changed', { section });  // 递归触发
+  bus.emit('view:section-changed', { section }); // 递归触发
 });
 
 // ✅ 正确：使用条件判断避免循环
@@ -387,7 +386,7 @@ emit<K extends keyof ReaderEventMap>(event: K, payload: ReaderEventMap[K]): void
 // ✅ 正确：使用 useEffect 清理
 useEffect(() => {
   const unsub = bus.on('view:section-changed', handler);
-  return unsub;  // React 自动调用清理函数
+  return unsub; // React 自动调用清理函数
 }, [bus]);
 
 // ✅ 正确：批量清理
@@ -396,7 +395,7 @@ useEffect(() => {
     bus.on('view:section-changed', handleSection),
     bus.on('view:location-changed', handleLocation),
   ];
-  return () => unsubscribers.forEach(unsub => unsub());
+  return () => unsubscribers.forEach((unsub) => unsub());
 }, [bus]);
 ```
 
@@ -426,48 +425,49 @@ const stableSectionChange = useCallback(
   (currentIndex, totalSections, ...args) => {
     handleSectionChangeRef.current(currentIndex, totalSections, ...args);
   },
-  [],  // 空依赖 → 引用永远不变
+  [], // 空依赖 → 引用永远不变
 );
 ```
 
-## Error Handling
+## 错误处理
 
-### Error Types
+### 错误类型
 
 1. **文件加载错误**：文件不存在、格式不支持、损坏
 2. **渲染错误**：CSS 解析失败、布局异常、初始化失败
 3. **导航错误**：CFI 无效、章节不存在、跳转失败
 4. **标注错误**：选择失败、CFI 提取失败、保存失败
 
-### Error Handling Strategies
+### 错误处理策略
 
-#### File Loading Errors
+#### 文件加载错误
 
 文件加载错误在 `useBookLoader.ts` 中处理。加载流程包含多层防护：
 
 ```typescript
-// File existence check
+// 文件存在性检查
 const tfile = app.vault.getAbstractFileByPath(file);
 if (!(tfile instanceof TFile)) {
   loadingRef.current = false;
-  return;  // Silent failure, no error display
+  return; // 静默失败，不显示错误
 }
 
 try {
   const data = await app.vault.readBinary(tfile as any);
-  // ... loading logic
+  // ... 加载逻辑
 } catch (err) {
   log.error('Failed to load file:', err);
-  // Current implementation: only log, no user-facing error
+  // 当前实现：仅记录日志，不向用户显示错误
 }
 ```
 
 **处理策略**：
+
 - 文件不存在：静默失败，不显示错误提示
 - 读取失败：记录错误日志，保持加载状态为 false
 - 格式不支持：依赖 foliate-js 内部错误处理
 
-#### Rendering Errors
+#### 渲染错误
 
 渲染错误在 `view.init()` 失败时触发，采用回退策略：
 
@@ -475,49 +475,51 @@ try {
 try {
   await (view as any).init({ showTextStart: true });
 } catch {
-  // On init failure, try jumping to start
+  // 初始化失败时，尝试跳转到开头
   try {
     await (view as any).goTo(0);
   } catch {
-    /* ignore - silently ignore on double failure */
+    /* 忽略 - 双重失败时静默处理 */
   }
 }
 ```
 
 **处理策略**：
+
 - 初始化失败：自动回退到 `goTo(0)`
 - 回退失败：静默忽略，避免级联错误
 
-#### Navigation Errors
+#### 导航错误
 
 导航错误在 CFI 跳转时可能触发，当前实现采用静默忽略策略：
 
 ```typescript
-// CFI extraction in foliateSelection.ts
+// foliateSelection.ts 中的 CFI 提取
 try {
   const viewApi = view as any;
   const contents = viewApi.renderer?.getContents?.();
   if (!contents || contents.length === 0) return;
 
   const cfi = viewApi.getCFI(contents[0].index, range);
-  // ... continue processing
+  // ... 继续处理
 } catch {
-  // Selection may not be convertible to CFI; silently ignore
+  // 选择可能无法转换为 CFI；静默忽略
 }
 ```
 
 **处理策略**：
+
 - CFI 提取失败：静默忽略，不显示菜单
 - 章节不存在：依赖 foliate-js 内部边界检查
 
-#### Annotation Errors
+#### 标注错误
 
 标注错误在 `AnnotationService.ts` 中处理，包含防重入保护：
 
 ```typescript
 async persist(annotations: Annotation[], sourcePath: string | null): Promise<void> {
   if (!sourcePath) {
-    // No sourcePath: only update cache, skip file write
+    // 无 sourcePath：仅更新缓存，跳过文件写入
     return;
   }
 
@@ -526,18 +528,18 @@ async persist(annotations: Annotation[], sourcePath: string | null): Promise<voi
   try {
     const file = this.app.vault.getAbstractFileByPath(sourcePath);
     if (!(file instanceof TFile)) {
-      // File not found, only update cache
+      // 文件未找到，仅更新缓存
       this.queryClient.setQueryData(annotationKeys.byFile(sourcePath), annotations);
       return;
     }
 
     await this.repository.save(file, annotations);
-    // Update cache after successful persistence (ensure consistency)
+    // 持久化成功后更新缓存（确保一致性）
     this.queryClient.setQueryData(annotationKeys.byFile(sourcePath), annotations);
     this.annotationIndex.rebuildIndex(sourcePath, annotations);
   } catch (e) {
     log.error('Failed to persist annotations:', e);
-    // Current implementation: only log on failure, no cache rollback
+    // 当前实现：失败时仅记录日志，不回滚缓存
   } finally {
     this.persistInProgress = false;
   }
@@ -545,14 +547,15 @@ async persist(annotations: Annotation[], sourcePath: string | null): Promise<voi
 ```
 
 **处理策略**：
+
 - 无源文件路径：仅更新内存缓存
 - 文件不存在：仅更新缓存，不写入文件
 - 保存失败：记录错误日志，保持 `persistInProgress` 为 false
 - 防重入：通过 `persistInProgress` 标志防止并发保存
 
-### Error Recovery Strategies
+### 错误恢复策略
 
-#### Graceful Degradation
+#### 优雅降级
 
 当前实现采用分层降级策略：
 
@@ -560,7 +563,7 @@ async persist(annotations: Annotation[], sourcePath: string | null): Promise<voi
 2. **上下文降级**：DOM 遍历失败 → 返回空 prefix/suffix
 3. **缓存降级**：文件操作失败 → 仅更新内存缓存
 
-#### Silent Ignoring
+#### 静默忽略
 
 以下场景采用静默忽略策略（不向用户显示错误）：
 
@@ -571,7 +574,7 @@ async persist(annotations: Annotation[], sourcePath: string | null): Promise<voi
 
 **设计理念**：阅读器作为被动查看工具，非关键错误不应干扰用户阅读体验。
 
-#### Logging
+#### 日志记录
 
 所有错误均通过 `createLogger` 记录到控制台，便于开发调试：
 
@@ -583,7 +586,7 @@ const log = createLogger('AnnotationService');
 log.error('Failed to persist annotations:', e);
 ```
 
-### Improvement Suggestions
+### 改进建议
 
 当前错误处理存在以下可改进点：
 
@@ -601,7 +604,7 @@ log.error('Failed to persist annotations:', e);
 阅读器在组件卸载时必须正确释放资源，避免内存泄漏。当前实现在 `useBookLoader.ts` 的 cleanup effect 中处理：
 
 ```typescript
-// Cleanup on unmount
+// 组件卸载时清理
 useEffect(() => {
   return () => {
     // 1. 禁用补丁（恢复原始行为）
@@ -619,7 +622,7 @@ useEffect(() => {
       try {
         (view as any).close?.();
       } catch {
-        /* ignore */
+        /* 忽略 */
       }
       viewRef.current = null;
       loadedFileRef.current = null;
@@ -629,6 +632,7 @@ useEffect(() => {
 ```
 
 **关键点**：
+
 - `URL.revokeObjectURL()` 释放 Blob URL，防止内存泄漏
 - `view.close()` 关闭 foliate-js 内部资源（iframe、事件监听器等）
 - 清空 ref 引用，帮助垃圾回收
@@ -668,9 +672,16 @@ handleSectionChangeRef.current = handleSectionChange;
 
 const stableSectionChange = useCallback(
   (currentIndex, totalSections, currentLabel, canGoPrev, canGoNext, cfi) => {
-    handleSectionChangeRef.current(currentIndex, totalSections, currentLabel, canGoPrev, canGoNext, cfi);
+    handleSectionChangeRef.current(
+      currentIndex,
+      totalSections,
+      currentLabel,
+      canGoPrev,
+      canGoNext,
+      cfi,
+    );
   },
-  [],  // 空依赖 → 引用永远不变
+  [], // 空依赖 → 引用永远不变
 );
 ```
 
@@ -695,8 +706,7 @@ const defaultAddAnnotation = useCallback(
     const annotation = createAnnotation({ ...params, uri: targetUri });
 
     // 1. 乐观写：立即更新 QueryClient 缓存
-    const current =
-      queryClient.getQueryData<Annotation[]>(annotationKeys.byFile(sourcePath)) ?? [];
+    const current = queryClient.getQueryData<Annotation[]>(annotationKeys.byFile(sourcePath)) ?? [];
     const next = [...current, annotation];
     queryClient.setQueryData(annotationKeys.byFile(sourcePath), next);
 
@@ -708,6 +718,7 @@ const defaultAddAnnotation = useCallback(
 ```
 
 **优势**：
+
 - 用户操作后 UI 立即反馈，体验流畅
 - 持久化失败时缓存仍保持最新状态（由 Controller 负责一致性）
 
@@ -735,6 +746,7 @@ foliate-js 的 paginator（`node_modules/foliate-js/paginator.js`）采用基于
 - **ReaderEngine 重构建议**：如果需要优化大书籍的翻页体验，可在 Engine 层引入相邻章节预加载策略——监听 `relocate` 事件后，对 `currentIndex ± 1` 的章节调用 `section.load()` 进行预热。但需注意内存开销，建议限制预加载窗口为 ±1 个章节，且仅在桌面端启用
 
 **注意**：
+
 - 不要手动预加载所有章节（`Promise.all(book.sections.map(s => s.load()))`），会消耗大量内存
 - Android 补丁中的 `wrapSectionLoadForAndroid` 会预读取 blob 内容，这是为了解决 WebView 兼容性问题，非性能优化
 
@@ -748,6 +760,7 @@ foliate-js 的 paginator（`node_modules/foliate-js/paginator.js`）采用基于
 - **React 渲染优化**：`React.memo` + `useCallback` + `useSessionField` 选择性订阅共同构成 React 层面的渲染控制，减少不必要的重渲染
 
 **ReaderEngine 重构建议**：以下场景可能需要引入防抖：
+
 1. **字体大小调整**：如果 Engine 暴露实时字体大小调整（如滑块拖动），应对 `updateSettings({ fontSize })` 做 100-200ms 防抖，避免高频触发 `renderer.setStyles()`
 2. **窗口 resize**：如果 Engine 需要响应容器尺寸变化重新布局，应对 resize 事件做 250ms 防抖
 3. **标注批量操作**：批量删除/导入标注时，应对 `annotations-changed` 事件做合并，避免逐条触发持久化
@@ -763,6 +776,7 @@ log.debug('book loaded:', tfile.name, 'type:', ext, 'size:', data.byteLength, 'b
 ```
 
 建议在 ReaderEngine 重构时添加以下性能指标：
+
 - 书籍加载耗时（`view.open()` 到 `isLoaded`）
 - 章节切换耗时（`section-changed` 事件间隔）
 - 标注渲染耗时（`useAnnotationRendering` 执行时间）
@@ -798,7 +812,11 @@ foliate-js 的分页器会创建带有 sandbox 属性的 iframe（用于解决 W
 以下为简化版本，完整实现见 `src/viewers/hooks/useBookLoader.ts`。
 
 ```typescript
-import { enableAndroidPatches, disableAndroidPatches, wrapSectionLoadForAndroid } from './useAndroidPatches';
+import {
+  enableAndroidPatches,
+  disableAndroidPatches,
+  wrapSectionLoadForAndroid,
+} from './useAndroidPatches';
 
 // 1. view.open() 之前激活补丁（拦截 blob URL 创建）
 enableAndroidPatches();
@@ -807,7 +825,7 @@ await view.open(fileObj);
 // 2. view.open() 之后，对每个 section 包装 load()（预读取 blob 内容）
 const book = view.book;
 if (book?.sections) {
-  await Promise.all(book.sections.map(s => wrapSectionLoadForAndroid(s)));
+  await Promise.all(book.sections.map((s) => wrapSectionLoadForAndroid(s)));
 }
 
 // 3. 初始化 renderer（此时 iframe src 设置会被 srcdoc 注入拦截）
@@ -981,6 +999,7 @@ interface RangeSelector {
 ```
 
 **字段说明**：
+
 - `id`：随机生成的字母数字 ID（`Math.random().toString(36).substring(2)`）
 - `uri`：书籍文件的 URI 或指纹
 - `document`：文档元数据，兼容 Hypothesis 格式
@@ -998,20 +1017,22 @@ interface RangeSelector {
 
 #### 单个标注块结构
 
-```markdown
->%%
->```annotation-json
->{"id":"abc123","uri":"urn:book.epub","document":{"title":"Book Title","link":[{"href":"urn:book.epub"}]},"target":[{"source":"urn:book.epub","selector":[{"type":"TextQuoteSelector","exact":"被标注的文本","prefix":"前文内容","suffix":"后文内容"}]}],"text":"用户笔记","tags":["tag1"],"created":"2024-01-15T10:30:00Z","updated":"2024-01-15T10:30:00Z","cfiRange":"epubcfi(...)","type":"epub","color":"#ffeb3b"}
->```
->%%
->*%%PREFIX%%前文内容 %%HIGHLIGHT%% ==被标注的文本== %%POSTFIX%%后文内容*
->%%LINK%%[[#^abc123|show annotation]]
->%%COMMENT%%
->用户笔记
->%%TAGS%%
->#tag1
-^abc123
-```
+````markdown
+> %%
+>
+> ```annotation-json
+> {"id":"abc123","uri":"urn:book.epub","document":{"title":"Book Title","link":[{"href":"urn:book.epub"}]},"target":[{"source":"urn:book.epub","selector":[{"type":"TextQuoteSelector","exact":"被标注的文本","prefix":"前文内容","suffix":"后文内容"}]}],"text":"用户笔记","tags":["tag1"],"created":"2024-01-15T10:30:00Z","updated":"2024-01-15T10:30:00Z","cfiRange":"epubcfi(...)","type":"epub","color":"#ffeb3b"}
+> ```
+>
+> %%
+> _%%PREFIX%%前文内容 %%HIGHLIGHT%% ==被标注的文本== %%POSTFIX%%后文内容_
+> %%LINK%%[[#^abc123|show annotation]]
+> %%COMMENT%%
+> 用户笔记
+> %%TAGS%%
+> #tag1
+> ^abc123
+````
 
 #### 格式说明
 
@@ -1034,18 +1055,23 @@ interface RangeSelector {
 
 ```typescript
 // 解析：从 Markdown 内容提取标注列表
-export function parseAnnotationsFromMarkdown(content: string, uri?: string | null): Annotation[]
+export function parseAnnotationsFromMarkdown(content: string, uri?: string | null): Annotation[];
 
 // 生成：将标注列表写入 Markdown 内容
-export function generateMarkdownWithAnnotations(originalContent: string, annotations: Annotation[]): string
+export function generateMarkdownWithAnnotations(
+  originalContent: string,
+  annotations: Annotation[],
+): string;
 ```
 
 解析流程：
+
 1. 使用正则表达式匹配 `^annotationId` 结尾的 blockquote 块
 2. 从块中提取 `annotation-json` 代码围栏内的 JSON
 3. 合并默认值，按 URI 过滤
 
 生成流程：
+
 1. 移除所有现有标注块
 2. 将每个标注格式化为 blockquote 块
 3. 追加到文件末尾
@@ -1060,6 +1086,7 @@ interface AnnotationRepository {
 ```
 
 `MarkdownAnnotationRepository` 实现：
+
 - `load`：读取文件内容，调用 `parseAnnotationsFromMarkdown`
 - `save`：使用 `vault.process` 原子性地更新文件内容
 
@@ -1073,6 +1100,7 @@ class AnnotationService {
 ```
 
 `persist` 方法职责：
+
 1. 调用 `repository.save()` 将标注列表写入 Markdown 文件
 2. 成功后更新 QueryClient 缓存（`queryClient.setQueryData`）
 3. 重建 AnnotationIndex（`annotationIndex.rebuildIndex`）
@@ -1111,21 +1139,23 @@ bus.emit('view:annotations-changed', { annotations: updatedAnnotations });
 **原因**：Android WebView 的 sandbox 策略阻止了 `blob:` URL 加载。foliate-js 的分页器会创建带有 sandbox 属性的 iframe，但在 Chromium-based Android WebView 上，这个 sandbox 会阻止 `blob:` URL 加载，导致 `contentDocument` 不可访问。
 
 **解决方案**：
+
 - 确保在 `view.open()` 之前调用 `enableAndroidPatches()`
 - 检查 `Platform.isMobile` 是否为 `true`（补丁仅在移动端生效）
 - 确保在组件卸载时调用 `disableAndroidPatches()` 禁用补丁（恢复原始行为）
 - 验证 `wrapSectionLoadForAndroid()` 是否在 `view.open()` 之后对每个 section 调用
 
 **参考代码**：
+
 ```typescript
 // 正确的调用时序
-enableAndroidPatches();  // 必须在 view.open() 之前
+enableAndroidPatches(); // 必须在 view.open() 之前
 await view.open(fileObj);
 
 // view.open() 之后，对每个 section 包装 load()
 const book = view.book;
 if (book?.sections) {
-  await Promise.all(book.sections.map(s => wrapSectionLoadForAndroid(s)));
+  await Promise.all(book.sections.map((s) => wrapSectionLoadForAndroid(s)));
 }
 
 await view.init({ showTextStart: true });
@@ -1138,11 +1168,13 @@ await view.init({ showTextStart: true });
 **原因**：CFI 格式无效或目标位置不存在。
 
 **解决方案**：
+
 - 验证 CFI 格式是否正确：必须以 `epubcfi(` 开头
 - 提供回退方案：CFI 无效时使用章节索引
 - 检查目标章节是否已加载
 
 **参考代码**：
+
 ```typescript
 // CFI 格式校验
 function isValidCfi(cfi: string | null | undefined): boolean {
@@ -1173,12 +1205,14 @@ const restorePosition = async (lastCfi: string) => {
 **原因**：标注持久化失败。
 
 **解决方案**：
+
 - 检查 `sourcePath` 是否正确
 - 确保 Markdown 文件存在且可写
 - 检查 `AnnotationService.persist()` 是否抛出错误
 - 查看控制台日志，搜索 `AnnotationService` 相关的错误信息
 
 **调试步骤**：
+
 1. 打开开发者工具，查看控制台输出
 2. 搜索 `Failed to persist annotations` 错误信息
 3. 检查 `persistInProgress` 标志是否正常释放
@@ -1191,11 +1225,13 @@ const restorePosition = async (lastCfi: string) => {
 **原因**：章节按需加载机制的固有限制，或资源（Blob URL、iframe 等）未正确释放导致内存泄漏。
 
 **解决方案**：
+
 - foliate-js 采用按需加载策略，不主动预加载相邻章节
 - 及时释放未使用的资源（Blob URL、封面图片等）
 - 检查是否有内存泄漏
 
 **资源释放检查清单**：
+
 ```typescript
 // 组件卸载时的清理逻辑
 useEffect(() => {
@@ -1247,22 +1283,22 @@ log.error('Failed to persist annotations:', e);
 3. **验证文件格式**：确保 EPUB/PDF 文件未损坏，可以被 foliate-js 正常解析
 4. **清除缓存**：如果遇到持久化问题，尝试清除 QueryClient 缓存并重新加载
 
-## Deletion Test
+## 删除测试
 
-Deleting ReaderEngine scatters these concerns into FoliateViewer adapter:
+删除 ReaderEngine 会将这些关注点分散到 FoliateViewer 适配器中：
 
-- Book loading (useBookLoader)
-- Annotation rendering + overlays (useAnnotationRendering + useAnnotationOverlays)
-- Contextmenu listening + CFI extraction + coord conversion + overlap detection (useSelectionMenu internals)
-- Navigation + keyboard (useNavigation\* + foliateKeyboard)
-- Settings application (useReaderSettings)
-- Android patches (useAndroidPatches)
+- 书籍加载（useBookLoader）
+- 标注渲染 + 覆盖层（useAnnotationRendering + useAnnotationOverlays）
+- 右键菜单监听 + CFI 提取 + 坐标转换 + 重叠检测（useSelectionMenu 内部逻辑）
+- 导航 + 键盘（useNavigation\* + foliateKeyboard）
+- 设置应用（useReaderSettings）
+- Android 补丁（useAndroidPatches）
 
-Complexity reappears in N hooks. Engine passes the deletion test.
+复杂度重新出现在 N 个 hooks 中。引擎通过了删除测试。
 
-## FoliateViewer Adapter (after)
+## FoliateViewer 适配器（重构后）
 
-FoliateViewer becomes a thin React adapter:
+FoliateViewer 变为一个轻量级的 React 适配器：
 
 ```tsx
 const FoliateViewer: React.FC<{ file: string; sourcePath: string }> = ({ file, sourcePath }) => {
@@ -1270,24 +1306,24 @@ const FoliateViewer: React.FC<{ file: string; sourcePath: string }> = ({ file, s
   const engineRef = useRef<ReaderEngine | null>(null);
   const bus = useReader().bus;
 
-  // Selection menu state (React)
+  // 选择菜单状态（React）
   const [menuState, setMenuState] = useState<SelectionMenuState | null>(null);
-  // Section indicator state (React)
+  // 章节指示器状态（React）
   const [sectionInfo, setSectionInfo] = useState<ReaderSectionState>(...);
 
   useEffect(() => {
     const engine = new ReaderEngine(containerRef.current!, bus);
     engineRef.current = engine;
 
-    // Forward engine events to local React state
+    // 将引擎事件转发到本地 React 状态
     bus.on('view:section-changed', ({ section }) => setSectionInfo(section));
-    // ... bridge other events
+    // ... 桥接其他事件
 
     engine.open(file, { settings: ... });
     return () => engine.close();
   }, [file]);
 
-  // Selection handler: engine detected a selection → show menu
+  // 选择处理器：引擎检测到选择 → 显示菜单
   useEffect(() => {
     const unsub = bus.on('view:selection', ({ selection, existingAnnotation, position }) => {
       setMenuState({ visible: true, position, selection, existingAnnotation, ... });
@@ -1304,4 +1340,4 @@ const FoliateViewer: React.FC<{ file: string; sourcePath: string }> = ({ file, s
 };
 ```
 
-~80 lines. Engine handles everything else.
+约 80 行。引擎处理其他所有事情。
