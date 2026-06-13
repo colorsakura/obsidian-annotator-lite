@@ -6,7 +6,7 @@ import type { ReaderSessionStore } from './ReaderSessionStore';
 import type { ReaderAPI } from './ReaderAPI';
 import type { TargetResolver } from './TargetResolver';
 import type { ViewCoordinator } from './ViewCoordinator';
-import { getQueryClient } from '../providers/QueryProvider';
+import type { QueryClient } from '@tanstack/react-query';
 import { annotationKeys } from '../hooks/useAnnotations';
 import type { HighlightColor } from '../constants';
 import { ANNOTATOR_ID_PROPERTY } from '../constants';
@@ -30,6 +30,7 @@ export interface ReaderController {
   navigateToTarget(target: NavigationTarget): void;
   navigateToAnnotation(annotationId: string): Promise<void>;
 
+  addAnnotation(annotation: Annotation): Promise<void>;
   updateAnnotation(id: string, updates: Partial<Annotation>): Promise<void>;
   deleteAnnotation(id: string): Promise<void>;
 }
@@ -62,6 +63,7 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
     private getSettings: () => AnnotatorLiteSettings,
     private historyService: ReadingHistoryService,
     private getFrontmatter: (file: TFile, key: string) => unknown,
+    private queryClient: QueryClient,
   ) {
     this.bus = bus;
   }
@@ -113,9 +115,8 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
     if (!target.type) return;
 
     // 将标注数据预热到 QueryClient 缓存
-    const queryClient = getQueryClient();
-    if (queryClient && target.sourcePath) {
-      queryClient.setQueryData(annotationKeys.byFile(target.sourcePath), annotations);
+    if (target.sourcePath) {
+      this.queryClient.setQueryData(annotationKeys.byFile(target.sourcePath), annotations);
     }
 
     // Start session with id
@@ -164,12 +165,9 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
 
     // 清理 QueryClient 缓存（避免内存泄漏）
     if (this.currentReaderSourcePath) {
-      const queryClient = getQueryClient();
-      if (queryClient) {
-        queryClient.removeQueries({
-          queryKey: annotationKeys.byFile(this.currentReaderSourcePath),
-        });
-      }
+      this.queryClient.removeQueries({
+        queryKey: annotationKeys.byFile(this.currentReaderSourcePath),
+      });
     }
 
     this.viewCoordinator.closeCompanionViews();
@@ -268,22 +266,44 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
 
     // Reader is open with the same book — just navigate
     // 更新 QueryClient 缓存
-    const queryClient = getQueryClient();
-    if (queryClient) {
-      queryClient.setQueryData(annotationKeys.byFile(sourceFile.path), annotations);
-    }
+    this.queryClient.setQueryData(annotationKeys.byFile(sourceFile.path), annotations);
     this.navigateToTarget(navTarget);
     this.viewCoordinator.revealReader();
   }
 
+  async addAnnotation(annotation: Annotation): Promise<void> {
+    if (!this.currentReaderSourcePath) return;
+    const current =
+      this.queryClient.getQueryData<Annotation[]>(
+        annotationKeys.byFile(this.currentReaderSourcePath),
+      ) ?? [];
+    // 幂等：如果乐观写已经加过了，不重复添加
+    const exists = current.some((a) => a.id === annotation.id);
+    const next = exists ? current : [...current, annotation];
+    await this.annotationService.persist(next, this.currentReaderSourcePath);
+  }
+
   async updateAnnotation(id: string, updates: Partial<Annotation>): Promise<void> {
     if (!this.currentReaderSourcePath) return;
-    await this.annotationService.update(id, updates, this.currentReaderSourcePath);
+    const current =
+      this.queryClient.getQueryData<Annotation[]>(
+        annotationKeys.byFile(this.currentReaderSourcePath),
+      ) ?? [];
+    const idx = current.findIndex((a) => a.id === id);
+    if (idx === -1) return;
+    const next = [...current];
+    next[idx] = { ...next[idx], ...updates, updated: new Date().toISOString() };
+    await this.annotationService.persist(next, this.currentReaderSourcePath);
   }
 
   async deleteAnnotation(id: string): Promise<void> {
     if (!this.currentReaderSourcePath) return;
-    await this.annotationService.delete(id, this.currentReaderSourcePath);
+    const current =
+      this.queryClient.getQueryData<Annotation[]>(
+        annotationKeys.byFile(this.currentReaderSourcePath),
+      ) ?? [];
+    const next = current.filter((a) => a.id !== id);
+    await this.annotationService.persist(next, this.currentReaderSourcePath);
   }
 
   private async saveReadingProgress(): Promise<void> {

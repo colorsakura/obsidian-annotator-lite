@@ -1,11 +1,11 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import type { Annotation } from '../types/annotations';
 import type { AnnotationRepository } from '../services/AnnotationRepository';
 import { TFile, type App } from 'obsidian';
 
 // ─── Module-level singletons ────────────────────────────────────────────
 // 与 setSessionStore / setQueryClient 相同的模式。
-// 插件 onload 时调用 setAnnotationRepository()。
+// 供 useAnnotations 查询 hook 使用。
 
 let _repository: AnnotationRepository | null = null;
 let _app: App | null = null;
@@ -65,41 +65,5 @@ export function useAnnotations({ sourcePath, targetUri, enabled = true }: UseAnn
       return repository.load(file, targetUri);
     },
     enabled: enabled && !!sourcePath,
-  });
-}
-
-// ─── Mutation Hook ──────────────────────────────────────────────────────
-
-interface BatchUpdateParams {
-  /** 源文件路径 */
-  sourcePath: string;
-  /** 新的标注列表（完整替换） */
-  annotations: Annotation[];
-}
-
-/**
- * 批量更新标注并持久化到 Markdown 文件。
- *
- * 使用乐观更新：立即写入 QueryClient 缓存，异步持久化到文件。
- * 包含防重入保护，避免并发写入冲突。
- */
-export function useBatchUpdateAnnotations() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ sourcePath, annotations }: BatchUpdateParams) => {
-      const repository = getRepository();
-      const app = getApp();
-      const file = app.vault.getAbstractFileByPath(sourcePath);
-      if (!(file instanceof TFile)) {
-        throw new Error(`File not found: ${sourcePath}`);
-      }
-      await repository.save(file, annotations);
-      return { sourcePath, annotations };
-    },
-    onSuccess: (data) => {
-      // 持久化成功后更新缓存（确保一致性）
-      queryClient.setQueryData(annotationKeys.byFile(data.sourcePath), data.annotations);
-    },
   });
 }

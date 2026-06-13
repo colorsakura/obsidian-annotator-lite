@@ -11,6 +11,8 @@ export interface ReaderAPI {
 
   navigateToTarget(target: NavigationTarget): void;
   navigateToAnnotation(annotationId: string): Promise<void>;
+  /** 添加标注（幂等：如果已存在则跳过添加，直接持久化） */
+  addAnnotation(annotation: Annotation): Promise<void>;
   updateAnnotation(id: string, updates: Partial<Annotation>): Promise<void>;
   deleteAnnotation(id: string): Promise<void>;
   revealReader(): void;

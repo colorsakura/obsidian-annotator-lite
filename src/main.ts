@@ -96,6 +96,7 @@ export default class AnnotatorLitePlugin extends Plugin {
       () => this.settings,
       this.historyService,
       (file, key) => this.getPropertyValue(key, file),
+      queryClient,
     );
     setReaderAPI(this.readerController);
 

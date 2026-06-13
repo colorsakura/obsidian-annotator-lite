@@ -6,7 +6,7 @@ import { createAnnotation } from '../types/annotations';
 import { isAnnotatableType } from '../services/TargetResolver';
 import { useSessionField } from '../contexts/ReaderStoreContext';
 import { useReader } from '../contexts/ReaderAPIContext';
-import { useAnnotations, useBatchUpdateAnnotations, annotationKeys } from '../hooks/useAnnotations';
+import { useAnnotations, annotationKeys } from '../hooks/useAnnotations';
 import type { ReaderSectionState } from '../services/ReaderSessionStore';
 import 'foliate-js/view.js';
 import {
@@ -120,30 +120,33 @@ const FoliateViewer: React.FC<FoliateViewerProps> = React.memo(
     const targetUri = useMemo(() => `urn:${file}`, [file]);
     const { data: annotationsData } = useAnnotations({ sourcePath, targetUri });
     const annotations = annotationsData ?? [];
-    const batchUpdateMutation = useBatchUpdateAnnotations();
 
-    // ─── 标注 CRUD（默认行为：乐观更新 + 持久化）─────────────────────────
+    // ─── 标注 CRUD（乐观更新 + 通过 ReaderAPI 持久化）────────────────────
     const defaultAddAnnotation = useCallback(
       (params: AnnotationAddParams) => {
         const annotation = createAnnotation({ ...params, uri: targetUri });
+        // 乐观写：立即更新缓存，UI 瞬间响应
         const current =
           queryClient.getQueryData<Annotation[]>(annotationKeys.byFile(sourcePath)) ?? [];
         const next = [...current, annotation];
         queryClient.setQueryData(annotationKeys.byFile(sourcePath), next);
-        batchUpdateMutation.mutate({ sourcePath, annotations: next });
+        // 通过 ReaderAPI 触发持久化（Controller 负责写文件 + 确认缓存）
+        void reader.addAnnotation(annotation);
       },
-      [targetUri, sourcePath, queryClient, batchUpdateMutation],
+      [targetUri, sourcePath, queryClient, reader],
     );
 
     const defaultDeleteAnnotation = useCallback(
       (id: string) => {
+        // 乐观写：立即从缓存移除
         const current =
           queryClient.getQueryData<Annotation[]>(annotationKeys.byFile(sourcePath)) ?? [];
         const next = current.filter((a) => a.id !== id);
         queryClient.setQueryData(annotationKeys.byFile(sourcePath), next);
-        batchUpdateMutation.mutate({ sourcePath, annotations: next });
+        // 通过 ReaderAPI 触发持久化
+        void reader.deleteAnnotation(id);
       },
-      [sourcePath, queryClient, batchUpdateMutation],
+      [sourcePath, queryClient, reader],
     );
 
     const handleAddAnnotation = onAnnotationAdd ?? defaultAddAnnotation;

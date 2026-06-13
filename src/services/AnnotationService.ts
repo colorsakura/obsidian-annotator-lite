@@ -12,13 +12,13 @@ const log = createLogger('AnnotationService');
  * 标注持久化服务。
  *
  * 职责：
- * - 从 Markdown 文件加载标注
- * - 保存标注到 Markdown 文件
- * - 更新/删除单条标注
+ * - 从 Markdown 文件加载标注（load）
+ * - 将完整标注列表持久化到 Markdown 文件（persist）
  * - 防重入保护（persistInProgress）
  * - 同步更新 QueryClient 缓存和 AnnotationIndex
  *
- * 注：不再依赖 ReaderSessionStore，改用 QueryClient 缓存管理标注状态。
+ * 注意：CRUD 逻辑（组装标注列表）由调用方负责，
+ * 本模块只负责将列表写入文件并确认缓存。
  */
 export class AnnotationService {
   private persistInProgress = false;
@@ -38,53 +38,13 @@ export class AnnotationService {
   }
 
   /**
-   * 更新指定标注。
-   */
-  async update(id: string, updates: Partial<Annotation>, sourcePath: string): Promise<void> {
-    const currentAnnotations = this.queryClient.getQueryData<Annotation[]>(
-      annotationKeys.byFile(sourcePath),
-    );
-    if (!currentAnnotations) return;
-
-    const idx = currentAnnotations.findIndex((a) => a.id === id);
-    if (idx === -1) return;
-
-    const updated = {
-      ...currentAnnotations[idx],
-      ...updates,
-      updated: new Date().toISOString(),
-    };
-    const newAnnotations = [...currentAnnotations];
-    newAnnotations[idx] = updated;
-
-    await this.persist(newAnnotations, sourcePath);
-  }
-
-  /**
-   * 删除指定标注。
-   */
-  async delete(id: string, sourcePath: string): Promise<void> {
-    const currentAnnotations = this.queryClient.getQueryData<Annotation[]>(
-      annotationKeys.byFile(sourcePath),
-    );
-    if (!currentAnnotations) return;
-
-    const newAnnotations = currentAnnotations.filter((a) => a.id !== id);
-    await this.persist(newAnnotations, sourcePath);
-  }
-
-  /**
-   * 批量更新标注（由 mutation hook 调用）。
-   */
-  async batchUpdate(annotations: Annotation[], sourcePath: string): Promise<void> {
-    await this.persist(annotations, sourcePath);
-  }
-
-  /**
    * 持久化标注到 Markdown 文件。
    * 同步更新 QueryClient 缓存和 AnnotationIndex。
+   *
+   * @param annotations - 完整的标注列表（由调用方组装）
+   * @param sourcePath - 源 Markdown 文件路径
    */
-  private async persist(annotations: Annotation[], sourcePath: string | null): Promise<void> {
+  async persist(annotations: Annotation[], sourcePath: string | null): Promise<void> {
     if (!sourcePath) {
       // 无 sourcePath 时仅更新缓存
       return;
