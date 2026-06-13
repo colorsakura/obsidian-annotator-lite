@@ -460,6 +460,184 @@ const navigateToChapter = async (chapterCfi: string) => {
 3. **缓存常用 CFI**：避免重复计算
 4. **序列化存储**：使用字符串格式存储 CFI
 
+## 标注系统
+
+### 标注数据结构
+
+标注遵循 W3C Annotation Model / Hypothesis 兼容格式，定义在 `src/types/annotations.ts`：
+
+```typescript
+interface Annotation {
+  id: string;
+  /** PDF or EPUB file URI / fingerprint */
+  uri: string;
+  document: {
+    title: string;
+    documentFingerprint?: string;
+    link?: { href: string }[];
+  };
+  /** Highlight location data (W3C selectors) */
+  target: {
+    source: string;
+    selector: Selector[];
+  }[];
+  /** User note / comment */
+  text: string;
+  tags: string[];
+  created: string;
+  updated: string;
+  /** Non-standard extension: CFI string for foliate-js rendering */
+  cfiRange?: string;
+  /** Non-standard extension: discriminator for PDF vs EPUB */
+  type?: 'pdf' | 'epub';
+  /** Non-standard extension: highlight color (CSS color value) */
+  color?: string;
+}
+
+type Selector = TextPositionSelector | TextQuoteSelector | RangeSelector;
+
+interface TextQuoteSelector {
+  type: 'TextQuoteSelector';
+  exact: string;
+  prefix: string;
+  suffix: string;
+}
+
+interface TextPositionSelector {
+  type: 'TextPositionSelector';
+  start: number;
+  end: number;
+}
+
+interface RangeSelector {
+  type: 'RangeSelector';
+  endContainer: string;
+  endOffset: number;
+  startContainer: string;
+  startOffset: number;
+}
+```
+
+**字段说明**：
+- `id`：随机生成的字母数字 ID（`Math.random().toString(36).substring(2)`）
+- `uri`：书籍文件的 URI 或指纹
+- `document`：文档元数据，兼容 Hypothesis 格式
+- `target`：标注位置数据，使用 W3C Selectors（TextQuoteSelector 用于文本匹配，TextPositionSelector 用于位置偏移）
+- `text`：用户添加的笔记内容
+- `tags`：标签列表
+- `created` / `updated`：ISO 8601 时间戳
+- `cfiRange`：foliate-js 的 EPUB CFI 字符串（非标准扩展）
+- `type`：区分 PDF 和 EPUB 格式（非标准扩展）
+- `color`：高亮颜色 CSS 值（非标准扩展）
+
+### 存储格式
+
+标注存储在 Markdown 文件中，使用 obsidian-annotator 兼容的 blockquote 格式。实际实现位于 `src/utils/markdownStorage.ts`。
+
+#### 单个标注块结构
+
+```markdown
+>%%
+>```annotation-json
+>{"id":"abc123","uri":"urn:book.epub","document":{"title":"Book Title","link":[{"href":"urn:book.epub"}]},"target":[{"source":"urn:book.epub","selector":[{"type":"TextQuoteSelector","exact":"被标注的文本","prefix":"前文内容","suffix":"后文内容"}]}],"text":"用户笔记","tags":["tag1"],"created":"2024-01-15T10:30:00Z","updated":"2024-01-15T10:30:00Z","cfiRange":"epubcfi(...)","type":"epub","color":"#ffeb3b"}
+>```
+>%%
+>*%%PREFIX%%前文内容 %%HIGHLIGHT%% ==被标注的文本== %%POSTFIX%%后文内容*
+>%%LINK%%[[#^abc123|show annotation]]
+>%%COMMENT%%
+>用户笔记
+>%%TAGS%%
+>#tag1
+^abc123
+```
+
+#### 格式说明
+
+1. **JSON 块**：包裹在 `%%` 注释标记和 `annotation-json` 代码围栏中，存储完整的 Annotation JSON
+2. **可见高亮行**：显示前缀、高亮文本（`==text==`）、后缀，便于在 Markdown 阅读器中预览
+3. **LINK**：指向标注 ID 的内部链接
+4. **COMMENT**：用户笔记内容
+5. **TAGS**：标签列表
+6. **ID 标记**：`^annotationId` 作为块的结尾标识
+
+#### JSON 优化
+
+存储时会剥离与默认值相同的字段（`stripDefaultValues` 函数），忽略 `group`、`permissions`、`user`、`user_info`、`links`、`flagged`、`hidden`、`references` 等字段，保持 JSON 紧凑。
+
+### 持久化流程
+
+实际实现涉及三个层次：
+
+#### 1. 格式转换层（`src/utils/markdownStorage.ts`）
+
+```typescript
+// 解析：从 Markdown 内容提取标注列表
+parseAnnotationsFromMarkdown(content: string, uri?: string | null): Annotation[]
+
+// 生成：将标注列表写入 Markdown 内容
+generateMarkdownWithAnnotations(originalContent: string, annotations: Annotation[]): string
+```
+
+解析流程：
+1. 使用正则表达式匹配 `^annotationId` 结尾的 blockquote 块
+2. 从块中提取 `annotation-json` 代码围栏内的 JSON
+3. 合并默认值，按 URI 过滤
+
+生成流程：
+1. 移除所有现有标注块
+2. 将每个标注格式化为 blockquote 块
+3. 追加到文件末尾
+
+#### 2. 仓库层（`src/services/AnnotationRepository.ts`）
+
+```typescript
+interface AnnotationRepository {
+  load(sourceFile: TFile, targetUri?: string | null): Promise<Annotation[]>;
+  save(sourceFile: TFile, annotations: Annotation[]): Promise<void>;
+}
+```
+
+`MarkdownAnnotationRepository` 实现：
+- `load`：读取文件内容，调用 `parseAnnotationsFromMarkdown`
+- `save`：使用 `vault.process` 原子性地更新文件内容
+
+#### 3. 服务层（`src/services/AnnotationService.ts`）
+
+```typescript
+class AnnotationService {
+  async load(sourceFile: TFile, targetUri: string | null): Promise<Annotation[]>;
+  async persist(annotations: Annotation[], sourcePath: string | null): Promise<void>;
+}
+```
+
+`persist` 方法职责：
+1. 调用 `repository.save()` 将标注列表写入 Markdown 文件
+2. 成功后更新 QueryClient 缓存（`queryClient.setQueryData`）
+3. 重建 AnnotationIndex（`annotationIndex.rebuildIndex`）
+4. 包含防重入保护（`persistInProgress` 标志）
+
+**调用示例**（在 ReaderViewInner 中）：
+
+```typescript
+// 用户添加标注后
+const newAnnotation = createAnnotation({
+  type: 'epub',
+  cfiRange: selection.cfiRange,
+  text: selection.text,
+  prefix: selection.prefix,
+  suffix: selection.suffix,
+  uri: bookUri,
+  color: selectedColor,
+});
+
+// 更新本地状态
+const updatedAnnotations = [...localAnnotations, newAnnotation];
+setLocalAnnotations(updatedAnnotations);
+
+// 通知 Controller 持久化
+bus.emit('view:annotations-changed', { annotations: updatedAnnotations });
+```
+
 ## Deletion Test
 
 Deleting ReaderEngine scatters these concerns into FoliateViewer adapter:
