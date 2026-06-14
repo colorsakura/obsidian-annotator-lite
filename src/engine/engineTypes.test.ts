@@ -3,8 +3,6 @@ import type {
   EngineEventMap,
   EngineEventBus,
   ReaderSettings,
-  OpenOptions,
-  AddAnnotationParams,
 } from './engineTypes';
 import type { Annotation, OutlineItem, BookMetadata } from '../types/annotations';
 import type { ReaderSectionState } from '../services/ReaderSessionStore';

@@ -9,7 +9,7 @@ describe('SelectionDetector', () => {
 
   beforeEach(() => {
     emitSpy = vi.fn();
-    bus = { emit: emitSpy };
+    bus = { emit: emitSpy as EngineEventBus['emit'] };
   });
 
   it('findOverlappingAnnotation returns undefined when no match', () => {

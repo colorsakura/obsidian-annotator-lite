@@ -26,7 +26,7 @@ describe('AnnotationManager', () => {
 
   beforeEach(() => {
     emitSpy = vi.fn();
-    bus = { emit: emitSpy };
+    bus = { emit: emitSpy as EngineEventBus['emit'] };
   });
 
   it('starts with empty annotations', () => {

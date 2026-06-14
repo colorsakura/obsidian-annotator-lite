@@ -75,7 +75,7 @@ function createMockView(methods: Record<string, any> = {}): HTMLElement {
 }
 
 /** 安装 createElement spy，仅拦截 'foliate-view' 标签名 */
-function stubFoliateView(mockView: HTMLElement): vi.SpyInstance {
+function stubFoliateView(mockView: HTMLElement): ReturnType<typeof vi.spyOn> {
   return vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
     if (tag === 'foliate-view') return mockView;
     return _origCreateElement(tag);
@@ -260,7 +260,7 @@ describe('loadBook', () => {
     ).rejects.toThrow('open failed');
 
     // close() should have been called during cleanup
-    expect(mockView.close).toHaveBeenCalled();
+    expect((mockView as any).close).toHaveBeenCalled();
   });
 
   it('handles PDF file type correctly', async () => {
@@ -302,7 +302,7 @@ describe('loadBook', () => {
 
     expect(result.fileType).toBe('pdf');
     // PDF spread should be set to 'none' for single column
-    expect(mockBook.rendition.spread).toBe('none');
+    expect((mockBook.rendition as any).spread).toBe('none');
 
     vi.doUnmock('foliate-js/pdf.js');
   });

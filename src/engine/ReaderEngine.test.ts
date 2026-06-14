@@ -9,7 +9,7 @@ describe('ReaderEngine', () => {
 
   beforeEach(() => {
     emitSpy = vi.fn();
-    bus = { emit: emitSpy };
+    bus = { emit: emitSpy as EngineEventBus['emit'] };
     container = document.createElement('div');
   });
 
