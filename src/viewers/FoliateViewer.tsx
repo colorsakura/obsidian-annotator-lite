@@ -1,41 +1,18 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Platform } from 'obsidian';
 import { useObsidianApp } from '../hooks/useObsidianApp';
-import type { Annotation, BookMetadata, OutlineItem } from '../types/annotations';
-import { createAnnotation } from '../types/annotations';
-import { isAnnotatableType } from '../services/TargetResolver';
 import { useSessionField } from '../contexts/ReaderStoreContext';
 import { useReader } from '../contexts/ReaderAPIContext';
-import { useAnnotations, annotationKeys } from '../hooks/useAnnotations';
+import { ReaderEngine } from '../engine/ReaderEngine';
+import type { EngineEventBus } from '../engine/engineTypes';
+import type { PendingSelection } from './foliate/foliateSelection';
+import type { Annotation, NavigationTarget } from '../types/annotations';
 import type { ReaderSectionState } from '../services/ReaderSessionStore';
-import 'foliate-js/view.js';
-import {
-  useBookLoader,
-  useAnnotationRendering,
-  useAnnotationOverlays,
-  useContextMenu,
-  useNavigationTarget,
-  useSectionTarget,
-  usePageTurnTarget,
-  useRelocateListener,
-  useFlowMode,
-  useColumnMode,
-  useFontSize,
-} from './hooks';
-import { installKeyboardNavigation } from './foliate/foliateKeyboard';
 import SelectionMenu from '../components/SelectionMenu';
 import SectionIndicator from '../components/SectionIndicator';
+import { NoteModal } from '../components/NoteModal';
 import type { ReaderFlowMode, ColumnMode, HighlightColor } from '../constants';
 import { DEFAULT_HIGHLIGHT_COLORS } from '../constants';
-
-// ─── Helpers ─────────────────────────────────────────────────────────────
-
-function getAnnotatableType(file: string): 'pdf' | 'epub' | undefined {
-  const ext = file.split('.').pop()?.toLowerCase();
-  if (ext === 'pdf') return 'pdf';
-  if (ext === 'epub') return 'epub';
-  return undefined;
-}
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
@@ -52,7 +29,7 @@ interface AnnotationAddParams {
 interface FoliateViewerProps {
   /** 目标文件路径（EPUB/PDF） */
   file: string;
-  /** 源 Markdown 路径（用于标注持久化） */
+  /** 源 Markdown 路径（用于标注持久化，由父组件管理） */
   sourcePath: string;
 
   /** 阅读模式，默认 'paginated' */
@@ -64,29 +41,28 @@ interface FoliateViewerProps {
   /** 高亮颜色列表，默认 DEFAULT_HIGHLIGHT_COLORS */
   highlightColors?: HighlightColor[];
 
-  /** 自定义标注添加行为（覆盖默认的乐观更新 + 持久化） */
+  /** 自定义标注添加行为（覆盖默认的持久化） */
   onAnnotationAdd?: (params: AnnotationAddParams) => void;
-  /** 自定义标注删除行为（覆盖默认的乐观更新 + 持久化） */
+  /** 自定义标注删除行为（覆盖默认的持久化） */
   onAnnotationDelete?: (id: string) => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
 
 /**
- * FoliateViewer — foliate-js 阅读器的 React 封装。
+ * FoliateViewer — ReaderEngine 的薄 React 适配层。
  *
- * 内部管理：
- * - 导航目标（从 SessionStore 读取 navigationTarget）
- * - 章节状态（sectionInfo）和 SectionIndicator 渲染
- * - 标注数据加载（TanStack Query）和 CRUD（乐观更新 + 持久化）
- * - 事件总线通信（outline/metadata/section/location 变化）
- *
- * 最简用法只需 file + sourcePath，其他一切有合理默认值。
+ * 职责：
+ * - 创建并管理 ReaderEngine 生命周期
+ * - 将引擎事件桥接到 ReaderEventBus
+ * - 处理导航目标（从 SessionStore 读取）
+ * - 应用阅读设置变化
+ * - 渲染 SectionIndicator 和 SelectionMenu 覆盖层
  */
 const FoliateViewer: React.FC<FoliateViewerProps> = React.memo(
   ({
     file,
-    sourcePath,
+    sourcePath: _sourcePath,
     flowMode = 'paginated',
     columnMode = 'double',
     fontSize = 100,
@@ -96,203 +72,259 @@ const FoliateViewer: React.FC<FoliateViewerProps> = React.memo(
   }) => {
     const app = useObsidianApp();
     const containerRef = useRef<HTMLDivElement>(null);
-    const queryClient = useQueryClient();
+    const engineRef = useRef<ReaderEngine | null>(null);
     const reader = useReader();
     const bus = reader.bus;
 
-    // ─── SessionStore 订阅 ────────────────────────────────────────────────
-    const navigationTarget = useSessionField('navigationTarget') ?? null;
+    // ─── Menu state（由 view:selection 事件驱动）────────────────────────
+    const [menuVisible, setMenuVisible] = useState(false);
+    const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
+    const [existingAnnotation, setExistingAnnotation] = useState<Annotation | undefined>();
+    const pendingSelectionRef = useRef<PendingSelection | null>(null);
+    const menuRef = useRef<HTMLDivElement>(null);
 
-    // ─── 章节状态（内部管理）─────────────────────────────────────────────
+    // ─── Section state（由 view:section-changed 事件驱动）───────────────
     const [sectionInfo, setSectionInfo] = useState<ReaderSectionState>({
       currentIndex: 0,
       totalSections: 0,
     });
-    const [sectionTarget, setSectionTarget] = useState<{ index: number; nonce: number } | null>(
-      null,
-    );
-    const [pageTurnTarget, setPageTurnTarget] = useState<{
-      direction: 'prev' | 'next';
-      nonce: number;
-    } | null>(null);
 
-    // ─── 标注数据（TanStack Query）────────────────────────────────────────
-    const targetUri = useMemo(() => `urn:${file}`, [file]);
-    const { data: annotationsData } = useAnnotations({ sourcePath, targetUri });
-    const annotations = annotationsData ?? [];
+    // ─── Navigation target ─────────────────────────────────────────────
+    const navigationTarget = useSessionField('navigationTarget') ?? null;
+    const pendingNavRef = useRef<NavigationTarget | null>(null);
 
-    // ─── 标注 CRUD（乐观更新 + 通过 ReaderAPI 持久化）────────────────────
-    const defaultAddAnnotation = useCallback(
-      (params: AnnotationAddParams) => {
-        const annotation = createAnnotation({ ...params, uri: targetUri });
-        // 乐观写：立即更新缓存，UI 瞬间响应
-        const current =
-          queryClient.getQueryData<Annotation[]>(annotationKeys.byFile(sourcePath)) ?? [];
-        const next = [...current, annotation];
-        queryClient.setQueryData(annotationKeys.byFile(sourcePath), next);
-        // 通过 ReaderAPI 触发持久化（Controller 负责写文件 + 确认缓存）
-        void reader.addAnnotation(annotation);
-      },
-      [targetUri, sourcePath, queryClient, reader],
-    );
-
-    const defaultDeleteAnnotation = useCallback(
-      (id: string) => {
-        // 乐观写：立即从缓存移除
-        const current =
-          queryClient.getQueryData<Annotation[]>(annotationKeys.byFile(sourcePath)) ?? [];
-        const next = current.filter((a) => a.id !== id);
-        queryClient.setQueryData(annotationKeys.byFile(sourcePath), next);
-        // 通过 ReaderAPI 触发持久化
-        void reader.deleteAnnotation(id);
-      },
-      [sourcePath, queryClient, reader],
-    );
-
-    const handleAddAnnotation = onAnnotationAdd ?? defaultAddAnnotation;
-    const handleDeleteAnnotation = onAnnotationDelete ?? defaultDeleteAnnotation;
-
-    // ─── 事件路由（View → Controller）─────────────────────────────────────
-    const handleOutlineLoaded = useCallback(
-      (items: OutlineItem[]) => {
-        bus.emit('view:outline-loaded', { items });
-      },
-      [bus],
-    );
-
-    const handleBookMetadataLoaded = useCallback(
-      (metadata: BookMetadata) => {
-        bus.emit('view:metadata-loaded', { metadata });
-      },
-      [bus],
-    );
-
-    const handleSectionChange = useCallback(
-      (
-        currentIndex: number,
-        totalSections: number,
-        currentLabel?: string,
-        canGoPrev?: boolean,
-        canGoNext?: boolean,
-        cfi?: string,
-      ) => {
-        const section = {
-          currentIndex,
-          totalSections,
-          currentLabel,
-          canGoPrev: canGoPrev ?? currentIndex > 0,
-          canGoNext: canGoNext ?? currentIndex < totalSections - 1,
-        };
-        setSectionInfo(section);
-        bus.emit('view:section-changed', { section });
-        if (cfi) {
-          bus.emit('view:location-changed', { cfi, sectionIndex: currentIndex });
-        }
-      },
-      [bus],
-    );
-
-    // ─── Book loader ──────────────────────────────────────────────────────
-    const handleSectionChangeRef = useRef(handleSectionChange);
-    handleSectionChangeRef.current = handleSectionChange;
-
-    const stableSectionChange = useCallback(
-      (
-        currentIndex: number,
-        totalSections: number,
-        currentLabel?: string,
-        canGoPrev?: boolean,
-        canGoNext?: boolean,
-        cfi?: string,
-      ) => {
-        handleSectionChangeRef.current(
-          currentIndex,
-          totalSections,
-          currentLabel,
-          canGoPrev,
-          canGoNext,
-          cfi,
-        );
-      },
-      [],
-    );
-
-    const { view, isLoaded } = useBookLoader(
-      containerRef,
-      file,
-      { flowMode, columnMode, fontSize },
-      {
-        onOutlineLoaded: handleOutlineLoaded,
-        onBookMetadataLoaded: handleBookMetadataLoaded,
-        onSectionChanged: stableSectionChange,
-      },
-    );
-
-    // ─── Reader settings ──────────────────────────────────────────────────
-    useFlowMode(view, isLoaded, flowMode);
-    useColumnMode(view, isLoaded, columnMode);
-    useFontSize(view, isLoaded, fontSize);
-
-    // ─── Annotations ──────────────────────────────────────────────────────
-    const fileType = getAnnotatableType(file);
-    const ext = file.split('.').pop()?.toLowerCase();
-    const isAnnotatable = ext ? isAnnotatableType(ext) : false;
-
-    useAnnotationRendering(view, isLoaded, annotations, isAnnotatable);
-    useAnnotationOverlays(view, isLoaded, annotations);
-    const menuResult = useContextMenu(
-      view,
-      isLoaded,
-      isAnnotatable,
-      fileType,
-      handleAddAnnotation,
-      app!,
-      containerRef,
-      annotations,
-      handleDeleteAnnotation,
-      highlightColors,
-    );
-
-    // ─── Navigation ───────────────────────────────────────────────────────
-    useNavigationTarget(view, navigationTarget ?? null);
-    useSectionTarget(view, sectionTarget?.index ?? null);
-    usePageTurnTarget(view, pageTurnTarget ?? null);
-    useRelocateListener(view, isLoaded, stableSectionChange);
-
-    // ─── Keyboard navigation ──────────────────────────────────────────────
+    // ─── Engine lifecycle（file 变化时重建引擎）──────────────────────────
     useEffect(() => {
       const container = containerRef.current;
-      if (!container || !isLoaded || !view) return;
-      return installKeyboardNavigation(container, () => view);
-    }, [isLoaded, view]);
+      if (!container) return;
 
-    // ─── SectionIndicator 导航 ────────────────────────────────────────────
-    const handlePrev = useCallback(() => {
-      if (flowMode === 'paginated') {
-        setPageTurnTarget({ direction: 'prev', nonce: Date.now() });
+      // 创建总线适配器：将引擎事件映射到 view:* 前缀事件
+      const engineBus: EngineEventBus = {
+        emit: (event, payload) => {
+          // annotations-changed 由引擎内部管理，不需要转发到 ReaderEventBus
+          if (event === 'annotations-changed') return;
+          const mapped = `view:${event}` as any;
+          bus.emit(mapped, payload as any);
+        },
+      };
+
+      const engine = new ReaderEngine(container, engineBus);
+      engineRef.current = engine;
+
+      // 订阅选择事件（SelectionDetector 通过引擎总线触发）
+      const unsubSelection = bus.on(
+        'view:selection',
+        ({ selection, existingAnnotation: existing, position }) => {
+          pendingSelectionRef.current = selection;
+          setExistingAnnotation(existing);
+          setMenuPosition(position);
+          setMenuVisible(true);
+        },
+      );
+
+      // 订阅章节变化事件（用于 SectionIndicator）
+      const unsubSection = bus.on('view:section-changed', ({ section }) => {
+        setSectionInfo(section);
+      });
+
+      // 确定文件类型
+      const ext = file.split('.').pop()?.toLowerCase();
+      const fileType = ext === 'pdf' ? ('pdf' as const) : ('epub' as const);
+
+      // 打开引擎
+      engine
+        .open(file, fileType, {
+          settings: { flowMode, columnMode, fontSize },
+        })
+        .then(() => {
+          // 引擎就绪后，应用挂起的导航目标
+          const pending = pendingNavRef.current;
+          if (pending) {
+            engine.navigate(pending).catch(console.error);
+            pendingNavRef.current = null;
+          }
+        })
+        .catch(console.error);
+
+      return () => {
+        unsubSelection();
+        unsubSection();
+        engine.close();
+        engineRef.current = null;
+      };
+    }, [file]); // 仅在文件变化时重建引擎
+
+    // ─── 应用设置变化 ──────────────────────────────────────────────────
+    useEffect(() => {
+      const engine = engineRef.current;
+      if (!engine) return;
+      engine.updateSettings({ flowMode, columnMode, fontSize });
+    }, [flowMode, columnMode, fontSize]);
+
+    // ─── 处理导航目标 ─────────────────────────────────────────────────
+    useEffect(() => {
+      if (!navigationTarget) return;
+      const engine = engineRef.current;
+      if (engine?.getIsLoaded()) {
+        engine.navigate(navigationTarget).catch(console.error);
       } else {
-        setSectionTarget((prev) => ({
-          index: Math.max(0, (prev?.index ?? sectionInfo.currentIndex) - 1),
-          nonce: Date.now(),
-        }));
+        pendingNavRef.current = navigationTarget;
       }
-    }, [flowMode, sectionInfo.currentIndex]);
+    }, [navigationTarget]);
+
+    // ─── ESC 关闭菜单 ─────────────────────────────────────────────────
+    useEffect(() => {
+      if (!menuVisible) return;
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          setMenuVisible(false);
+        }
+      };
+      document.addEventListener('keydown', handleKeyDown);
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [menuVisible]);
+
+    // ─── 点击外部关闭菜单 ─────────────────────────────────────────────
+    useEffect(() => {
+      if (!menuVisible) return;
+      const handleClick = (e: MouseEvent) => {
+        if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+          setMenuVisible(false);
+        }
+      };
+      document.addEventListener('pointerdown', handleClick);
+      return () => document.removeEventListener('pointerdown', handleClick);
+    }, [menuVisible]);
+
+    // ─── 菜单操作 ─────────────────────────────────────────────────────
+    const handleHighlight = useCallback(
+      (color: string) => {
+        const sel = pendingSelectionRef.current;
+        if (!sel) return;
+        const engine = engineRef.current;
+        if (!engine) return;
+
+        const params: AnnotationAddParams = {
+          type: sel.type,
+          cfiRange: sel.cfiRange,
+          text: sel.text,
+          prefix: sel.prefix,
+          suffix: sel.suffix,
+          color,
+        };
+
+        const annotation = engine.addAnnotation(params);
+
+        if (onAnnotationAdd) {
+          onAnnotationAdd(params);
+        } else {
+          void reader.addAnnotation(annotation);
+        }
+
+        pendingSelectionRef.current = null;
+        setMenuVisible(false);
+      },
+      [onAnnotationAdd, reader],
+    );
+
+    const handleAddNote = useCallback(async () => {
+      const sel = pendingSelectionRef.current;
+      if (!sel || !app) return;
+      setMenuVisible(false);
+
+      const modal = new NoteModal(app);
+      modal.open();
+      const result = await modal.result;
+      if (!result.cancelled && result.note.trim()) {
+        const engine = engineRef.current;
+        if (!engine) return;
+
+        const params: AnnotationAddParams = {
+          type: sel.type,
+          cfiRange: sel.cfiRange,
+          text: sel.text,
+          prefix: sel.prefix,
+          suffix: sel.suffix,
+          note: result.note.trim(),
+        };
+
+        const annotation = engine.addAnnotation(params);
+
+        if (onAnnotationAdd) {
+          onAnnotationAdd(params);
+        } else {
+          void reader.addAnnotation(annotation);
+        }
+      }
+      pendingSelectionRef.current = null;
+    }, [onAnnotationAdd, reader, app]);
+
+    const handleDelete = useCallback(
+      (id: string) => {
+        const engine = engineRef.current;
+        if (!engine) return;
+
+        engine.deleteAnnotation(id);
+
+        if (onAnnotationDelete) {
+          onAnnotationDelete(id);
+        } else {
+          void reader.deleteAnnotation(id);
+        }
+
+        pendingSelectionRef.current = null;
+        setMenuVisible(false);
+      },
+      [onAnnotationDelete, reader],
+    );
+
+    const handleCopy = useCallback(async () => {
+      const sel = pendingSelectionRef.current;
+      if (!sel) return;
+      try {
+        await navigator.clipboard.writeText(sel.text);
+      } catch {
+        // 回退方案：用于旧浏览器或非安全上下文
+        const textarea = document.createElement('textarea');
+        textarea.value = sel.text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+      pendingSelectionRef.current = null;
+      setMenuVisible(false);
+    }, []);
+
+    // ─── 章节导航 ─────────────────────────────────────────────────────
+    const handlePrev = useCallback(() => {
+      const engine = engineRef.current;
+      if (!engine?.getIsLoaded()) return;
+      if (flowMode === 'paginated') {
+        engine.goPrev().catch(console.error);
+      } else {
+        const info = engine.getSectionInfo();
+        engine.goToSection(Math.max(0, info.currentIndex - 1)).catch(console.error);
+      }
+    }, [flowMode]);
 
     const handleNext = useCallback(() => {
+      const engine = engineRef.current;
+      if (!engine?.getIsLoaded()) return;
       if (flowMode === 'paginated') {
-        setPageTurnTarget({ direction: 'next', nonce: Date.now() });
+        engine.goNext().catch(console.error);
       } else {
-        setSectionTarget((prev) => ({
-          index: Math.min(
-            sectionInfo.totalSections - 1,
-            (prev?.index ?? sectionInfo.currentIndex) + 1,
-          ),
-          nonce: Date.now(),
-        }));
+        const info = engine.getSectionInfo();
+        engine
+          .goToSection(Math.min(info.totalSections - 1, info.currentIndex + 1))
+          .catch(console.error);
       }
-    }, [flowMode, sectionInfo]);
+    }, [flowMode]);
 
-    // ─── Render ───────────────────────────────────────────────────────────
+    // ─── Render ────────────────────────────────────────────────────────
     return (
       <div ref={containerRef} className="foliate-viewer-container" tabIndex={0}>
         {sectionInfo.totalSections > 0 && (
@@ -307,17 +339,17 @@ const FoliateViewer: React.FC<FoliateViewerProps> = React.memo(
             onNext={handleNext}
           />
         )}
-        {menuResult?.menuState && (
+        {Platform.isDesktop && menuVisible && (
           <SelectionMenu
-            visible={menuResult.menuState.visible}
-            position={menuResult.menuState.position}
-            colors={menuResult.menuState.colors}
-            existingAnnotation={menuResult.menuState.existingAnnotation}
-            onHighlight={menuResult.menuActions.onHighlight}
-            onAddNote={menuResult.menuActions.onAddNote}
-            onDelete={menuResult.menuActions.onDelete}
-            onCopy={menuResult.menuActions.onCopy}
-            menuRef={menuResult.menuRef}
+            visible={menuVisible}
+            position={menuPosition}
+            colors={highlightColors}
+            existingAnnotation={existingAnnotation}
+            onHighlight={handleHighlight}
+            onAddNote={handleAddNote}
+            onDelete={handleDelete}
+            onCopy={handleCopy}
+            menuRef={menuRef}
           />
         )}
       </div>
