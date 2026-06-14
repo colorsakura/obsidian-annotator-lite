@@ -1,9 +1,5 @@
 import { describe, it, expectTypeOf } from 'vitest';
-import type {
-  EngineEventMap,
-  EngineEventBus,
-  ReaderSettings,
-} from './engineTypes';
+import type { EngineEventMap, EngineEventBus, ReaderSettings } from './engineTypes';
 import type { Annotation, OutlineItem, BookMetadata } from '../types/annotations';
 import type { ReaderSectionState } from '../services/ReaderSessionStore';
 
@@ -11,9 +7,16 @@ describe('EngineEventMap', () => {
   it('defines all required events', () => {
     expectTypeOf<EngineEventMap['outline-loaded']>().toEqualTypeOf<{ items: OutlineItem[] }>();
     expectTypeOf<EngineEventMap['metadata-loaded']>().toEqualTypeOf<{ metadata: BookMetadata }>();
-    expectTypeOf<EngineEventMap['section-changed']>().toEqualTypeOf<{ section: ReaderSectionState }>();
-    expectTypeOf<EngineEventMap['annotations-changed']>().toEqualTypeOf<{ annotations: Annotation[] }>();
-    expectTypeOf<EngineEventMap['location-changed']>().toEqualTypeOf<{ cfi: string; sectionIndex: number }>();
+    expectTypeOf<EngineEventMap['section-changed']>().toEqualTypeOf<{
+      section: ReaderSectionState;
+    }>();
+    expectTypeOf<EngineEventMap['annotations-changed']>().toEqualTypeOf<{
+      annotations: Annotation[];
+    }>();
+    expectTypeOf<EngineEventMap['location-changed']>().toEqualTypeOf<{
+      cfi: string;
+      sectionIndex: number;
+    }>();
   });
 
   it('defines selection event', () => {

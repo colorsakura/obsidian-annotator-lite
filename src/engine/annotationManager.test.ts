@@ -8,7 +8,12 @@ function makeAnnotation(overrides: Partial<Annotation> = {}): Annotation {
     id: 'test-id',
     uri: 'urn:book.epub',
     document: { title: 'Test Book' },
-    target: [{ source: 'urn:book.epub', selector: [{ type: 'TextQuoteSelector', exact: 'hello', prefix: '', suffix: '' }] }],
+    target: [
+      {
+        source: 'urn:book.epub',
+        selector: [{ type: 'TextQuoteSelector', exact: 'hello', prefix: '', suffix: '' }],
+      },
+    ],
     text: '',
     tags: [],
     created: '2024-01-01T00:00:00Z',

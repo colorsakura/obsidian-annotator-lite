@@ -98,9 +98,8 @@ export async function loadBook(
 
       // 6. 应用 EPUB 阅读设置
       if (options) {
-        const { applyReaderFlowMode, applyColumnMode, applyFontSize } = await import(
-          './readerSettings'
-        );
+        const { applyReaderFlowMode, applyColumnMode, applyFontSize } =
+          await import('./readerSettings');
         if (options.flowMode) applyReaderFlowMode(view, options.flowMode);
         if (options.columnMode) applyColumnMode(view, options.columnMode);
         if (options.fontSize) applyFontSize(view, options.fontSize);

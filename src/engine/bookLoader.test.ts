@@ -193,11 +193,15 @@ describe('loadBook', () => {
       onSectionChanged: vi.fn(),
     };
 
-    const result = await loadBook(app, document.createElement('div'), '/test.epub', 'epub', callbacks);
+    const result = await loadBook(
+      app,
+      document.createElement('div'),
+      '/test.epub',
+      'epub',
+      callbacks,
+    );
 
-    expect(callbacks.onOutlineLoaded).toHaveBeenCalledWith([
-      { title: 'Chapter 1', children: [] },
-    ]);
+    expect(callbacks.onOutlineLoaded).toHaveBeenCalledWith([{ title: 'Chapter 1', children: [] }]);
     expect(callbacks.onMetadataLoaded).toHaveBeenCalledWith({
       coverUrl: null,
       title: 'Test Book',
@@ -208,9 +212,8 @@ describe('loadBook', () => {
   });
 
   it('applies reader settings when options provided for epub', async () => {
-    const { applyReaderFlowMode, applyColumnMode, applyFontSize } = await import(
-      './readerSettings'
-    );
+    const { applyReaderFlowMode, applyColumnMode, applyFontSize } =
+      await import('./readerSettings');
 
     const mockView = createMockView();
     stubFoliateView(mockView);

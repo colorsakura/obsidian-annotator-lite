@@ -14,10 +14,7 @@ describe('SelectionDetector', () => {
 
   it('findOverlappingAnnotation returns undefined when no match', () => {
     const detector = new SelectionDetector(bus);
-    const result = detector.findOverlappingAnnotation(
-      'epubcfi(/6/4[chap01]!/4/2/1:0)',
-      [],
-    );
+    const result = detector.findOverlappingAnnotation('epubcfi(/6/4[chap01]!/4/2/1:0)', []);
     expect(result).toBeUndefined();
   });
 
@@ -36,10 +33,7 @@ describe('SelectionDetector', () => {
       type: 'epub',
     };
 
-    const result = detector.findOverlappingAnnotation(
-      'epubcfi(/6/4[chap01]!/4/2/1:0)',
-      [ann],
-    );
+    const result = detector.findOverlappingAnnotation('epubcfi(/6/4[chap01]!/4/2/1:0)', [ann]);
     expect(result).toBe(ann);
   });
 
@@ -58,10 +52,7 @@ describe('SelectionDetector', () => {
       type: 'epub',
     };
 
-    const result = detector.findOverlappingAnnotation(
-      'epubcfi(/6/4[chap02]!/4/2/1:0)',
-      [ann],
-    );
+    const result = detector.findOverlappingAnnotation('epubcfi(/6/4[chap02]!/4/2/1:0)', [ann]);
     expect(result).toBeUndefined();
   });
 });
