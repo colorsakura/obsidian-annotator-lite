@@ -2,9 +2,12 @@ import { defineConfig } from 'vitest/config';
 import path from 'path';
 
 export default defineConfig({
+  define: {
+    __DEBUG__: 'false',
+  },
   resolve: {
     alias: {
-      'obsidian': path.resolve(__dirname, '__mocks__/obsidian.ts'),
+      obsidian: path.resolve(__dirname, '__mocks__/obsidian.ts'),
     },
   },
   test: {
