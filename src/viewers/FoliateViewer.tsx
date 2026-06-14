@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { applyTheme, isDarkMode } from '../engine/theme';
 import { Platform } from 'obsidian';
 import { useObsidianApp } from '../hooks/useObsidianApp';
 import { useSessionField } from '../contexts/ReaderStoreContext';
@@ -131,13 +132,28 @@ const FoliateViewer: React.FC<FoliateViewerProps> = React.memo(
       const ext = file.split('.').pop()?.toLowerCase();
       const fileType = ext === 'pdf' ? ('pdf' as const) : ('epub' as const);
 
+      // 主题观察器（引擎就绪后安装）
+      let themeObserver: MutationObserver | null = null;
+
       // 打开引擎
       engine
         .open(file, fileType, {
           settings: { flowMode, columnMode, fontSize },
         })
         .then(() => {
-          // 引擎就绪后，应用挂起的导航目标
+          // 引擎就绪后，应用当前主题
+          const view = engine.getView();
+          if (view) {
+            applyTheme(view, isDarkMode());
+            // 观察 body class 变化（Obsidian 主题切换时触发）
+            themeObserver = new MutationObserver(() => {
+              const v = engineRef.current?.getView();
+              if (v) applyTheme(v, isDarkMode());
+            });
+            themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+          }
+
+          // 应用挂起的导航目标
           const pending = pendingNavRef.current;
           if (pending) {
             engine.navigate(pending).catch(console.error);
@@ -149,6 +165,7 @@ const FoliateViewer: React.FC<FoliateViewerProps> = React.memo(
       return () => {
         unsubSelection();
         unsubSection();
+        themeObserver?.disconnect();
         engine.close();
         engineRef.current = null;
       };

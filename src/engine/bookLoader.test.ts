@@ -16,17 +16,23 @@ vi.mock('foliate-js/view.js', () => ({
 }));
 
 // Mock Android patches
-vi.mock('../viewers/hooks/useAndroidPatches', () => ({
+vi.mock('./androidPatches', () => ({
   enableAndroidPatches: vi.fn(),
   disableAndroidPatches: vi.fn(),
   wrapSectionLoadForAndroid: vi.fn().mockResolvedValue(undefined),
 }));
 
 // Mock reader settings
-vi.mock('../viewers/hooks/useReaderSettings', () => ({
+vi.mock('./readerSettings', () => ({
   applyReaderFlowMode: vi.fn(),
   applyColumnMode: vi.fn(),
   applyFontSize: vi.fn(),
+}));
+
+// Mock theme
+vi.mock('./theme', () => ({
+  applyTheme: vi.fn(),
+  isDarkMode: vi.fn().mockReturnValue(false),
 }));
 
 // Mock book metadata
@@ -203,7 +209,7 @@ describe('loadBook', () => {
 
   it('applies reader settings when options provided for epub', async () => {
     const { applyReaderFlowMode, applyColumnMode, applyFontSize } = await import(
-      '../viewers/hooks/useReaderSettings'
+      './readerSettings'
     );
 
     const mockView = createMockView();

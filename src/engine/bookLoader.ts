@@ -81,7 +81,7 @@ export async function loadBook(
     const data = await app.vault.readBinary(tfile as any);
 
     // 4. 启用 Android 补丁（必须在 open() 之前，以拦截 blob URL 创建）
-    const { enableAndroidPatches } = await import('../viewers/hooks/useAndroidPatches');
+    const { enableAndroidPatches } = await import('./androidPatches');
     enableAndroidPatches();
 
     // 5. 打开书籍文件
@@ -99,15 +99,19 @@ export async function loadBook(
       // 6. 应用 EPUB 阅读设置
       if (options) {
         const { applyReaderFlowMode, applyColumnMode, applyFontSize } = await import(
-          '../viewers/hooks/useReaderSettings'
+          './readerSettings'
         );
         if (options.flowMode) applyReaderFlowMode(view, options.flowMode);
         if (options.columnMode) applyColumnMode(view, options.columnMode);
         if (options.fontSize) applyFontSize(view, options.fontSize);
       }
+
+      // 7. 应用主题
+      const { applyTheme, isDarkMode } = await import('./theme');
+      applyTheme(view, isDarkMode());
     }
 
-    // 7. 提取元数据
+    // 8. 提取元数据
     const book = (view as any).book;
     if (book) {
       const { loadBookMetadata } = await import('../viewers/foliate/foliateBookMetadata');
@@ -117,9 +121,9 @@ export async function loadBook(
       callbacks.onOutlineLoaded(info.outline);
       callbacks.onMetadataLoaded(info.metadata);
 
-      // 8. 为 Android 包装 section.load()
+      // 9. 为 Android 包装 section.load()
       if (book.sections) {
-        const { wrapSectionLoadForAndroid } = await import('../viewers/hooks/useAndroidPatches');
+        const { wrapSectionLoadForAndroid } = await import('./androidPatches');
         await Promise.all(book.sections.map((s: any) => wrapSectionLoadForAndroid(s)));
       }
 
@@ -128,11 +132,11 @@ export async function loadBook(
       }
     }
 
-    // 9. 安装 relocate 监听
+    // 10. 安装 relocate 监听
     const { installRelocateListener } = await import('../viewers/foliate/foliateNavigation');
     cleanupRelocate = installRelocateListener(view, callbacks.onSectionChanged);
 
-    // 10. 初始化 renderer
+    // 11. 初始化 renderer
     try {
       await (view as any).init({ showTextStart: true });
     } catch {

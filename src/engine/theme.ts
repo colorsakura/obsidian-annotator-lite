@@ -1,7 +1,5 @@
-import { useState, useEffect } from 'react';
-
 type FoliateRendererElement = HTMLElement & {
-  setStyles?: (styles: string | [string, string]) => void;
+  setStyles?: (styles: string | string[]) => void;
 };
 type FoliateViewElement = HTMLElement & {
   renderer?: FoliateRendererElement;
@@ -9,7 +7,8 @@ type FoliateViewElement = HTMLElement & {
 
 // ─── Theme detection ─────────────────────────────────────────────────
 
-function isDarkMode(): boolean {
+/** 检测当前是否为暗色主题（通过 Obsidian body class 判断） */
+export function isDarkMode(): boolean {
   return document.body.classList.contains('theme-dark');
 }
 
@@ -63,33 +62,17 @@ html {
 }`;
 }
 
-// ─── Imperative apply function ───────────────────────────────────────
+// ─── Public API ──────────────────────────────────────────────────────
 
-export function applyReaderStyles(
-  view: HTMLElement,
-  options: { dark: boolean; fontSize: number },
-): void {
+/**
+ * 将 Obsidian 主题样式注入到 foliate-view 的 renderer。
+ * 暗色模式读取 Obsidian CSS 变量并注入对应样式；亮色模式仅设置 color-scheme。
+ * 仅对 EPUB reflowable（paginator）生效。
+ */
+export function applyTheme(view: HTMLElement, dark: boolean): void {
   const { renderer } = view as FoliateViewElement;
   if (!renderer || renderer.tagName.toLowerCase() !== 'foliate-paginator') return;
 
-  const themeCSS = options.dark ? buildDarkCSS() : buildLightCSS();
-  const fontCSS = `html { font-size: ${options.fontSize}% !important; }`;
-  renderer.setStyles?.([fontCSS, themeCSS]);
-}
-
-// ─── React hook ──────────────────────────────────────────────────────
-
-export function useDarkTheme(view: HTMLElement | null, loaded: boolean, fontSize: number): void {
-  const [dark, setDark] = useState(isDarkMode());
-
-  useEffect(() => {
-    const observer = new MutationObserver(() => setDark(isDarkMode()));
-    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (!view || !loaded) return;
-    applyReaderStyles(view, { dark, fontSize });
-  }, [view, loaded, dark, fontSize]);
+  const themeCSS = dark ? buildDarkCSS() : buildLightCSS();
+  renderer.setStyles?.([themeCSS]);
 }

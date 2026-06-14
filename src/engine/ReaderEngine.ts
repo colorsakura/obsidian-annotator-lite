@@ -305,7 +305,7 @@ export class ReaderEngine {
     if (!this.view) return;
 
     const { applyReaderFlowMode, applyColumnMode, applyFontSize } =
-      await import('../viewers/hooks/useReaderSettings');
+      await import('./readerSettings');
 
     if (partial.flowMode) applyReaderFlowMode(this.view, partial.flowMode);
     if (partial.columnMode) applyColumnMode(this.view, partial.columnMode);
