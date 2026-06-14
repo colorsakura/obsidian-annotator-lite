@@ -28,7 +28,7 @@ const AnnotationsViewInner: React.FC = () => {
   });
 };
 
-export class AnnotationsView extends BaseReactView<object> {
+export class AnnotationsView extends BaseReactView {
   constructor(leaf: WorkspaceLeaf) {
     super(leaf, 'annotation-annotations-container');
   }

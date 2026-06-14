@@ -1,5 +1,5 @@
-import type { Annotation } from '../types/annotations';
-import { getSurroundingContext, type PendingSelection } from '../viewers/foliate/foliateSelection';
+import type { Annotation, PendingSelection } from '../types/annotations';
+import { getSurroundingContext } from '../viewers/foliate/foliateSelection';
 import type { EngineEventBus } from './engineTypes';
 
 /**
@@ -20,11 +20,7 @@ export class SelectionDetector {
    * Install contextmenu listener on the foliate-view element.
    * Call this after view.init() completes and the renderer has iframes.
    */
-  install(
-    view: HTMLElement,
-    fileType: 'pdf' | 'epub',
-    getAnnotations: () => Annotation[],
-  ): void {
+  install(view: HTMLElement, fileType: 'pdf' | 'epub', getAnnotations: () => Annotation[]): void {
     // Clean up any previous listeners first
     this.uninstall();
 
@@ -54,10 +50,7 @@ export class SelectionDetector {
   /**
    * Find an annotation whose cfiRange matches the given CFI.
    */
-  findOverlappingAnnotation(
-    cfi: string,
-    annotations: Annotation[],
-  ): Annotation | undefined {
+  findOverlappingAnnotation(cfi: string, annotations: Annotation[]): Annotation | undefined {
     return annotations.find((a) => a.cfiRange === cfi);
   }
 

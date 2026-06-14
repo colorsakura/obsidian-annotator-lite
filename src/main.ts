@@ -9,7 +9,7 @@ import {
   OUTLINE_VIEW_TYPE,
   READER_VIEW_TYPE,
 } from './constants';
-import { AnnotationIndexService, DatacoreAdapter } from './datacore';
+import { DatacoreAdapter } from './datacore';
 import {
   type AnnotationRepository,
   MarkdownAnnotationRepository,
@@ -42,8 +42,6 @@ export default class AnnotatorLitePlugin extends Plugin {
 
   /** Datacore 适配器（优先 Datacore API，回退 metadataCache） */
   datacoreAdapter!: DatacoreAdapter;
-  /** 标注索引服务（内存索引 + 前置元持久化） */
-  annotationIndex!: AnnotationIndexService;
 
   settings: AnnotatorLiteSettings = DEFAULT_SETTINGS;
 
@@ -61,9 +59,8 @@ export default class AnnotatorLitePlugin extends Plugin {
     setQueryClient(createConfiguredQueryClient());
     setApp(this.app);
 
-    // 初始化 Datacore 适配器和标注索引服务
+    // 初始化 Datacore 适配器
     this.datacoreAdapter = new DatacoreAdapter(this.app);
-    this.annotationIndex = new AnnotationIndexService();
     this.annotationRepository = new MarkdownAnnotationRepository(this.app.vault);
     setAnnotationRepository(this.annotationRepository);
     this.targetResolver = new ObsidianTargetResolver(this.app, (propertyName, file) =>
@@ -82,7 +79,6 @@ export default class AnnotatorLitePlugin extends Plugin {
     const annotationService = new AnnotationService(
       this.app,
       this.annotationRepository,
-      this.annotationIndex,
       queryClient,
     );
     this.readerController = new DefaultReaderController(

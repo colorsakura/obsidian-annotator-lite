@@ -1,5 +1,4 @@
-import type { Annotation, OutlineItem, BookMetadata } from '../types/annotations';
-import type { PendingSelection } from '../viewers/foliate/foliateSelection';
+import type { Annotation, OutlineItem, BookMetadata, PendingSelection } from '../types/annotations';
 import type { ReaderSectionState } from '../services/ReaderSessionStore';
 import type { ReaderFlowMode, ColumnMode, HighlightColor } from '../constants';
 

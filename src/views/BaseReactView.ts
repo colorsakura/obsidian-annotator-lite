@@ -10,12 +10,11 @@ import { QueryProvider } from '../providers/QueryProvider';
  * 基类：提取三个 ItemView（ReaderView / OutlineView / AnnotationsView）的共同样板。
  *
  * 子类只需实现 `renderReact()` 提供 React 元素。
- * 基类负责：React root 创建、挂载、卸载、AppContext 注入。
+ * 基类负责：React root 创建、挂载、卸载、Provider 注入。
  */
-export abstract class BaseReactView<Api> extends ItemView {
+export abstract class BaseReactView extends ItemView {
   protected reactRoot: HTMLElement;
   protected root: Root;
-  protected apiRef: React.MutableRefObject<Api | null> = { current: null };
 
   constructor(leaf: WorkspaceLeaf, containerClass: string) {
     super(leaf);
@@ -28,23 +27,8 @@ export abstract class BaseReactView<Api> extends ItemView {
   }
 
   /**
-   * 通过 apiRef 更新 React 内部 state。
-   * 若 React 尚未挂载（apiRef.current 为 null），则回退到 render()。
-   *
-   * @param apiSetter - 调用 apiRef.current 上的某个方法
-   * @param pendingFallback - React 未挂载时的回退操作（通常是保存 pending 数据 + 调用 render)
-   */
-  protected updateOrFallback(apiSetter: (api: Api) => void, pendingFallback: () => void): void {
-    if (this.apiRef.current) {
-      apiSetter(this.apiRef.current);
-    } else {
-      pendingFallback();
-    }
-  }
-
-  /**
    * 渲染 React 树。子类通过 `renderReact()` 提供要渲染的元素，
-   * 基类自动包裹 AppContext.Provider 和 ReaderStoreContext.Provider。
+   * 基类自动包裹 AppContext.Provider、ReaderStoreContext.Provider、ReaderAPIContext.Provider。
    */
   protected render() {
     const store = getSessionStore();

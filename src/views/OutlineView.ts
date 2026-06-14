@@ -18,7 +18,7 @@ const OutlineViewInner: React.FC = () => {
   });
 };
 
-export class OutlineView extends BaseReactView<object> {
+export class OutlineView extends BaseReactView {
   constructor(leaf: WorkspaceLeaf) {
     super(leaf, 'annotation-outline-container');
   }

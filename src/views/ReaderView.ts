@@ -17,7 +17,7 @@ import { setupReaderHeader, type ReaderHeaderHandle } from './readerHeader';
 // ──────────────────────────────────────────
 // Obsidian ItemView (extends BaseReactView)
 // ──────────────────────────────────────────
-export class ReaderView extends BaseReactView<object> {
+export class ReaderView extends BaseReactView {
   /** Public for multi-reader lookup by ViewCoordinator. */
   targetFile: string | null = null;
   sourcePath: string | null = null;

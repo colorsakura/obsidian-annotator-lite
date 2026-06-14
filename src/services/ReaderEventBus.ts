@@ -1,6 +1,5 @@
-import type { Annotation, BookMetadata, OutlineItem } from '../types/annotations';
+import type { Annotation, BookMetadata, OutlineItem, PendingSelection } from '../types/annotations';
 import type { ReaderSectionState } from './ReaderSessionStore';
-import type { PendingSelection } from '../viewers/foliate/foliateSelection';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('ReaderEventBus');

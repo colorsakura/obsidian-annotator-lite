@@ -132,3 +132,12 @@ export interface BookMetadata {
   title: string | null;
   author: string | null;
 }
+
+/** 选区数据，用于从 foliate-js 选区创建标注 */
+export interface PendingSelection {
+  type: 'pdf' | 'epub';
+  cfiRange: string;
+  text: string;
+  prefix: string;
+  suffix: string;
+}
