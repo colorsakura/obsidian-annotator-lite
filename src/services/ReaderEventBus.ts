@@ -1,5 +1,6 @@
-import type { BookMetadata, OutlineItem } from '../types/annotations';
+import type { Annotation, BookMetadata, OutlineItem } from '../types/annotations';
 import type { ReaderSectionState } from './ReaderSessionStore';
+import type { PendingSelection } from '../viewers/foliate/foliateSelection';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('ReaderEventBus');
@@ -13,6 +14,12 @@ export interface ReaderEventMap {
   'view:session-close': Record<string, never>;
   /** 位置变化（含 CFI） */
   'view:location-changed': { cfi: string; sectionIndex: number };
+  /** 用户右键选中文本（由 SelectionDetector emit） */
+  'view:selection': {
+    selection: PendingSelection;
+    existingAnnotation?: Annotation;
+    position: { x: number; y: number };
+  };
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────
