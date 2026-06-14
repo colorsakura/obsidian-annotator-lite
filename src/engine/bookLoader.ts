@@ -53,7 +53,14 @@ export async function loadBook(
     throw new Error('File not found');
   }
 
-  // 2. 创建 <foliate-view> 元素
+  // 2. 确保 foliate-js 自定义元素已注册（必须在 createElement 之前）
+  if (fileType === 'pdf') {
+    await import('foliate-js/pdf.js');
+  } else {
+    await import('foliate-js/view.js');
+  }
+
+  // 3. 创建 <foliate-view> 元素
   const view = document.createElement('foliate-view') as HTMLElement;
   Object.assign(view.style, {
     width: '100%',
@@ -82,7 +89,7 @@ export async function loadBook(
     const fileObj = new File([blob], tfile.name);
 
     if (fileType === 'pdf') {
-      const { makePDF } = await import('foliate-js/pdf.js');
+      const { makePDF } = await import('foliate-js/pdf.js'); // already imported above, this is a cache hit
       const book = await makePDF(fileObj);
       book.rendition.spread = options?.columnMode === 'single' ? 'none' : undefined;
       await (view as any).open(book);
