@@ -1,3 +1,8 @@
+<!-- SPECKIT START -->
+For additional context about technologies to be used, project structure,
+shell commands, and other important information, read the current plan
+<!-- SPECKIT END -->
+
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
@@ -216,16 +221,3 @@ interface AnnotatorLiteSettings {
 | `markdownStorage.ts`           | `src/utils/markdownStorage.ts`         | 标注 ↔ Markdown 格式转换                                           |
 | `constants.ts`                 | `src/constants.ts`                     | 视图类型常量、前置元字段名、图标名、默认高亮颜色                   |
 
-## Agent skills
-
-### Issue tracker
-
-Local markdown files under `.scratch/<feature>/`. See `docs/agents/issue-tracker.md`.
-
-### Triage labels
-
-Five canonical roles: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
-
-### Domain docs
-
-Single-context — `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
