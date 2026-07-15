@@ -161,11 +161,11 @@ const buildConfig: esbuild.BuildOptions = {
 
 const OUTPUT_FILES = ['main.js', 'styles.css', 'manifest.json'] as const;
 const PLUGIN_ID = 'annotator-lite';
-const VAULT_PATH = process.env.OBSIDIAN_VALTE_PATH;
+const VAULT_PATH = process.env.OBSIDIAN_VALUE_PATH;
 
 /**
  * 将构建产物复制到 Obsidian Vault 插件目录。
- * 仅在 .env 中定义了 OBSIDIAN_VALTE_PATH 时生效。
+ * 仅在 .env 中定义了 OBSIDIAN_VALUE_PATH 时生效。
  */
 async function deployToVault(): Promise<void> {
   if (!VAULT_PATH) return;
