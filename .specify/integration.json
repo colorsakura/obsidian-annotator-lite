@@ -1,13 +1,15 @@
 {
-  "version": "0.12.7",
+  "version": "0.12.15",
   "integration_state_schema": 1,
-  "installed_integrations": ["claude"],
+  "installed_integrations": [
+    "pi"
+  ],
   "integration_settings": {
-    "claude": {
+    "pi": {
       "script": "py",
-      "invoke_separator": "-"
+      "invoke_separator": "."
     }
   },
-  "integration": "claude",
-  "default_integration": "claude"
+  "integration": "pi",
+  "default_integration": "pi"
 }
