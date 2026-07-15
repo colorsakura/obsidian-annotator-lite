@@ -60,12 +60,7 @@ export function parseAnnotationsFromMarkdown(content: string, uri?: string | nul
       const annUri = (annotation.uri || '').replace(/^urn:/, '');
       const annFingerprint = (annotation.document?.documentFingerprint || '').replace(/^urn:/, '');
       const bareUri = uri?.replace(/^urn:/, '') ?? undefined;
-      if (
-        uri === null ||
-        uri === undefined ||
-        annUri === bareUri ||
-        annFingerprint === bareUri
-      ) {
+      if (uri === null || uri === undefined || annUri === bareUri || annFingerprint === bareUri) {
         annotations.push(annotation);
       }
     }

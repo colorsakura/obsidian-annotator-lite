@@ -129,7 +129,7 @@ const buildConfig: esbuild.BuildOptions = {
   outfile: 'main.js',
   format: 'cjs',
   platform: 'node',
-  target: 'es2021',
+  target: 'es2022',
   external: [
     'obsidian',
     'electron',
