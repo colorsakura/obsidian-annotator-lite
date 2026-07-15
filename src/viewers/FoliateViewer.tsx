@@ -204,13 +204,40 @@ const FoliateViewer: React.FC<FoliateViewerProps> = React.memo(
     // ─── 点击外部关闭菜单 ─────────────────────────────────────────────
     useEffect(() => {
       if (!menuVisible) return;
+
       const handleClick = (e: MouseEvent) => {
         if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
           setMenuVisible(false);
         }
       };
+
+      // 主文档监听（菜单通过 portal 渲染到 body，点击非 iframe 区域时生效）
       document.addEventListener('pointerdown', handleClick);
-      return () => document.removeEventListener('pointerdown', handleClick);
+
+      // iframe 文档监听（foliate-js 将内容渲染在 iframe 中，
+      // iframe 内的 pointerdown 不会冒泡到主文档，需要单独注册）
+      const cleanupIframeFns: Array<() => void> = [];
+      const view = engineRef.current?.getView();
+      if (view) {
+        const viewApi = view as any;
+        const contents = viewApi.renderer?.getContents?.();
+        if (contents) {
+          for (const content of contents) {
+            const doc = content.doc as Document | undefined;
+            if (doc) {
+              doc.addEventListener('pointerdown', handleClick);
+              cleanupIframeFns.push(() => doc.removeEventListener('pointerdown', handleClick));
+            }
+          }
+        }
+      }
+
+      return () => {
+        document.removeEventListener('pointerdown', handleClick);
+        for (const fn of cleanupIframeFns) {
+          fn();
+        }
+      };
     }, [menuVisible]);
 
     // ─── 菜单操作 ─────────────────────────────────────────────────────
