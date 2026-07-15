@@ -1,4 +1,4 @@
-import type { NavigationTarget } from '../../types/annotations';
+import type { NavigationTarget } from '../types/annotations';
 
 /**
  * Navigate the foliate-view element to a given target (CFI href or page number).

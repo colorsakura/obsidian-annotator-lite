@@ -1,5 +1,6 @@
 /**
- * Extract surrounding context text from a DOM Range (prefix and suffix).
+ * 从 DOM Range 提取上下文文本（前缀和后缀）。
+ * 纯 DOM 工具函数，不依赖任何外部库。
  */
 export function getSurroundingContext(
   range: Range,
@@ -29,7 +30,7 @@ export function getSurroundingContext(
       suffix = suffix.substring(0, maxChars) + '...';
     }
   } catch {
-    // Fall back to empty context if DOM traversal fails
+    // DOM 遍历失败时回退到空上下文
   }
 
   return { prefix, suffix };

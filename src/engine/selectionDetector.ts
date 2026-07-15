@@ -1,5 +1,5 @@
 import type { Annotation, PendingSelection } from '../types/annotations';
-import { getSurroundingContext } from '../viewers/foliate/foliateSelection';
+import { getSurroundingContext } from '../utils/selectionContext';
 import type { EngineEventBus } from './engineTypes';
 
 /**

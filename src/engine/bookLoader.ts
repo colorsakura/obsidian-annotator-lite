@@ -124,7 +124,7 @@ export async function loadBook(
     // 8. 提取元数据
     const book = (view as any).book;
     if (book) {
-      const { loadBookMetadata } = await import('../viewers/foliate/foliateBookMetadata');
+      const { loadBookMetadata } = await import('./foliateBookMetadata');
       const { info, coverUrl: newCover } = await loadBookMetadata(book, null);
       coverUrl = newCover;
 
@@ -143,14 +143,12 @@ export async function loadBook(
     }
 
     // 10. 安装 relocate 监听
-    const { installRelocateListener } = await import('../viewers/foliate/foliateNavigation');
+    const { installRelocateListener } = await import('./foliateNavigation');
     cleanupRelocate = installRelocateListener(view, callbacks.onSectionChanged);
 
     // 10.5. 安装 create-overlay 监听（在 view.init() 之前，避免错过初始渲染事件）
     if (options?.getAnnotations) {
-      const { installCreateOverlayListener } = await import(
-        '../viewers/foliate/foliateAnnotations'
-      );
+      const { installCreateOverlayListener } = await import('./foliateAnnotations');
       cleanupOverlay = installCreateOverlayListener(view, options.getAnnotations);
     }
 

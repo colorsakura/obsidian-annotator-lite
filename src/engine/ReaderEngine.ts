@@ -149,12 +149,12 @@ export class ReaderEngine {
       this.selectionDetector.install(this.view, this.fileType, () => this.getAnnotations());
 
       // 安装键盘导航
-      const { installKeyboardNavigation } = await import('../viewers/foliate/foliateKeyboard');
+      const { installKeyboardNavigation } = await import('./foliateKeyboard');
       const cleanupKeyboard = installKeyboardNavigation(this.container, () => this.view);
       this.cleanupFns.push(cleanupKeyboard);
 
       // 安装 draw-annotation 事件处理
-      const { installAnnotationRendering } = await import('../viewers/foliate/foliateAnnotations');
+      const { installAnnotationRendering } = await import('./foliateAnnotations');
       const cleanupAnnotations = installAnnotationRendering(this.view);
       this.cleanupFns.push(cleanupAnnotations);
 
@@ -245,7 +245,7 @@ export class ReaderEngine {
    */
   async navigate(target: NavigationTarget): Promise<void> {
     this.ensureReady();
-    const { navigateFoliate } = await import('../viewers/foliate/foliateNavigation');
+    const { navigateFoliate } = await import('./foliateNavigation');
     navigateFoliate(this.view!, target);
   }
 
@@ -254,7 +254,7 @@ export class ReaderEngine {
    */
   async goToSection(index: number): Promise<void> {
     this.ensureReady();
-    const { goToSection } = await import('../viewers/foliate/foliateNavigation');
+    const { goToSection } = await import('./foliateNavigation');
     goToSection(this.view!, index);
   }
 
@@ -263,7 +263,7 @@ export class ReaderEngine {
    */
   async goNext(): Promise<void> {
     this.ensureReady();
-    const { goToNextPage } = await import('../viewers/foliate/foliateNavigation');
+    const { goToNextPage } = await import('./foliateNavigation');
     goToNextPage(this.view!);
   }
 
@@ -272,7 +272,7 @@ export class ReaderEngine {
    */
   async goPrev(): Promise<void> {
     this.ensureReady();
-    const { goToPrevPage } = await import('../viewers/foliate/foliateNavigation');
+    const { goToPrevPage } = await import('./foliateNavigation');
     goToPrevPage(this.view!);
   }
 
@@ -318,7 +318,7 @@ export class ReaderEngine {
     if (!this.view || this.state !== 'ready') return;
 
     // 异步执行 overlay 同步
-    import('../viewers/foliate/foliateAnnotations')
+    import('./foliateAnnotations')
       .then(({ applyAnnotationOverlays }) =>
         applyAnnotationOverlays(this.view!, this.getAnnotations(), this.appliedOverlayMap),
       )

@@ -36,7 +36,7 @@ vi.mock('./theme', () => ({
 }));
 
 // Mock book metadata
-vi.mock('../viewers/foliate/foliateBookMetadata', () => ({
+vi.mock('./foliateBookMetadata', () => ({
   loadBookMetadata: vi.fn().mockResolvedValue({
     info: {
       outline: [],
@@ -48,7 +48,7 @@ vi.mock('../viewers/foliate/foliateBookMetadata', () => ({
 }));
 
 // Mock navigation
-vi.mock('../viewers/foliate/foliateNavigation', () => ({
+vi.mock('./foliateNavigation', () => ({
   installRelocateListener: vi.fn().mockReturnValue(vi.fn()),
 }));
 
@@ -156,7 +156,7 @@ describe('loadBook', () => {
   });
 
   it('calls onOutlineLoaded and onMetadataLoaded on success', async () => {
-    const { loadBookMetadata } = await import('../viewers/foliate/foliateBookMetadata');
+    const { loadBookMetadata } = await import('./foliateBookMetadata');
     vi.mocked(loadBookMetadata).mockResolvedValueOnce({
       info: {
         outline: [{ title: 'Chapter 1', children: [] }],
@@ -317,7 +317,7 @@ describe('loadBook', () => {
   });
 
   it('invokes installRelocateListener with onSectionChanged callback', async () => {
-    const { installRelocateListener } = await import('../viewers/foliate/foliateNavigation');
+    const { installRelocateListener } = await import('./foliateNavigation');
 
     const mockView = createMockView();
     stubFoliateView(mockView);

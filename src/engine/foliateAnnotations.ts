@@ -1,5 +1,5 @@
-import type { Annotation } from '../../types/annotations';
-import { DEFAULT_HIGHLIGHT_COLOR } from '../../constants';
+import type { Annotation } from '../types/annotations';
+import { DEFAULT_HIGHLIGHT_COLOR } from '../constants';
 
 /**
  * 安装 create-overlay 事件处理（在 view.init() 之前调用，避免错过初始渲染事件）。

@@ -1,4 +1,4 @@
-import type { BookMetadata, OutlineItem } from '../../types/annotations';
+import type { BookMetadata, OutlineItem } from '../types/annotations';
 
 export interface LoadedBookInfo {
   outline: OutlineItem[];
