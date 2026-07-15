@@ -54,10 +54,10 @@ export async function loadBook(
   }
 
   // 2. 确保 foliate-js 自定义元素已注册（必须在 createElement 之前）
+  // view.js 注册 <foliate-view> 自定义元素，PDF/EPUB 都需要
+  await import('foliate-js/view.js');
   if (fileType === 'pdf') {
     await import('foliate-js/pdf.js');
-  } else {
-    await import('foliate-js/view.js');
   }
 
   // 3. 创建 <foliate-view> 元素
@@ -89,7 +89,7 @@ export async function loadBook(
     const fileObj = new File([blob], tfile.name);
 
     if (fileType === 'pdf') {
-      const { makePDF } = await import('foliate-js/pdf.js'); // already imported above, this is a cache hit
+      const { makePDF } = await import('foliate-js/pdf.js'); // cache hit（上面已导入）
       const book = await makePDF(fileObj);
       book.rendition.spread = options?.columnMode === 'single' ? 'none' : undefined;
       await (view as any).open(book);
