@@ -1,19 +1,8 @@
-<!-- SPECKIT START -->
-For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan
-<!-- SPECKIT END -->
-
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## 项目概述
-
-Obsidian 插件，用于在 Obsidian 内直接阅读和标注 EPUB、MOBI、KF8 (AZW3)、FB2、FBZ、CBZ 和 PDF 文件。通过 Markdown 文件中的 `annotation-target` 前置元字段关联阅读目标，使用 foliate-js 作为阅读引擎。
-
-## 项目规则
-
-- 编写必要的代码注释
+@AGENTS.md
 
 ## 构建 & 开发命令
 
@@ -27,9 +16,12 @@ bun run format:check     # Prettier 格式检查
 bun run check            # ESLint + TypeScript 类型检查（不产生构建产物）
 bun run test             # 运行测试（vitest run）
 bun run test:watch       # 测试监听模式（vitest）
+bunx vitest run src/engine/annotationManager.test.ts  # 运行单个测试文件
 ```
 
-生产构建输出三个文件到插件根目录：`main.js`、`styles.css`（来自 `src/global.css`）、`manifest.json`。GitHub Release 工作流在推送 tag 时触发，自动构建并发布。
+生产构建输出三个文件到插件根目录：`main.js`、`styles.css`（来自 `src/global.css`）、`manifest.json`。`main.js` 和 `styles.css` 是提交到仓库的构建产物，GitHub Release 工作流在推送 tag 时触发，自动构建并发布。
+
+开发模式下设置 `OBSIDIAN_VALTE_PATH` 环境变量（见 `.env.example`）可自动将构建产物复制到 Obsidian vault 的插件目录。
 
 ## 技术栈
 
@@ -42,6 +34,19 @@ bun run test:watch       # 测试监听模式（vitest）
 - **类型检查**：TypeScript 6.0（仅检查，不产出声明文件）
 - **测试**：Vitest（引擎层单元测试）
 - **图标**：lucide-react（React 图标库）
+
+### 测试基础设施
+
+- 测试环境：jsdom（`vitest.config.ts`）
+- 测试文件位置：`src/engine/` 下的 `*.test.ts` 文件（引擎层单元测试）
+- Obsidian 模块 mock：`__mocks__/obsidian.ts`（vitest 通过 alias 自动解析），提供 `TFile`、`Plugin`、`ItemView`、`Modal`、`Setting`、`Platform`、`Notice`、`MarkdownView`、`normalizePath` 等最小 mock
+- 覆盖率：v8 provider，仅覆盖 `src/engine/**`
+- 定义全局 `__DEBUG__` 为 `false`
+
+### 代码规范
+
+- ESLint 9 flat config（`eslint.config.mjs`）：`@typescript-eslint/no-explicit-any` 及相关 unsafe 规则**关闭**（因 foliate-js 类型不完整），未使用变量以 `_` 前缀允许
+- Prettier（`.prettierrc`）：分号、单引号、尾逗号、100 字符行宽、LF 换行、2 空格缩进
 
 ## 架构概览
 
@@ -220,4 +225,3 @@ interface AnnotatorLiteSettings {
 | `HighlightColor`               | `src/constants.ts`                     | 高亮颜色类型定义                                                   |
 | `markdownStorage.ts`           | `src/utils/markdownStorage.ts`         | 标注 ↔ Markdown 格式转换                                           |
 | `constants.ts`                 | `src/constants.ts`                     | 视图类型常量、前置元字段名、图标名、默认高亮颜色                   |
-

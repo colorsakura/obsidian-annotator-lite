@@ -4,6 +4,6 @@
   "feature_numbering": "sequential",
   "here": true,
   "integration": "claude",
-  "script": "sh",
-  "speckit_version": "0.11.9"
+  "script": "py",
+  "speckit_version": "0.12.7"
 }

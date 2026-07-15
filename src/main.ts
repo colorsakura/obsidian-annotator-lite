@@ -116,14 +116,13 @@ export default class AnnotatorLitePlugin extends Plugin {
             file instanceof TFile &&
             this.getPropertyValue(ANNOTATION_TARGET_PROPERTY, file)
           ) {
-            menu.addItem(
-              (item: MenuItem): MenuItem =>
-                item
-                  .setTitle('Annotate')
-                  .setIcon(ICON_NAME)
-                  .onClick(async () => {
-                    await this.readerController.openFromMarkdownLeaf(leaf);
-                  }),
+            menu.addItem((item: MenuItem): MenuItem =>
+              item
+                .setTitle('Annotate')
+                .setIcon(ICON_NAME)
+                .onClick(async () => {
+                  await this.readerController.openFromMarkdownLeaf(leaf);
+                }),
             );
           }
         }),
