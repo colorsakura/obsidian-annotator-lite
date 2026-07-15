@@ -106,7 +106,8 @@ function updateFontSizeAction(
   disabled: boolean,
   fontSize: number,
 ) {
-  action.setAttribute('aria-label', `${label}（当前 ${fontSize}%）`);
+  const statusPart = t('reader.toolbar.fontSize.current').replace('{0}', String(fontSize));
+  action.setAttribute('aria-label', `${label}${statusPart}`);
   action.setAttribute('aria-disabled', disabled ? 'true' : 'false');
   action.classList.toggle('is-disabled', disabled);
 }

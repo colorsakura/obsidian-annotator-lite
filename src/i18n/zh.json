@@ -43,6 +43,7 @@
   "reader.toolbar.zoomIn": "增大字体",
   "reader.toolbar.zoomOut": "减小字体",
   "reader.toolbar.back": "返回笔记",
+  "reader.toolbar.fontSize.current": "（当前 {0}%）",
 
   "reader.flowMode.paginated": "分页",
   "reader.flowMode.scrolled": "滚动",

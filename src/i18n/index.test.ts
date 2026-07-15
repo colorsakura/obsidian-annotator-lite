@@ -64,8 +64,8 @@ describe('i18n module', () => {
       expect(t('nonexistent.key', 'Fallback Text')).toBe('Fallback Text');
     });
 
-    it('should return the key itself when no translation and no fallback', () => {
-      expect(t('nonexistent.key')).toBe('nonexistent.key');
+    it('should return empty string when no translation and no fallback (key name not exposed)', () => {
+      expect(t('nonexistent.key')).toBe('');
     });
 
     it('should return empty string fallback when translation is empty', () => {

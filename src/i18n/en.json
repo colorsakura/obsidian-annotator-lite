@@ -43,6 +43,7 @@
   "reader.toolbar.zoomIn": "Increase font size",
   "reader.toolbar.zoomOut": "Decrease font size",
   "reader.toolbar.back": "Back to note",
+  "reader.toolbar.fontSize.current": " (currently {0}%)",
 
   "reader.flowMode.paginated": "Paginated",
   "reader.flowMode.scrolled": "Scrolled",

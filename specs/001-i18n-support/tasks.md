@@ -216,3 +216,12 @@ Task: "Translate context menu in src/main.ts"
 - 英文 (en.json) 是回退语言，必须包含所有键；中文 (zh.json) 可部分覆盖
 - 翻译资源是静态 JSON，esbuild 会打包到输出中
 - 所有 t() 调用使用点分隔键名（如 `settings.language.label`）
+
+---
+
+## Phase 7: Convergence
+
+**Purpose**: 修复 `/speckit.converge` 发现的规范-实现偏差。Phase 6 之后遗留的未完成/部分完成工作。
+
+- [x] T039 修复 `src/views/readerHeader.ts` 中 `updateFontSizeAction` 的硬编码中文 aria-label 格式字符串 `（当前 ${fontSize}%）`，改用翻译键 `reader.toolbar.fontSize.current`（如 `"（当前 {0}%）"` / `" (currently {0}%)"`），并在 `en.json` 和 `zh.json` 中添加对应翻译条目，per SC-002/FR-006（partial）
+- [x] T040 修复 `src/i18n/index.ts` 中 `t()` 函数在双缺失场景（当前语言和英语均无对应键）回退返回键名本身的行为，改为返回空字符串并记录警告日志，确保不暴露原始键名，per FR-007/SC-003（partial）

@@ -47,8 +47,10 @@ export function t(key: string, fallback?: string): string {
   const en = _translations.en?.[key];
   if (en !== undefined && en !== '') return en;
 
-  // 最后回退
-  return fallback ?? key;
+  // 最后回退：优先 fallback 参数，不暴露原始键名
+  if (fallback !== undefined) return fallback;
+  log.warn(`Translation key "${key}" missing in both "${_currentLocale}" and English`);
+  return '';
 }
 
 // ─── 语言切换 ─────────────────────────────────────────────────────────
