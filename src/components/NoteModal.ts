@@ -1,4 +1,5 @@
 import { App, Modal, Setting } from 'obsidian';
+import { t } from '../i18n';
 
 export interface NoteModalResult {
   note: string;
@@ -17,12 +18,12 @@ export class NoteModal extends Modal {
       this.resolvePromise = resolve;
     });
 
-    this.titleEl.setText('添加笔记');
+    this.titleEl.setText(t('annotations.noteModal.title'));
 
     const textarea = this.contentEl.createEl('textarea', {
       attr: {
         rows: '6',
-        placeholder: '输入笔记内容...',
+        placeholder: t('annotations.noteModal.placeholder'),
         style:
           'width: 100%; resize: vertical; padding: 8px; border-radius: 4px; ' +
           'border: 1px solid var(--background-modifier-border); ' +
@@ -50,7 +51,7 @@ export class NoteModal extends Modal {
     new Setting(this.contentEl)
       .addButton((btn) => {
         btn
-          .setButtonText('保存')
+          .setButtonText(t('common.save'))
           .setCta()
           .onClick(() => {
             this.saved = true;
@@ -58,7 +59,7 @@ export class NoteModal extends Modal {
           });
       })
       .addButton((btn) => {
-        btn.setButtonText('取消').onClick(() => {
+        btn.setButtonText(t('common.cancel')).onClick(() => {
           this.close();
         });
       });

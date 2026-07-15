@@ -31,6 +31,10 @@ import {
 import { type AnnotatorLiteSettings, DEFAULT_SETTINGS } from './services/Settings';
 import { AnnotatorLiteSettingTab } from './components/SettingsTab';
 import { ReadingHistoryService } from './services/ReadingHistoryService';
+import { loadTranslations, setLanguage, resolveDefaultLanguage, t } from './i18n';
+import { createLogger } from './utils/logger';
+
+const log = createLogger('AnnotatorLite');
 
 export default class AnnotatorLitePlugin extends Plugin {
   private annotationRepository!: AnnotationRepository;
@@ -45,12 +49,38 @@ export default class AnnotatorLitePlugin extends Plugin {
 
   settings: AnnotatorLiteSettings = DEFAULT_SETTINGS;
 
+  /** 用户是否在设置面板中手动选择过语言（与自动检测区分） */
+  private _languageExplicitlySet = false;
+
   async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const data = await this.loadData();
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
+
+    // 验证 language 字段合法性
+    if (data && 'language' in data) {
+      const lang = (data as Record<string, unknown>).language;
+      if (lang === 'zh' || lang === 'en') {
+        this._languageExplicitlySet = true;
+      } else if (lang !== undefined) {
+        log.warn(`Invalid language value "${String(lang)}", falling back to auto-detect`);
+        this.settings.language = undefined;
+      }
+    }
   }
 
   async saveSettings() {
+    // 如果语言是自动检测的（用户未手动选择），不持久化到 data.json
+    if (!this._languageExplicitlySet) {
+      const { language, ...settingsWithoutLanguage } = this.settings;
+      await this.saveData(settingsWithoutLanguage);
+      return;
+    }
     await this.saveData(this.settings);
+  }
+
+  /** 标记语言为用户手动选择，允许持久化 */
+  setLanguageExplicitlySet(): void {
+    this._languageExplicitlySet = true;
   }
 
   async onload() {
@@ -103,6 +133,16 @@ export default class AnnotatorLitePlugin extends Plugin {
     this.registerView(ANNOTATIONS_VIEW_TYPE, (leaf) => new AnnotationsView(leaf));
 
     await this.loadSettings();
+
+    // 初始化多语言
+    loadTranslations();
+    // 语言自动检测：用户手动选择优先，否则根据 Obsidian 语言决定
+    if (!this.settings.language) {
+      const obsidianLocale = (window as any).moment?.locale?.() as string | undefined;
+      this.settings.language = resolveDefaultLanguage(obsidianLocale);
+    }
+    setLanguage(this.settings.language);
+
     this.addSettingTab(new AnnotatorLiteSettingTab(this.app, this));
 
     this.app.workspace.onLayoutReady(() => {
@@ -118,7 +158,7 @@ export default class AnnotatorLitePlugin extends Plugin {
           ) {
             menu.addItem((item: MenuItem): MenuItem =>
               item
-                .setTitle('Annotate')
+                .setTitle(t('menu.annotate'))
                 .setIcon(ICON_NAME)
                 .onClick(async () => {
                   await this.readerController.openFromMarkdownLeaf(leaf);

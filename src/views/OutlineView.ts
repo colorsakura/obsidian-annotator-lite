@@ -5,6 +5,7 @@ import { OUTLINE_VIEW_TYPE } from '../constants';
 import { useSessionField } from '../contexts/ReaderStoreContext';
 import { useReader } from '../contexts/ReaderAPIContext';
 import { BaseReactView } from './BaseReactView';
+import { t } from '../i18n';
 
 const OutlineViewInner: React.FC = () => {
   const reader = useReader();
@@ -27,7 +28,7 @@ export class OutlineView extends BaseReactView {
     return OUTLINE_VIEW_TYPE;
   }
   getDisplayText() {
-    return 'Outline';
+    return t('outline.viewName');
   }
   getIcon() {
     return 'list-tree';

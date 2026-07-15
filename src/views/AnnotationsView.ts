@@ -6,6 +6,7 @@ import { useSessionField } from '../contexts/ReaderStoreContext';
 import { useReader } from '../contexts/ReaderAPIContext';
 import { useAnnotations } from '../hooks/useAnnotations';
 import { BaseReactView } from './BaseReactView';
+import { t } from '../i18n';
 
 const AnnotationsViewInner: React.FC = () => {
   const reader = useReader();
@@ -37,7 +38,7 @@ export class AnnotationsView extends BaseReactView {
     return ANNOTATIONS_VIEW_TYPE;
   }
   getDisplayText() {
-    return 'Annotations';
+    return t('annotations.viewName');
   }
   getIcon() {
     return 'highlighter';

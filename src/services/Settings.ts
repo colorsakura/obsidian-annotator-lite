@@ -29,6 +29,8 @@ export interface AnnotatorLiteSettings {
   defaultFlowMode: ReaderFlowMode;
   /** 阅读历史记录 */
   readingHistory: ReadingHistoryMap;
+  /** 界面语言：'zh' | 'en' | undefined（undefined 表示自动检测） */
+  language?: 'zh' | 'en';
 }
 
 export const DEFAULT_SETTINGS: AnnotatorLiteSettings = {

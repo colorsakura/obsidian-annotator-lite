@@ -2,6 +2,7 @@ import React from 'react';
 import FoliateViewer from '../viewers/FoliateViewer';
 import { isReaderTargetType } from '../services/TargetResolver';
 import type { HighlightColor, ReaderFlowMode, ColumnMode } from '../constants';
+import { useT } from '../i18n';
 
 export interface ReaderViewInnerProps {
   targetFile: string | null;
@@ -30,21 +31,23 @@ const ReaderViewInner: React.FC<ReaderViewInnerProps> = ({
   fontSize,
   highlightColors,
 }) => {
+  const t = useT();
+
   if (!targetFile) {
-    return (
-      <div className="reader-placeholder">
-        No file selected. Open a note with <code>annotation-target</code> in its frontmatter.
-      </div>
-    );
+    return <div className="reader-placeholder">{t('reader.noFile')}</div>;
   }
 
   const extension = targetFile.split('.').pop()?.toLowerCase();
   if (!extension || !isReaderTargetType(extension)) {
-    return <div className="reader-placeholder">Unsupported file type: {extension}</div>;
+    return (
+      <div className="reader-placeholder">
+        {t('reader.unsupportedType')}: {extension}
+      </div>
+    );
   }
 
   if (!sourcePath) {
-    return <div className="reader-placeholder">Missing source path.</div>;
+    return <div className="reader-placeholder">{t('reader.missingSource')}</div>;
   }
 
   return (

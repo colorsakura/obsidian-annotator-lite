@@ -13,6 +13,7 @@ import { BaseReactView } from './BaseReactView';
 import { getReaderAPI } from '../contexts/ReaderAPIContext';
 import ReaderViewInner from '../components/ReaderViewInner';
 import { setupReaderHeader, type ReaderHeaderHandle } from './readerHeader';
+import { t } from '../i18n';
 
 // ──────────────────────────────────────────
 // Obsidian ItemView (extends BaseReactView)
@@ -43,7 +44,7 @@ export class ReaderView extends BaseReactView {
   }
 
   getDisplayText() {
-    if (!this.targetFile) return 'Reader';
+    if (!this.targetFile) return t('reader.viewName');
     const name = this.targetFile.split('/').pop() ?? this.targetFile;
     const dotIndex = name.lastIndexOf('.');
     return dotIndex > 0 ? name.substring(0, dotIndex) : name;

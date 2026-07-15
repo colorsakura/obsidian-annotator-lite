@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Annotation, NavigationTarget } from '../types/annotations';
 import { Pencil, Trash2, Check } from 'lucide-react';
+import { useT } from '../i18n';
 
 interface AnnotationsComponentProps {
   annotations: Annotation[];
@@ -23,6 +24,7 @@ const AnnotationItem: React.FC<{
   onUpdateAnnotation?: (id: string, updates: Partial<Annotation>) => void;
   onDeleteAnnotation?: (id: string) => void;
 }> = ({ annotation, onNavigate, onUpdateAnnotation, onDeleteAnnotation }) => {
+  const t = useT();
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(annotation.text);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
@@ -96,8 +98,8 @@ const AnnotationItem: React.FC<{
           {!isEditing && (
             <button
               className="annotator-annotation-btn annotator-annotation-btn-edit"
-              title="Edit note"
-              aria-label="Edit note"
+              title={t('annotations.editNote')}
+              aria-label={t('annotations.editNote')}
               onClick={(e) => {
                 e.stopPropagation();
                 setEditText(annotation.text);
@@ -109,8 +111,12 @@ const AnnotationItem: React.FC<{
           )}
           <button
             className={`annotator-annotation-btn annotator-annotation-btn-delete ${showConfirmDelete ? 'annotator-annotation-btn-delete-confirm' : ''}`}
-            title={showConfirmDelete ? 'Click again to confirm' : 'Delete annotation'}
-            aria-label={showConfirmDelete ? 'Confirm delete annotation' : 'Delete annotation'}
+            title={
+              showConfirmDelete ? t('annotations.confirmDelete') : t('annotations.deleteAnnotation')
+            }
+            aria-label={
+              showConfirmDelete ? t('annotations.confirmDelete') : t('annotations.deleteAnnotation')
+            }
             onClick={(e) => {
               e.stopPropagation();
               handleDelete();
@@ -129,7 +135,7 @@ const AnnotationItem: React.FC<{
             value={editText}
             onChange={(e) => setEditText(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Add a note..."
+            placeholder={t('annotations.placeholder')}
             rows={3}
           />
           <div className="annotator-annotation-edit-actions">
@@ -137,13 +143,13 @@ const AnnotationItem: React.FC<{
               className="annotator-annotation-btn annotator-annotation-btn-save"
               onClick={handleSaveNote}
             >
-              Save
+              {t('common.save')}
             </button>
             <button
               className="annotator-annotation-btn annotator-annotation-btn-cancel"
               onClick={handleCancelEdit}
             >
-              Cancel
+              {t('common.cancel')}
             </button>
           </div>
         </div>
@@ -152,9 +158,7 @@ const AnnotationItem: React.FC<{
       )}
 
       {showConfirmDelete && (
-        <div className="annotator-annotation-delete-hint">
-          Click the checkmark again to confirm deletion
-        </div>
+        <div className="annotator-annotation-delete-hint">{t('annotations.confirmDeleteHint')}</div>
       )}
     </div>
   );
@@ -166,6 +170,7 @@ const AnnotationsComponent: React.FC<AnnotationsComponentProps> = ({
   onUpdateAnnotation,
   onDeleteAnnotation,
 }) => {
+  const t = useT();
   const annotatedItems = annotations.filter((a) => {
     const text = getHighlightText(a);
     return text || a.text;
@@ -174,7 +179,7 @@ const AnnotationsComponent: React.FC<AnnotationsComponentProps> = ({
   return (
     <div className="annotator-annotations-container">
       {annotatedItems.length === 0 ? (
-        <div className="annotator-annotations-empty">No highlights or notes yet.</div>
+        <div className="annotator-annotations-empty">{t('annotations.empty')}</div>
       ) : (
         <div className="annotator-annotations-list">
           {annotatedItems.map((a) => (

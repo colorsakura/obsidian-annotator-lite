@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Copy, StickyNote, Trash2 } from 'lucide-react';
 import type { Annotation } from '../types/annotations';
 import type { HighlightColor } from '../constants';
+import { useT } from '../i18n';
 
 interface SelectionMenuProps {
   visible: boolean;
@@ -27,6 +28,8 @@ const SelectionMenu: React.FC<SelectionMenuProps> = ({
   onCopy,
   menuRef,
 }) => {
+  const t = useT();
+
   // Adjust position to stay within viewport
   useEffect(() => {
     if (!visible || !menuRef.current) return;
@@ -70,17 +73,21 @@ const SelectionMenu: React.FC<SelectionMenuProps> = ({
         ))}
       </div>
       <div className="selection-menu__actions">
-        <button className="selection-menu__item" onClick={onCopy} title="复制">
+        <button className="selection-menu__item" onClick={onCopy} title={t('annotations.copy')}>
           <Copy className="selection-menu__icon" size={16} />
         </button>
-        <button className="selection-menu__item" onClick={onAddNote} title="添加笔记">
+        <button
+          className="selection-menu__item"
+          onClick={onAddNote}
+          title={t('annotations.addNote')}
+        >
           <StickyNote className="selection-menu__icon" size={16} />
         </button>
         {existingAnnotation && (
           <button
             className="selection-menu__item selection-menu__item--danger"
             onClick={() => onDelete(existingAnnotation.id)}
-            title="删除标注"
+            title={t('annotations.deleteAnnotation')}
           >
             <Trash2 className="selection-menu__icon" size={16} />
           </button>

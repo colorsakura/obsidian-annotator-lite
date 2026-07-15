@@ -1,6 +1,7 @@
 import type { ReaderFlowMode, ColumnMode } from '../constants';
 import { READER_FONT_SIZE_MIN, READER_FONT_SIZE_MAX } from '../constants';
 import type { ReaderView } from './ReaderView';
+import { t } from '../i18n';
 
 export interface ReaderHeaderCallbacks {
   toggleReaderFlowMode: () => void;
@@ -20,17 +21,33 @@ export function setupReaderHeader(
   view: ReaderView,
   callbacks: ReaderHeaderCallbacks,
 ): ReaderHeaderHandle {
-  const outlineAction = view.addAction('list-tree', 'Open outline', callbacks.toggleOutline);
-  view.addAction('highlighter', 'Open annotations', callbacks.toggleAnnotations);
+  const outlineAction = view.addAction(
+    'list-tree',
+    t('reader.toolbar.outline'),
+    callbacks.toggleOutline,
+  );
+  view.addAction('highlighter', t('reader.toolbar.annotations'), callbacks.toggleAnnotations);
   const readerFlowModeAction = view.addAction(
     'scroll-text',
-    '切换滚动模式',
+    t('reader.toolbar.toggleScroll'),
     callbacks.toggleReaderFlowMode,
   );
-  const columnModeAction = view.addAction('columns', '切换为单列', callbacks.toggleColumnMode);
-  const decreaseFontSizeAction = view.addAction('zoom-out', '减小字体', callbacks.decreaseFontSize);
-  const increaseFontSizeAction = view.addAction('zoom-in', '增大字体', callbacks.increaseFontSize);
-  const comebackAction = view.addAction('left-arrow', '返回笔记', callbacks.goBack);
+  const columnModeAction = view.addAction(
+    'columns',
+    t('reader.toolbar.toggleSingle'),
+    callbacks.toggleColumnMode,
+  );
+  const decreaseFontSizeAction = view.addAction(
+    'zoom-out',
+    t('reader.toolbar.zoomOut'),
+    callbacks.decreaseFontSize,
+  );
+  const increaseFontSizeAction = view.addAction(
+    'zoom-in',
+    t('reader.toolbar.zoomIn'),
+    callbacks.increaseFontSize,
+  );
+  const comebackAction = view.addAction('left-arrow', t('reader.toolbar.back'), callbacks.goBack);
 
   const setupHeader = () => {
     const header = outlineAction.closest('.view-header');
@@ -54,25 +71,28 @@ export function setupReaderHeader(
       const isScrolled = flowMode === 'scrolled';
       readerFlowModeAction.setAttribute(
         'aria-label',
-        isScrolled ? '切换到分页模式' : '切换到滚动模式',
+        isScrolled ? t('reader.toolbar.togglePaginated') : t('reader.toolbar.toggleScroll'),
       );
       readerFlowModeAction.classList.toggle('is-active', isScrolled);
 
       // 更新列模式按钮
       const isSingle = columnMode === 'single';
-      columnModeAction.setAttribute('aria-label', isSingle ? '切换为双列' : '切换为单列');
+      columnModeAction.setAttribute(
+        'aria-label',
+        isSingle ? t('reader.toolbar.toggleDouble') : t('reader.toolbar.toggleSingle'),
+      );
       columnModeAction.classList.toggle('is-active', isSingle);
 
       // 更新字体大小按钮
       updateFontSizeAction(
         decreaseFontSizeAction,
-        '减小字体',
+        t('reader.toolbar.zoomOut'),
         fontSize <= READER_FONT_SIZE_MIN,
         fontSize,
       );
       updateFontSizeAction(
         increaseFontSizeAction,
-        '增大字体',
+        t('reader.toolbar.zoomIn'),
         fontSize >= READER_FONT_SIZE_MAX,
         fontSize,
       );

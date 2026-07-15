@@ -1,4 +1,5 @@
 import React from 'react';
+import { useT } from '../i18n';
 
 interface SectionIndicatorProps {
   currentIndex: number;
@@ -17,6 +18,7 @@ const SectionIndicator: React.FC<SectionIndicatorProps> = ({
   onPrev,
   onNext,
 }) => {
+  const t = useT();
   const displayIndex = totalSections > 0 ? currentIndex + 1 : 0;
 
   return (
@@ -25,7 +27,7 @@ const SectionIndicator: React.FC<SectionIndicatorProps> = ({
         className="section-indicator-btn section-indicator-btn-up"
         onClick={onPrev}
         disabled={!canGoPrev}
-        aria-label="上一章"
+        aria-label={t('reader.section.prev')}
       >
         <svg
           viewBox="0 0 24 24"
@@ -47,7 +49,7 @@ const SectionIndicator: React.FC<SectionIndicatorProps> = ({
         className="section-indicator-btn section-indicator-btn-down"
         onClick={onNext}
         disabled={!canGoNext}
-        aria-label="下一章"
+        aria-label={t('reader.section.next')}
       >
         <svg
           viewBox="0 0 24 24"
