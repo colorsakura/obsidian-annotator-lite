@@ -134,11 +134,12 @@ export class ReaderEngine {
         },
       };
 
-      // 加载书籍
+      // 加载书籍，传入 getAnnotations 回调以便在 view.init() 前安装 create-overlay 监听
       const result = await loadBook(app, this.container, filePath, fileType, callbacks, {
         flowMode: this.settings.flowMode,
         columnMode: this.settings.columnMode,
         fontSize: this.settings.fontSize,
+        getAnnotations: () => this.getAnnotations(),
       });
 
       this.view = result.view;
@@ -152,9 +153,9 @@ export class ReaderEngine {
       const cleanupKeyboard = installKeyboardNavigation(this.container, () => this.view);
       this.cleanupFns.push(cleanupKeyboard);
 
-      // 安装标注渲染
+      // 安装 draw-annotation 事件处理
       const { installAnnotationRendering } = await import('../viewers/foliate/foliateAnnotations');
-      const cleanupAnnotations = installAnnotationRendering(this.view, () => this.getAnnotations());
+      const cleanupAnnotations = installAnnotationRendering(this.view);
       this.cleanupFns.push(cleanupAnnotations);
 
       this.state = 'ready';

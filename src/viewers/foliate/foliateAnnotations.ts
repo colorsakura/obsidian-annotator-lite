@@ -2,21 +2,14 @@ import type { Annotation } from '../../types/annotations';
 import { DEFAULT_HIGHLIGHT_COLOR } from '../../constants';
 
 /**
- * Install draw-annotation and create-overlay event handlers on a foliate-view element.
- * Returns a cleanup function that removes the listeners.
+ * 安装 create-overlay 事件处理（在 view.init() 之前调用，避免错过初始渲染事件）。
+ * 当 foliate-js 渲染新页面时触发，为该页面的标注创建高亮 overlay。
  */
-export function installAnnotationRendering(
+export function installCreateOverlayListener(
   view: HTMLElement,
   getAnnotations: () => Annotation[],
 ): () => void {
   const viewApi = view as any;
-
-  const handleDrawAnnotation = async ({ detail }: any) => {
-    const { draw, annotation } = detail;
-    const color = annotation.color || DEFAULT_HIGHLIGHT_COLOR;
-    const { Overlayer } = await import('foliate-js/overlayer.js');
-    draw(Overlayer.highlight, { color });
-  };
 
   const handleCreateOverlay = async ({ detail }: any) => {
     const { index } = detail;
@@ -42,22 +35,34 @@ export function installAnnotationRendering(
     }
   };
 
-  // Clean up any previous listeners
+  view.addEventListener('create-overlay', handleCreateOverlay);
+  return () => {
+    view.removeEventListener('create-overlay', handleCreateOverlay);
+  };
+}
+
+/**
+ * Install draw-annotation event handler on a foliate-view element.
+ * Returns a cleanup function that removes the listener.
+ */
+export function installAnnotationRendering(view: HTMLElement): () => void {
+  const handleDrawAnnotation = async ({ detail }: any) => {
+    const { draw, annotation } = detail;
+    const color = annotation.color || DEFAULT_HIGHLIGHT_COLOR;
+    const { Overlayer } = await import('foliate-js/overlayer.js');
+    draw(Overlayer.highlight, { color });
+  };
+
+  // Clean up any previous listener
   const prevDraw = (view as any)._drawListener;
-  const prevOverlay = (view as any)._overlayListener;
   if (prevDraw) view.removeEventListener('draw-annotation', prevDraw);
-  if (prevOverlay) view.removeEventListener('create-overlay', prevOverlay);
 
   view.addEventListener('draw-annotation', handleDrawAnnotation);
-  view.addEventListener('create-overlay', handleCreateOverlay);
   (view as any)._drawListener = handleDrawAnnotation;
-  (view as any)._overlayListener = handleCreateOverlay;
 
   return () => {
     view.removeEventListener('draw-annotation', handleDrawAnnotation);
-    view.removeEventListener('create-overlay', handleCreateOverlay);
     delete (view as any)._drawListener;
-    delete (view as any)._overlayListener;
   };
 }
 

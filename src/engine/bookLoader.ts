@@ -1,5 +1,5 @@
 import { TFile, type App } from 'obsidian';
-import type { BookMetadata, OutlineItem } from '../types/annotations';
+import type { BookMetadata, OutlineItem, Annotation } from '../types/annotations';
 import type { ReaderFlowMode, ColumnMode } from '../constants';
 import { createLogger } from '../utils/logger';
 
@@ -17,6 +17,15 @@ export interface BookLoaderCallbacks {
     canGoNext?: boolean,
     cfi?: string,
   ) => void;
+}
+
+/** loadBook 额外选项 */
+export interface BookLoaderOptions {
+  flowMode?: ReaderFlowMode;
+  columnMode?: ColumnMode;
+  fontSize?: number;
+  /** 标注查询回调：供 create-overlay 事件使用，在 view.init() 前安装 */
+  getAnnotations?: () => Annotation[];
 }
 
 /** loadBook 返回值 */
@@ -45,7 +54,7 @@ export async function loadBook(
   filePath: string,
   fileType: 'pdf' | 'epub',
   callbacks: BookLoaderCallbacks,
-  options?: { flowMode?: ReaderFlowMode; columnMode?: ColumnMode; fontSize?: number },
+  options?: BookLoaderOptions,
 ): Promise<BookLoaderResult> {
   // 1. 检查文件是否存在
   const tfile = app.vault.getAbstractFileByPath(filePath);
@@ -73,6 +82,8 @@ export async function loadBook(
 
   // relocate 监听清理函数
   let cleanupRelocate: (() => void) | undefined;
+  // create-overlay 监听清理函数
+  let cleanupOverlay: (() => void) | undefined;
   // cover URL 用于后续清理
   let coverUrl: string | null = null;
 
@@ -135,6 +146,14 @@ export async function loadBook(
     const { installRelocateListener } = await import('../viewers/foliate/foliateNavigation');
     cleanupRelocate = installRelocateListener(view, callbacks.onSectionChanged);
 
+    // 10.5. 安装 create-overlay 监听（在 view.init() 之前，避免错过初始渲染事件）
+    if (options?.getAnnotations) {
+      const { installCreateOverlayListener } = await import(
+        '../viewers/foliate/foliateAnnotations'
+      );
+      cleanupOverlay = installCreateOverlayListener(view, options.getAnnotations);
+    }
+
     // 11. 初始化 renderer
     try {
       await (view as any).init({ showTextStart: true });
@@ -154,6 +173,7 @@ export async function loadBook(
     log.error('Failed to load file:', err);
     try {
       cleanupRelocate?.();
+      cleanupOverlay?.();
       (view as any).close?.();
     } catch {
       /* ignore cleanup errors */

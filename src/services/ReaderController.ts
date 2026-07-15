@@ -50,6 +50,8 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
   private currentReaderSourcePath: string | null = null;
   private lastKnownCfi: string | null = null;
   private saveInterval: ReturnType<typeof setInterval> | null = null;
+  /** 持久化操作串行队列：防止并发的 vault.process 互相覆盖 */
+  private persistQueue: Promise<void> = Promise.resolve();
   readonly bus: ReaderEventBus;
 
   constructor(
@@ -271,39 +273,52 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
     this.viewCoordinator.revealReader();
   }
 
+  /** 将持久化操作加入串行队列，防止并发的 vault.process 互相覆盖 */
+  private enqueuePersist<T>(fn: () => Promise<T>): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      this.persistQueue = this.persistQueue.then(async () => {
+        try {
+          resolve(await fn());
+        } catch (e) {
+          reject(e);
+        }
+      });
+    });
+  }
+
   async addAnnotation(annotation: Annotation): Promise<void> {
     if (!this.currentReaderSourcePath) return;
-    const current =
-      this.queryClient.getQueryData<Annotation[]>(
-        annotationKeys.byFile(this.currentReaderSourcePath),
-      ) ?? [];
-    // 幂等：如果乐观写已经加过了，不重复添加
-    const exists = current.some((a) => a.id === annotation.id);
-    const next = exists ? current : [...current, annotation];
-    await this.annotationService.persist(next, this.currentReaderSourcePath);
+    return this.enqueuePersist(async () => {
+      const key = annotationKeys.byFile(this.currentReaderSourcePath!);
+      const current = this.queryClient.getQueryData<Annotation[]>(key) ?? [];
+      // 幂等：如果乐观写已经加过了，不重复添加
+      const exists = current.some((a) => a.id === annotation.id);
+      const next = exists ? current : [...current, annotation];
+      await this.annotationService.persist(next, this.currentReaderSourcePath!);
+    });
   }
 
   async updateAnnotation(id: string, updates: Partial<Annotation>): Promise<void> {
     if (!this.currentReaderSourcePath) return;
-    const current =
-      this.queryClient.getQueryData<Annotation[]>(
-        annotationKeys.byFile(this.currentReaderSourcePath),
-      ) ?? [];
-    const idx = current.findIndex((a) => a.id === id);
-    if (idx === -1) return;
-    const next = [...current];
-    next[idx] = { ...next[idx], ...updates, updated: new Date().toISOString() };
-    await this.annotationService.persist(next, this.currentReaderSourcePath);
+    return this.enqueuePersist(async () => {
+      const key = annotationKeys.byFile(this.currentReaderSourcePath!);
+      const current = this.queryClient.getQueryData<Annotation[]>(key) ?? [];
+      const idx = current.findIndex((a) => a.id === id);
+      if (idx === -1) return;
+      const next = [...current];
+      next[idx] = { ...next[idx], ...updates, updated: new Date().toISOString() };
+      await this.annotationService.persist(next, this.currentReaderSourcePath!);
+    });
   }
 
   async deleteAnnotation(id: string): Promise<void> {
     if (!this.currentReaderSourcePath) return;
-    const current =
-      this.queryClient.getQueryData<Annotation[]>(
-        annotationKeys.byFile(this.currentReaderSourcePath),
-      ) ?? [];
-    const next = current.filter((a) => a.id !== id);
-    await this.annotationService.persist(next, this.currentReaderSourcePath);
+    return this.enqueuePersist(async () => {
+      const key = annotationKeys.byFile(this.currentReaderSourcePath!);
+      const current = this.queryClient.getQueryData<Annotation[]>(key) ?? [];
+      const next = current.filter((a) => a.id !== id);
+      await this.annotationService.persist(next, this.currentReaderSourcePath!);
+    });
   }
 
   private async saveReadingProgress(): Promise<void> {

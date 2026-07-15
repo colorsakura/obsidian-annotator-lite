@@ -39,7 +39,7 @@ export class ObsidianTargetResolver implements TargetResolver {
     return {
       sourcePath: sourceFile.path,
       targetPath,
-      targetUri: `urn:${targetPath}`,
+      targetUri: targetPath,
       type: getReaderTargetType(targetPath),
     };
   }

@@ -4,6 +4,7 @@ import { Platform } from 'obsidian';
 import { useObsidianApp } from '../hooks/useObsidianApp';
 import { useSessionField } from '../contexts/ReaderStoreContext';
 import { useReader } from '../contexts/ReaderAPIContext';
+import { useAnnotations } from '../hooks/useAnnotations';
 import { ReaderEngine } from '../engine/ReaderEngine';
 import type { EngineEventBus } from '../engine/engineTypes';
 import type { Annotation, NavigationTarget, PendingSelection } from '../types/annotations';
@@ -31,6 +32,8 @@ interface FoliateViewerProps {
   file: string;
   /** 源 Markdown 路径（用于标注持久化，由父组件管理） */
   sourcePath: string;
+  /** 目标文件 URI（用于加载标注时的过滤条件） */
+  targetUri?: string;
 
   /** 阅读模式，默认 'paginated' */
   flowMode?: ReaderFlowMode;
@@ -63,6 +66,7 @@ const FoliateViewer: React.FC<FoliateViewerProps> = React.memo(
   ({
     file,
     sourcePath: _sourcePath,
+    targetUri: _targetUri,
     flowMode = 'paginated',
     columnMode = 'double',
     fontSize = 100,
@@ -88,6 +92,18 @@ const FoliateViewer: React.FC<FoliateViewerProps> = React.memo(
       currentIndex: 0,
       totalSections: 0,
     });
+
+    // ─── Annotations data ─────────────────────────────────────────────
+    // 优先使用 props 传入的 targetUri，回退到 session store 中的 targetUri
+    const sessionTarget = useSessionField('target');
+    const targetUri = _targetUri ?? sessionTarget?.targetUri ?? null;
+
+    const { data: annotationsData } = useAnnotations({
+      sourcePath: _sourcePath,
+      targetUri,
+      enabled: !!_sourcePath,
+    });
+    const annotations = annotationsData ?? [];
 
     // ─── Navigation target ─────────────────────────────────────────────
     const navigationTarget = useSessionField('navigationTarget') ?? null;
@@ -140,7 +156,14 @@ const FoliateViewer: React.FC<FoliateViewerProps> = React.memo(
           settings: { flowMode, columnMode, fontSize },
         })
         .then(() => {
-          // 引擎就绪后，应用当前主题
+          // 引擎就绪后，注入已有标注数据以渲染高亮 overlay
+          // 注意：annotations 是 useAnnotations 返回的初始值（闭包快照），
+          // 后续标注变化由下方的 useEffect 同步
+          if (annotations.length > 0) {
+            engine.setAnnotations(annotations);
+          }
+
+          // 应用当前主题
           const view = engine.getView();
           if (view) {
             applyTheme(view, isDarkMode());
@@ -169,6 +192,14 @@ const FoliateViewer: React.FC<FoliateViewerProps> = React.memo(
         engineRef.current = null;
       };
     }, [file]); // 仅在文件变化时重建引擎
+
+    // ─── 同步标注数据到引擎 ──────────────────────────────────────────
+    // 当标注数据变化时（如侧边栏删除/编辑），同步到引擎以更新 overlays
+    useEffect(() => {
+      const engine = engineRef.current;
+      if (!engine?.getIsLoaded()) return;
+      engine.setAnnotations(annotations);
+    }, [annotations]);
 
     // ─── 应用设置变化 ──────────────────────────────────────────────────
     useEffect(() => {

@@ -55,11 +55,16 @@ export function parseAnnotationsFromMarkdown(content: string, uri?: string | nul
     const annotation = parseAnnotationBlock(annotationBlock, annotationId);
 
     if (annotation) {
+      // 兼容两种 URI 格式：纯路径（本插件）和 urn: 前缀（obsidian-annotator 原版）
+      // 两边都去掉 urn: 前缀后再比较
+      const annUri = (annotation.uri || '').replace(/^urn:/, '');
+      const annFingerprint = (annotation.document?.documentFingerprint || '').replace(/^urn:/, '');
+      const bareUri = uri?.replace(/^urn:/, '') ?? undefined;
       if (
         uri === null ||
         uri === undefined ||
-        annotation.uri === uri ||
-        annotation.document?.documentFingerprint === uri
+        annUri === bareUri ||
+        annFingerprint === bareUri
       ) {
         annotations.push(annotation);
       }
