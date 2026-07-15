@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AnnotationManager } from './annotationManager';
-import type { Annotation } from '../types/annotations';
-import type { EngineEventBus } from './engineTypes';
+import { AnnotationManager } from '../annotationManager';
+import type { Annotation } from '../../types/annotations';
+import type { EngineEventBus } from '../engineTypes';
 
 function makeAnnotation(overrides: Partial<Annotation> = {}): Annotation {
   return {
@@ -39,11 +39,14 @@ describe('AnnotationManager', () => {
     expect(mgr.getAnnotations()).toEqual([]);
   });
 
-  it('setAnnotations replaces the list', () => {
+  it('setAnnotations replaces the list and emits annotations-changed', () => {
     const mgr = new AnnotationManager(bus);
     const anns = [makeAnnotation({ id: 'a1' }), makeAnnotation({ id: 'a2' })];
     mgr.setAnnotations(anns);
     expect(mgr.getAnnotations()).toHaveLength(2);
+    expect(emitSpy).toHaveBeenCalledWith('annotations-changed', {
+      annotations: mgr.getAnnotations(),
+    });
   });
 
   it('addAnnotation appends and emits annotations-changed', () => {

@@ -2,6 +2,18 @@ import type { Annotation, NavigationTarget } from '../types/annotations';
 import type { ReaderSectionState } from '../services/ReaderSessionStore';
 import { AnnotationManager } from './annotationManager';
 import { SelectionDetector } from './selectionDetector';
+import { AnnotationRenderer } from './AnnotationRenderer';
+import { BookLoader, type BookLoaderCallbacks } from './BookLoader';
+import { FoliateViewAdapter } from './FoliateViewAdapter';
+import {
+  installKeyboardNavigation,
+  navigateFoliate,
+  goToSection,
+  goToNextPage,
+  goToPrevPage,
+} from './foliateNavigation';
+import { applyReaderFlowMode, applyColumnMode, applyFontSize } from './readerSettings';
+import { disableAndroidPatches } from './androidPatches';
 import type {
   EngineEventBus,
   EngineState,
@@ -14,61 +26,52 @@ import { createLogger } from '../utils/logger';
 const log = createLogger('ReaderEngine');
 
 /**
- * 核心阅读引擎，整合 AnnotationManager、SelectionDetector 和 bookLoader。
- *
- * 生命周期：idle → loading → ready → closed
- *
- * 职责：
- * - 加载书籍文件（通过动态导入 bookLoader）
- * - 管理标注 CRUD（委托 AnnotationManager）
- * - 检测文本选择（委托 SelectionDetector）
- * - 导航控制（委托 foliateNavigation）
- * - 阅读设置应用
+ * 核心阅读引擎门面。
+ * 协调 BookLoader、FoliateViewAdapter、AnnotationManager、AnnotationRenderer、
+ * SelectionDetector 的生命周期。生命周期：idle → loading → ready → closed
  */
 export class ReaderEngine {
   private state: EngineState = 'idle';
-  private view: HTMLElement | null = null;
+  private viewAdapter: FoliateViewAdapter | null = null;
   private fileType: 'pdf' | 'epub' = 'epub';
-  private annotations: AnnotationManager;
-  private selectionDetector: SelectionDetector;
   private sectionInfo: ReaderSectionState = { currentIndex: 0, totalSections: 0 };
   private settings: ReaderSettings = { flowMode: 'paginated', columnMode: 'double', fontSize: 100 };
   private cleanupFns: Array<() => void> = [];
-  /** 标注 overlay 同步映射表（id → cfiRange），用于增量更新 */
-  private appliedOverlayMap: Map<string, string> = new Map();
   private filePath = '';
+
+  private annotations: AnnotationManager;
+  private selectionDetector: SelectionDetector;
+  private annotationRenderer: AnnotationRenderer;
+  private bookLoader: BookLoader;
 
   constructor(
     private container: HTMLElement,
     private bus: EngineEventBus,
+    /** 可选注入，便于测试 mock */
+    selectionDetector?: SelectionDetector,
+    /** 可选注入 AnnotationRenderer，默认创建实例 */
+    annotationRenderer?: AnnotationRenderer,
   ) {
     this.annotations = new AnnotationManager(bus);
-    this.selectionDetector = new SelectionDetector(bus);
+    this.selectionDetector = selectionDetector ?? new SelectionDetector(bus);
+    this.annotationRenderer = annotationRenderer ?? new AnnotationRenderer();
+    this.bookLoader = new BookLoader();
   }
 
   // ── 状态查询 ──────────────────────────────────────────
 
-  /** 返回当前引擎状态 */
   getState(): EngineState {
     return this.state;
   }
-
-  /** 书籍是否已加载完成 */
   getIsLoaded(): boolean {
     return this.state === 'ready';
   }
-
-  /** 返回当前标注列表的副本 */
   getAnnotations(): Annotation[] {
     return this.annotations.getAnnotations();
   }
-
-  /** 返回 foliate-view 元素（未加载时为 null） */
   getView(): HTMLElement | null {
-    return this.view;
+    return this.viewAdapter?.view ?? null;
   }
-
-  /** 返回当前章节信息的副本 */
   getSectionInfo(): ReaderSectionState {
     return { ...this.sectionInfo };
   }
@@ -76,254 +79,176 @@ export class ReaderEngine {
   // ── 生命周期 ──────────────────────────────────────────
 
   /**
-   * 加载书籍文件，从 idle 状态转换到 ready。
-   *
+   * 加载书籍文件。仅允许从 idle 或 closed 状态打开。
    * @param filePath vault 中的文件路径
    * @param fileType 文件类型
    * @param opts 可选的阅读设置和高亮颜色
    */
   async open(filePath: string, fileType: 'pdf' | 'epub', opts?: OpenOptions): Promise<void> {
-    if (this.state !== 'idle') {
-      throw new Error(`Cannot open: engine is in '${this.state}' state, expected 'idle'`);
+    if (this.state === 'loading' || this.state === 'ready') {
+      throw new Error(`Cannot open: engine is in '${this.state}' state`);
     }
-
     this.state = 'loading';
     this.filePath = filePath;
-    this.fileType = fileType;
-
-    // 合并设置
-    if (opts?.settings) {
-      this.settings = { ...this.settings, ...opts.settings };
-    }
+    if (opts?.settings) this.settings = { ...this.settings, ...opts.settings };
 
     try {
-      // 动态导入 bookLoader
-      const { loadBook } = await import('./bookLoader');
-
-      // 获取 Obsidian App 实例（全局模式）
       const app = (window as any).app;
-      if (!app) {
-        throw new Error('Obsidian App instance not available on window.app');
-      }
+      if (!app) throw new Error('Obsidian App instance not available on window.app');
 
-      // 构造回调，将 bookLoader 事件转发到 bus
-      const callbacks = {
-        onOutlineLoaded: (
-          items: Parameters<import('./bookLoader').BookLoaderCallbacks['onOutlineLoaded']>[0],
-        ) => {
-          this.bus.emit('outline-loaded', { items });
+      const result = await this.bookLoader.load(
+        app,
+        this.container,
+        filePath,
+        fileType,
+        this._buildCallbacks(),
+        {
+          flowMode: this.settings.flowMode,
+          columnMode: this.settings.columnMode,
+          fontSize: this.settings.fontSize,
+          getAnnotations: () => this.getAnnotations(),
         },
-        onMetadataLoaded: (
-          metadata: Parameters<import('./bookLoader').BookLoaderCallbacks['onMetadataLoaded']>[0],
-        ) => {
-          this.bus.emit('metadata-loaded', { metadata });
-        },
-        onSectionChanged: (
-          currentIndex: number,
-          totalSections: number,
-          currentLabel?: string,
-          canGoPrev?: boolean,
-          canGoNext?: boolean,
-          cfi?: string,
-        ) => {
-          this.sectionInfo = { currentIndex, totalSections, currentLabel, canGoPrev, canGoNext };
-          this.bus.emit('section-changed', { section: { ...this.sectionInfo } });
-          if (cfi) {
-            this.bus.emit('location-changed', { cfi, sectionIndex: currentIndex });
-          }
-        },
-      };
+      );
 
-      // 加载书籍，传入 getAnnotations 回调以便在 view.init() 前安装 create-overlay 监听
-      const result = await loadBook(app, this.container, filePath, fileType, callbacks, {
-        flowMode: this.settings.flowMode,
-        columnMode: this.settings.columnMode,
-        fontSize: this.settings.fontSize,
-        getAnnotations: () => this.getAnnotations(),
-      });
-
-      this.view = result.view;
+      this.viewAdapter = result.viewAdapter;
       this.fileType = result.fileType;
 
-      // 安装选择检测器
-      this.selectionDetector.install(this.view, this.fileType, () => this.getAnnotations());
-
-      // 安装键盘导航
-      const { installKeyboardNavigation } = await import('./foliateKeyboard');
-      const cleanupKeyboard = installKeyboardNavigation(this.container, () => this.view);
-      this.cleanupFns.push(cleanupKeyboard);
-
-      // 安装 draw-annotation 事件处理
-      const { installAnnotationRendering } = await import('./foliateAnnotations');
-      const cleanupAnnotations = installAnnotationRendering(this.view);
-      this.cleanupFns.push(cleanupAnnotations);
+      this.annotationRenderer.install(this.viewAdapter, () => this.getAnnotations());
+      this.selectionDetector.install(this.viewAdapter.view, fileType, () => this.getAnnotations());
+      this.cleanupFns.push(
+        installKeyboardNavigation(this.container, () => this.viewAdapter?.view ?? null),
+      );
 
       this.state = 'ready';
       log.debug('engine ready:', filePath, 'type:', fileType);
     } catch (err) {
-      // 失败时回退到 idle 状态
       this.state = 'idle';
-      this.view = null;
+      this.viewAdapter = null;
       log.error('Failed to open book:', err);
       throw err;
     }
   }
 
-  /**
-   * 释放资源，转换到 closed 状态。
-   * 幂等：多次调用不会报错。
-   */
+  /** 释放资源，转换到 closed 状态。幂等。 */
   close(): void {
     if (this.state === 'closed') return;
 
-    // 卸载选择检测器
     this.selectionDetector.uninstall();
+    this.annotationRenderer.uninstall();
+    this._runCleanupFns();
 
-    // 执行所有清理函数
-    for (const fn of this.cleanupFns) {
+    if (this.viewAdapter) {
       try {
-        fn();
-      } catch {
-        /* ignore cleanup errors */
-      }
-    }
-    this.cleanupFns = [];
-
-    // 关闭 foliate-view
-    if (this.view) {
-      try {
-        (this.view as any).close?.();
+        this.viewAdapter.close();
       } catch {
         /* ignore */
       }
-      // 从 DOM 移除
-      if (this.view.parentNode) {
-        this.view.parentNode.removeChild(this.view);
+      if (this.viewAdapter.view.parentNode) {
+        this.viewAdapter.view.parentNode.removeChild(this.viewAdapter.view);
       }
-      this.view = null;
+      this.viewAdapter = null;
     }
 
-    // 清理 overlay 映射
-    this.appliedOverlayMap.clear();
-
+    this._disableAndroidPatches();
     this.state = 'closed';
     log.debug('engine closed');
   }
 
   // ── 标注操作 ──────────────────────────────────────────
 
-  /**
-   * 替换全部标注（初始加载时使用）。
-   */
   setAnnotations(list: Annotation[]): void {
     this.annotations.setAnnotations(list);
-    this.syncOverlays();
+    this.annotationRenderer.syncOverlays(this.getAnnotations());
   }
 
-  /**
-   * 创建新标注并同步 overlay。
-   */
   addAnnotation(params: AddAnnotationParams): Annotation {
-    const annotation = this.annotations.addAnnotation(params, this.filePath);
-    this.syncOverlays();
-    return annotation;
+    const a = this.annotations.addAnnotation(params, this.filePath);
+    this.annotationRenderer.syncOverlays(this.getAnnotations());
+    return a;
   }
 
-  /**
-   * 删除标注并同步 overlay。
-   */
   deleteAnnotation(id: string): void {
     this.annotations.deleteAnnotation(id);
-    this.syncOverlays();
+    this.annotationRenderer.syncOverlays(this.getAnnotations());
   }
 
   // ── 导航 ──────────────────────────────────────────────
 
-  /**
-   * 导航到指定目标（CFI href 或页码）。
-   * 引擎未就绪时抛出异常。
-   */
   async navigate(target: NavigationTarget): Promise<void> {
-    this.ensureReady();
-    const { navigateFoliate } = await import('./foliateNavigation');
-    navigateFoliate(this.view!, target);
+    this._ensureReady();
+    navigateFoliate(this.viewAdapter!.view, target);
   }
-
-  /**
-   * 导航到指定章节索引。
-   */
   async goToSection(index: number): Promise<void> {
-    this.ensureReady();
-    const { goToSection } = await import('./foliateNavigation');
-    goToSection(this.view!, index);
+    this._ensureReady();
+    goToSection(this.viewAdapter!.view, index);
   }
-
-  /**
-   * 翻到下一页/屏。
-   */
   async goNext(): Promise<void> {
-    this.ensureReady();
-    const { goToNextPage } = await import('./foliateNavigation');
-    goToNextPage(this.view!);
+    this._ensureReady();
+    goToNextPage(this.viewAdapter!.view);
   }
-
-  /**
-   * 翻到上一页/屏。
-   */
   async goPrev(): Promise<void> {
-    this.ensureReady();
-    const { goToPrevPage } = await import('./foliateNavigation');
-    goToPrevPage(this.view!);
+    this._ensureReady();
+    goToPrevPage(this.viewAdapter!.view);
   }
 
   // ── 设置 ──────────────────────────────────────────────
 
-  /**
-   * 更新阅读设置。idle 和 ready 状态下均可调用；
-   * ready 状态下会立即应用到 foliate-view。
-   */
   updateSettings(partial: Partial<ReaderSettings>): void {
     this.settings = { ...this.settings, ...partial };
-    if (this.state === 'ready' && this.view) {
-      // 异步应用设置，不阻塞调用方
-      this.applySettings(partial).catch((err) => {
-        log.error('Failed to apply settings:', err);
-      });
+    if (this.state === 'ready' && this.viewAdapter) {
+      this._applySettings(partial).catch((err) => log.error('Failed to apply settings:', err));
     }
   }
 
-  // ── 私有辅助 ──────────────────────────────────────────
+  // ── 私有方法 ──────────────────────────────────────────
 
-  /** 确保引擎处于 ready 状态，否则抛出异常 */
-  private ensureReady(): void {
-    if (this.state !== 'ready') {
+  private _buildCallbacks(): BookLoaderCallbacks {
+    return {
+      onOutlineLoaded: (items) => this.bus.emit('outline-loaded', { items }),
+      onMetadataLoaded: (metadata) => this.bus.emit('metadata-loaded', { metadata }),
+      onSectionChanged: (idx, total, label, canPrev, canNext, cfi) => {
+        this.sectionInfo = {
+          currentIndex: idx,
+          totalSections: total,
+          currentLabel: label,
+          canGoPrev: canPrev,
+          canGoNext: canNext,
+        };
+        this.bus.emit('section-changed', { section: { ...this.sectionInfo } });
+        if (cfi) this.bus.emit('location-changed', { cfi, sectionIndex: idx });
+      },
+    };
+  }
+
+  private _runCleanupFns(): void {
+    for (const fn of this.cleanupFns) {
+      try {
+        fn();
+      } catch {
+        /* ignore */
+      }
+    }
+    this.cleanupFns = [];
+  }
+
+  private _ensureReady(): void {
+    if (this.state !== 'ready')
       throw new Error(`Engine not ready (current state: '${this.state}')`);
+  }
+
+  private async _applySettings(partial: Partial<ReaderSettings>): Promise<void> {
+    if (!this.viewAdapter) return;
+    const view = this.viewAdapter.view;
+    if (partial.flowMode) applyReaderFlowMode(view, partial.flowMode);
+    if (partial.columnMode) applyColumnMode(view, partial.columnMode);
+    if (partial.fontSize !== undefined) applyFontSize(view, partial.fontSize);
+  }
+
+  private _disableAndroidPatches(): void {
+    try {
+      disableAndroidPatches();
+    } catch {
+      /* ignore */
     }
-  }
-
-  /** 动态导入并应用阅读设置到 foliate-view */
-  private async applySettings(partial: Partial<ReaderSettings>): Promise<void> {
-    if (!this.view) return;
-
-    const { applyReaderFlowMode, applyColumnMode, applyFontSize } =
-      await import('./readerSettings');
-
-    if (partial.flowMode) applyReaderFlowMode(this.view, partial.flowMode);
-    if (partial.columnMode) applyColumnMode(this.view, partial.columnMode);
-    if (partial.fontSize !== undefined) applyFontSize(this.view, partial.fontSize);
-  }
-
-  /** 动态导入并同步标注 overlay 到 foliate-view */
-  private syncOverlays(): void {
-    if (!this.view || this.state !== 'ready') return;
-
-    // 异步执行 overlay 同步
-    import('./foliateAnnotations')
-      .then(({ applyAnnotationOverlays }) =>
-        applyAnnotationOverlays(this.view!, this.getAnnotations(), this.appliedOverlayMap),
-      )
-      .catch((err) => {
-        log.error('Failed to sync overlays:', err);
-      });
   }
 }

@@ -1,7 +1,7 @@
 import { describe, it, expectTypeOf } from 'vitest';
-import type { EngineEventMap, EngineEventBus, ReaderSettings } from './engineTypes';
-import type { Annotation, OutlineItem, BookMetadata } from '../types/annotations';
-import type { ReaderSectionState } from '../services/ReaderSessionStore';
+import type { EngineEventMap, EngineEventBus, ReaderSettings } from '../engineTypes';
+import type { Annotation, OutlineItem, BookMetadata } from '../../types/annotations';
+import type { ReaderSectionState } from '../../services/ReaderSessionStore';
 
 describe('EngineEventMap', () => {
   it('defines all required events', () => {
@@ -28,7 +28,8 @@ describe('EngineEventMap', () => {
 
 describe('EngineEventBus', () => {
   it('has emit method with correct signature', () => {
-    expectTypeOf<EngineEventBus['emit']>().toBeFunction();
+    const bus: EngineEventBus = { emit: () => {} };
+    expectTypeOf(bus.emit).toBeFunction();
   });
 });
 

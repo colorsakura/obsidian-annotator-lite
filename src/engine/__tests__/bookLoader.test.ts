@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock logger (depends on env.ts which uses __DEBUG__ global)
-vi.mock('../utils/logger', () => ({
+vi.mock('../../utils/logger', () => ({
   createLogger: () => ({
     debug: vi.fn(),
     info: vi.fn(),
@@ -16,27 +16,27 @@ vi.mock('foliate-js/view.js', () => ({
 }));
 
 // Mock Android patches
-vi.mock('./androidPatches', () => ({
+vi.mock('../androidPatches', () => ({
   enableAndroidPatches: vi.fn(),
   disableAndroidPatches: vi.fn(),
   wrapSectionLoadForAndroid: vi.fn().mockResolvedValue(undefined),
 }));
 
 // Mock reader settings
-vi.mock('./readerSettings', () => ({
+vi.mock('../readerSettings', () => ({
   applyReaderFlowMode: vi.fn(),
   applyColumnMode: vi.fn(),
   applyFontSize: vi.fn(),
 }));
 
 // Mock theme
-vi.mock('./theme', () => ({
+vi.mock('../theme', () => ({
   applyTheme: vi.fn(),
   isDarkMode: vi.fn().mockReturnValue(false),
 }));
 
 // Mock book metadata
-vi.mock('./foliateBookMetadata', () => ({
+vi.mock('../foliateBookMetadata', () => ({
   loadBookMetadata: vi.fn().mockResolvedValue({
     info: {
       outline: [],
@@ -48,11 +48,16 @@ vi.mock('./foliateBookMetadata', () => ({
 }));
 
 // Mock navigation
-vi.mock('./foliateNavigation', () => ({
+vi.mock('../foliateNavigation', () => ({
   installRelocateListener: vi.fn().mockReturnValue(vi.fn()),
 }));
 
-import { loadBook } from './bookLoader';
+// Mock foliate annotations
+vi.mock('../foliateAnnotations', () => ({
+  installCreateOverlayListener: vi.fn().mockReturnValue(vi.fn()),
+}));
+
+import { BookLoader } from '../BookLoader';
 import { TFile } from 'obsidian';
 
 // 保存原始 createElement（在任何 spy 之前），避免 spy 嵌套导致递归
@@ -88,9 +93,12 @@ function stubFoliateView(mockView: HTMLElement): ReturnType<typeof vi.spyOn> {
   });
 }
 
-describe('loadBook', () => {
+describe('BookLoader', () => {
+  let loader: BookLoader;
+
   beforeEach(() => {
     vi.restoreAllMocks();
+    loader = new BookLoader();
   });
 
   it('rejects when file is not found in vault', async () => {
@@ -101,7 +109,7 @@ describe('loadBook', () => {
     } as any;
 
     await expect(
-      loadBook(app, document.createElement('div'), '/nonexistent.epub', 'epub', {
+      loader.load(app, document.createElement('div'), '/nonexistent.epub', 'epub', {
         onOutlineLoaded: vi.fn(),
         onMetadataLoaded: vi.fn(),
         onSectionChanged: vi.fn(),
@@ -117,7 +125,7 @@ describe('loadBook', () => {
     } as any;
 
     await expect(
-      loadBook(app, document.createElement('div'), '/folder', 'epub', {
+      loader.load(app, document.createElement('div'), '/folder', 'epub', {
         onOutlineLoaded: vi.fn(),
         onMetadataLoaded: vi.fn(),
         onSectionChanged: vi.fn(),
@@ -141,7 +149,7 @@ describe('loadBook', () => {
     } as any;
 
     const container = document.createElement('div');
-    const result = await loadBook(app, container, '/test.epub', 'epub', {
+    const result = await loader.load(app, container, '/test.epub', 'epub', {
       onOutlineLoaded: vi.fn(),
       onMetadataLoaded: vi.fn(),
       onSectionChanged: vi.fn(),
@@ -151,12 +159,12 @@ describe('loadBook', () => {
     expect(spy).toHaveBeenCalledWith('foliate-view');
     expect(container.contains(mockView)).toBe(true);
     expect(result.fileType).toBe('epub');
-    expect(result.view).toBe(mockView);
+    expect(result.viewAdapter.view).toBe(mockView);
     spy.mockRestore();
   });
 
   it('calls onOutlineLoaded and onMetadataLoaded on success', async () => {
-    const { loadBookMetadata } = await import('./foliateBookMetadata');
+    const { loadBookMetadata } = await import('../foliateBookMetadata');
     vi.mocked(loadBookMetadata).mockResolvedValueOnce({
       info: {
         outline: [{ title: 'Chapter 1', children: [] }],
@@ -193,7 +201,7 @@ describe('loadBook', () => {
       onSectionChanged: vi.fn(),
     };
 
-    const result = await loadBook(
+    const result = await loader.load(
       app,
       document.createElement('div'),
       '/test.epub',
@@ -213,7 +221,7 @@ describe('loadBook', () => {
 
   it('applies reader settings when options provided for epub', async () => {
     const { applyReaderFlowMode, applyColumnMode, applyFontSize } =
-      await import('./readerSettings');
+      await import('../readerSettings');
 
     const mockView = createMockView();
     stubFoliateView(mockView);
@@ -229,7 +237,7 @@ describe('loadBook', () => {
       },
     } as any;
 
-    await loadBook(
+    await loader.load(
       app,
       document.createElement('div'),
       '/test.epub',
@@ -261,7 +269,7 @@ describe('loadBook', () => {
     } as any;
 
     await expect(
-      loadBook(app, document.createElement('div'), '/test.epub', 'epub', {
+      loader.load(app, document.createElement('div'), '/test.epub', 'epub', {
         onOutlineLoaded: vi.fn(),
         onMetadataLoaded: vi.fn(),
         onSectionChanged: vi.fn(),
@@ -300,7 +308,7 @@ describe('loadBook', () => {
       },
     } as any;
 
-    const result = await loadBook(
+    const result = await loader.load(
       app,
       document.createElement('div'),
       '/test.pdf',
@@ -317,7 +325,7 @@ describe('loadBook', () => {
   });
 
   it('invokes installRelocateListener with onSectionChanged callback', async () => {
-    const { installRelocateListener } = await import('./foliateNavigation');
+    const { installRelocateListener } = await import('../foliateNavigation');
 
     const mockView = createMockView();
     stubFoliateView(mockView);
@@ -335,7 +343,7 @@ describe('loadBook', () => {
 
     const onSectionChanged = vi.fn();
 
-    await loadBook(app, document.createElement('div'), '/test.epub', 'epub', {
+    await loader.load(app, document.createElement('div'), '/test.epub', 'epub', {
       onOutlineLoaded: vi.fn(),
       onMetadataLoaded: vi.fn(),
       onSectionChanged,

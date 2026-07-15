@@ -15,9 +15,11 @@ export class AnnotationManager {
     return [...this.annotations];
   }
 
-  /** Replace the full annotation list (e.g. on initial load). */
+  /** Replace the full annotation list (e.g. on initial load).
+   * Also emits 'annotations-changed' event for consistency. */
   setAnnotations(list: Annotation[]): void {
     this.annotations = [...list];
+    this.bus.emit('annotations-changed', { annotations: this.getAnnotations() });
   }
 
   /** Create a new annotation, append it, and emit the change event. */
