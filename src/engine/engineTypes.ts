@@ -1,4 +1,10 @@
-import type { Annotation, OutlineItem, BookMetadata, PendingSelection } from '../types/annotations';
+import type {
+  Annotation,
+  NavigationTarget,
+  OutlineItem,
+  BookMetadata,
+  PendingSelection,
+} from '../types/annotations';
 import type { ReaderSectionState } from '../services/ReaderSessionStore';
 import type { ReaderFlowMode, ColumnMode, HighlightColor } from '../constants';
 
@@ -41,6 +47,12 @@ export interface OpenOptions {
   settings?: Partial<ReaderSettings>;
   /** 可用高亮颜色列表 */
   highlightColors?: HighlightColor[];
+  /**
+   * 初始导航目标。
+   * 如果提供，BookLoader 会在 init() 时使用 lastLocation 直接定位，
+   * 避免先渲染首页再跳转的闪烁。
+   */
+  initialNav?: NavigationTarget;
 }
 
 /** `engine.addAnnotation()` 的参数 */

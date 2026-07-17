@@ -106,8 +106,11 @@ const FoliateViewer: React.FC<FoliateViewerProps> = React.memo(
     const annotations = annotationsData ?? [];
 
     // ─── Navigation target ─────────────────────────────────────────────
+    // 使用 ref 跟踪最新的 navigationTarget，以便在 engine.open() 时作为 initialNav 传入，
+    // 避免先渲染首页再跳转的闪烁。
     const navigationTarget = useSessionField('navigationTarget') ?? null;
-    const pendingNavRef = useRef<NavigationTarget | null>(null);
+    const navigationTargetRef = useRef<NavigationTarget | null>(null);
+    navigationTargetRef.current = navigationTarget;
 
     // ─── Engine lifecycle（file 变化时重建引擎）──────────────────────────
     useEffect(() => {
@@ -150,10 +153,18 @@ const FoliateViewer: React.FC<FoliateViewerProps> = React.memo(
       // 主题观察器（引擎就绪后安装）
       let themeObserver: MutationObserver | null = null;
 
+      // 提取初始导航目标（用于 init() 时直接定位，避免先渲染首页再跳转）
+      const initialNav = navigationTargetRef.current ?? undefined;
+      // 如果通过 initialNav 传入了定位信息，则不再需要导航目标（后续 useEffect 也不会触发重复跳转）
+      if (initialNav) {
+        navigationTargetRef.current = null;
+      }
+
       // 打开引擎
       engine
         .open(file, fileType, {
           settings: { flowMode, columnMode, fontSize },
+          initialNav,
         })
         .then(() => {
           // 引擎就绪后，注入已有标注数据以渲染高亮 overlay
@@ -173,13 +184,6 @@ const FoliateViewer: React.FC<FoliateViewerProps> = React.memo(
               if (v) applyTheme(v, isDarkMode());
             });
             themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
-          }
-
-          // 应用挂起的导航目标
-          const pending = pendingNavRef.current;
-          if (pending) {
-            engine.navigate(pending).catch(console.error);
-            pendingNavRef.current = null;
           }
         })
         .catch(console.error);
@@ -208,15 +212,15 @@ const FoliateViewer: React.FC<FoliateViewerProps> = React.memo(
       engine.updateSettings({ flowMode, columnMode, fontSize });
     }, [flowMode, columnMode, fontSize]);
 
-    // ─── 处理导航目标 ─────────────────────────────────────────────────
+    // ─── 处理导航目标（引擎已就绪后的跳转，如侧边栏大纲点击）───────
     useEffect(() => {
       if (!navigationTarget) return;
       const engine = engineRef.current;
       if (engine?.getIsLoaded()) {
         engine.navigate(navigationTarget).catch(console.error);
-      } else {
-        pendingNavRef.current = navigationTarget;
       }
+      // 注意：引擎未就绪时的首屏导航已在 engine.open() 时通过 initialNav 处理，
+      // 不在此处通过 pendingNavRef 延迟处理。
     }, [navigationTarget]);
 
     // ─── ESC 关闭菜单 ─────────────────────────────────────────────────

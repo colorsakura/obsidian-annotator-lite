@@ -27,6 +27,12 @@ export interface BookLoaderOptions {
   columnMode?: ColumnMode;
   fontSize?: number;
   getAnnotations?: () => Annotation[];
+  /**
+   * 初始定位位置（CFI 字符串）。
+   * 如果提供，init() 时会用 lastLocation 参数直接渲染到目标位置，
+   * 避免先渲染首页再跳转的闪烁。
+   */
+  lastLocation?: string;
 }
 
 /** load() 返回值 */
@@ -88,7 +94,7 @@ export class BookLoader {
         cleanupOverlay = installCreateOverlayListener(viewAdapter.view, options.getAnnotations);
       }
 
-      await this._initView(viewAdapter);
+      await this._initView(viewAdapter, options?.lastLocation);
       log.debug('book loaded:', tfile.name, 'type:', fileType, 'size:', data.byteLength);
 
       return { viewAdapter, fileType };
@@ -148,9 +154,17 @@ export class BookLoader {
     await Promise.all(book.sections.map((s: any) => wrapSectionLoadForAndroid(s)));
   }
 
-  private async _initView(viewAdapter: FoliateViewAdapter): Promise<void> {
+  /**
+   * 初始化视图渲染。
+   * @param viewAdapter foliate-view 适配器
+   * @param lastLocation 可选的初始定位 CFI。如果提供则直接渲染到该位置；否则渲染首页。
+   */
+  private async _initView(viewAdapter: FoliateViewAdapter, lastLocation?: string): Promise<void> {
+    const initOpts: Record<string, unknown> = lastLocation
+      ? { lastLocation }
+      : { showTextStart: true };
     try {
-      await viewAdapter.init({ showTextStart: true });
+      await viewAdapter.init(initOpts);
     } catch {
       try {
         viewAdapter.goTo(0);

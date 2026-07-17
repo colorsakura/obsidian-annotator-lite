@@ -96,6 +96,9 @@ export class ReaderEngine {
       const app = (window as any).app;
       if (!app) throw new Error('Obsidian App instance not available on window.app');
 
+      // 将 NavigationTarget 转为 CFI 字符串（lastLocation）
+      const lastLocation = opts?.initialNav?.href;
+
       const result = await this.bookLoader.load(
         app,
         this.container,
@@ -107,6 +110,7 @@ export class ReaderEngine {
           columnMode: this.settings.columnMode,
           fontSize: this.settings.fontSize,
           getAnnotations: () => this.getAnnotations(),
+          lastLocation,
         },
       );
 
