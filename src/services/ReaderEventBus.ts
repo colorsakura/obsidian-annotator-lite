@@ -1,4 +1,10 @@
-import type { Annotation, BookMetadata, OutlineItem, PendingSelection } from '../types/annotations';
+import type {
+  Annotation,
+  Bookmark,
+  BookMetadata,
+  OutlineItem,
+  PendingSelection,
+} from '../types/annotations';
 import type { ReaderSectionState } from './ReaderSessionStore';
 import { createLogger } from '../utils/logger';
 
@@ -19,6 +25,10 @@ export interface ReaderEventMap {
     existingAnnotation?: Annotation;
     position: { x: number; y: number };
   };
+  /** 添加书签 */
+  'view:bookmark-add': { cfiRange: string; title: string; pageLabel?: string };
+  /** 删除书签 */
+  'view:bookmark-delete': { id: string };
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────

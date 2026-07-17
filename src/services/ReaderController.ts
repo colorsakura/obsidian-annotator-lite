@@ -1,5 +1,5 @@
 import { App, MarkdownView, TFile, type WorkspaceLeaf } from 'obsidian';
-import type { Annotation, NavigationTarget } from '../types/annotations';
+import type { Annotation, Bookmark, NavigationTarget } from '../types/annotations';
 import type { AnnotationService } from './AnnotationService';
 import type { ReaderEventBus } from './ReaderEventBus';
 import type { ReaderSessionStore } from './ReaderSessionStore';
@@ -12,6 +12,7 @@ import type { HighlightColor } from '../constants';
 import { ANNOTATOR_ID_PROPERTY } from '../constants';
 import type { AnnotatorLiteSettings } from './Settings';
 import type { ReadingHistoryService } from './ReadingHistoryService';
+import type { BookmarkService } from './BookmarkService';
 import { ensureFrontmatterId } from '../utils/frontmatter';
 import { createLogger } from '../utils/logger';
 
@@ -33,6 +34,12 @@ export interface ReaderController {
   addAnnotation(annotation: Annotation): Promise<void>;
   updateAnnotation(id: string, updates: Partial<Annotation>): Promise<void>;
   deleteAnnotation(id: string): Promise<void>;
+
+  addBookmark(cfiRange: string, title: string, pageLabel?: string): Promise<void>;
+  addCurrentBookmark(): Promise<void>;
+  deleteBookmark(id: string): Promise<void>;
+  updateBookmark(id: string, updates: Partial<Bookmark>): Promise<void>;
+  getBookmarks(): Bookmark[];
 }
 
 /**
@@ -64,6 +71,7 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
     private getHighlightColors: () => HighlightColor[],
     private getSettings: () => AnnotatorLiteSettings,
     private historyService: ReadingHistoryService,
+    private bookmarkService: BookmarkService,
     private getFrontmatter: (file: TFile, key: string) => unknown,
     private queryClient: QueryClient,
   ) {
@@ -123,6 +131,14 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
 
     // Start session with id
     this.sessionStore.startSession({ ...target, type: target.type, id });
+
+    // 加载持久化的书签
+    try {
+      const bookmarks = await this.bookmarkService.getBookmarks(id);
+      this.sessionStore.setBookmarks(bookmarks);
+    } catch (e) {
+      log.warn('加载书签数据失败:', e);
+    }
 
     // Set navigation target in the store
     if (navigationTarget) {
@@ -199,6 +215,13 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
     // 监听位置变化
     this.bus.on('view:location-changed', ({ cfi }) => {
       this.lastKnownCfi = cfi;
+    });
+    // 监听书签事件
+    this.bus.on('view:bookmark-add', ({ cfiRange, title, pageLabel }) => {
+      void this.addBookmark(cfiRange, title, pageLabel);
+    });
+    this.bus.on('view:bookmark-delete', ({ id }) => {
+      void this.deleteBookmark(id);
     });
   }
 
@@ -354,4 +377,83 @@ export class DefaultReaderController implements ReaderController, ReaderAPI {
       this.saveInterval = null;
     }
   }
+
+  // ─── 书签操作 ───────────────────────────────────────────────────────
+
+  async addBookmark(cfiRange: string, title: string, pageLabel?: string): Promise<void> {
+    const state = this.sessionStore.getSnapshot();
+    if (!state?.target.id) return;
+
+    const bookmark: Bookmark = {
+      id: generateBookmarkId(),
+      cfiRange,
+      title,
+      pageLabel,
+      created: new Date().toISOString(),
+    };
+
+    // 先更新内存（即时 UI 响应）
+    this.sessionStore.addBookmark(bookmark);
+
+    // 异步持久化
+    try {
+      await this.bookmarkService.addBookmark(state.target.id, bookmark);
+    } catch (e) {
+      log.warn('持久化书签失败:', e);
+    }
+  }
+
+  async addCurrentBookmark(): Promise<void> {
+    if (!this.lastKnownCfi) {
+      log.warn('无法添加书签：没有当前位置信息');
+      return;
+    }
+
+    const state = this.sessionStore.getSnapshot();
+    if (!state) return;
+
+    // 使用当前章节标签作为书签标题
+    const title = state.section.currentLabel || new Date().toLocaleString();
+    const pageLabel =
+      state.section.totalSections > 0
+        ? `${state.section.currentIndex + 1} / ${state.section.totalSections}`
+        : undefined;
+
+    await this.addBookmark(this.lastKnownCfi, title, pageLabel);
+  }
+
+  async deleteBookmark(id: string): Promise<void> {
+    const state = this.sessionStore.getSnapshot();
+    if (!state?.target.id) return;
+
+    this.sessionStore.deleteBookmark(id);
+
+    try {
+      await this.bookmarkService.deleteBookmark(state.target.id, id);
+    } catch (e) {
+      log.warn('删除书签失败:', e);
+    }
+  }
+
+  async updateBookmark(id: string, updates: Partial<Bookmark>): Promise<void> {
+    const state = this.sessionStore.getSnapshot();
+    if (!state?.target.id) return;
+
+    this.sessionStore.updateBookmark(id, updates);
+
+    try {
+      await this.bookmarkService.updateBookmark(state.target.id, id, updates);
+    } catch (e) {
+      log.warn('更新书签失败:', e);
+    }
+  }
+
+  getBookmarks(): Bookmark[] {
+    return this.sessionStore.getSnapshot()?.bookmarks ?? [];
+  }
+}
+
+/** 生成书签 ID */
+function generateBookmarkId(): string {
+  return 'bm_' + Math.random().toString(36).substring(2);
 }

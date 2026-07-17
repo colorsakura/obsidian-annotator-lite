@@ -58,6 +58,13 @@ export class ReaderView extends BaseReactView {
       increaseFontSize: () => this.increaseFontSize(),
       toggleOutline: () => getReaderAPI()?.toggleOutline(),
       toggleAnnotations: () => getReaderAPI()?.toggleAnnotations(),
+      addBookmark: () => {
+        // 通过 ReaderController 的 addCurrentBookmark 添加书签
+        const api = getReaderAPI();
+        if (api) {
+          void api.addCurrentBookmark();
+        }
+      },
       goBack: () => {
         // 保存阅读进度
         void getReaderAPI()?.saveProgress();

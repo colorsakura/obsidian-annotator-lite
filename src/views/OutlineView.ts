@@ -11,11 +11,16 @@ const OutlineViewInner: React.FC = () => {
   const reader = useReader();
   const items = useSessionField('outline') ?? [];
   const bookMetadata = useSessionField('metadata') ?? null;
+  const bookmarks = useSessionField('bookmarks') ?? [];
 
   return React.createElement(OutlineComponent, {
     items,
     bookMetadata,
+    bookmarks,
     onNavigate: (target) => reader.navigateToTarget(target),
+    onDeleteBookmark: (id) => {
+      void reader.deleteBookmark(id);
+    },
   });
 };
 

@@ -467,3 +467,135 @@
   align-items: center;
   justify-content: center;
 }
+
+/* ─── Outline Tabs ─────────────────────────────────────────────── */
+.annotator-outline-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding: 0 8px;
+  gap: 0;
+}
+
+.annotator-outline-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 0;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.annotator-outline-tab:hover {
+  color: var(--text-normal);
+}
+
+.annotator-outline-tab-active {
+  color: var(--text-accent);
+  border-bottom-color: var(--text-accent);
+}
+
+.annotator-outline-tab-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* ─── Bookmarks ────────────────────────────────────────────────── */
+.annotator-bookmark-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--text-accent);
+  color: var(--text-on-accent);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.annotator-bookmarks-list {
+  padding: 4px 0;
+}
+
+.annotator-bookmark-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--background-modifier-border);
+  transition: background-color 0.1s;
+}
+
+.annotator-bookmark-item:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.annotator-bookmark-header {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.annotator-bookmark-title {
+  font-size: 13px;
+  color: var(--text-normal);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.annotator-bookmark-page {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.annotator-bookmark-actions {
+  flex-shrink: 0;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.1s;
+  margin-left: 8px;
+}
+
+.annotator-bookmark-item:hover .annotator-bookmark-actions {
+  opacity: 1;
+}
+
+.annotator-bookmark-btn-delete {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 3px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.annotator-bookmark-btn-delete:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-error);
+}
+
+.annotator-bookmark-btn-delete-confirm {
+  color: var(--text-error);
+}

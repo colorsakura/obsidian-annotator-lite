@@ -62,7 +62,8 @@ Plugin (main.ts)
        ├─ ReaderEventBus ── 事件总线，解耦 Controller 与 View 通信
        ├─ ReaderSessionStore ── 阅读会话状态存储（观察者模式，通过 Context 注入 React）
        ├─ DatacoreAdapter ── 统一前置元读取：Datacore API 优先 → metadataCache 回退
-       └─ AnnotationIndexService ── 标注的内存索引（快速查询）
+       ├─ AnnotationIndexService ── 标注的内存索引（快速查询）
+       └─ BookmarkService ── 书签持久化（读写 data.json，按 frontmatter id 索引）
 ```
 
 ### 阅读引擎层（`src/engine/`）
@@ -87,7 +88,7 @@ ReaderEngine ── 核心引擎（生命周期：idle → loading → ready →
 | View              | 类型常量        | 侧边栏位置                   | 技术                                                |
 | ----------------- | --------------- | ---------------------------- | --------------------------------------------------- |
 | `ReaderView`      | `reader-view`   | 主区域（替换 Markdown leaf） | React (ReaderViewInner → FoliateViewer)             |
-| `OutlineView`     | `outline-view`  | 左侧栏                       | React (OutlineViewInner → OutlineComponent)         |
+| `OutlineView`     | `outline-view`  | 左侧栏                       | React (OutlineViewInner → OutlineComponent，含大纲/书签双 Tab) |
 | `AnnotationsView` | `annotate-view` | 右侧栏                       | React (AnnotationsViewInner → AnnotationsComponent) |
 
 三个 View 继承 `BaseReactView<Api>` 基类，共享：
@@ -104,7 +105,7 @@ ReaderEngine ── 核心引擎（生命周期：idle → loading → ready →
 
 3. **事件通信**：双层事件总线架构，事件单向流动：
    - **引擎层**（`EngineEventBus`）：`ReaderEngine` 内部事件（`outline-loaded`、`metadata-loaded`、`section-changed`、`annotations-changed`、`location-changed`、`selection`）
-   - **View → Controller**（`ReaderEventBus`，通过 bus.emit）：`view:outline-loaded`、`view:metadata-loaded`、`view:section-changed`、`view:annotations-changed`、`view:selection`、`view:session-close`
+   - **View → Controller**（`ReaderEventBus`，通过 bus.emit）：`view:outline-loaded`、`view:metadata-loaded`、`view:section-changed`、`view:annotations-changed`、`view:selection`、`view:session-close`、`view:bookmark-add`、`view:bookmark-delete`
    - **Controller → View**：通过 `ReaderSessionStore` 广播状态变化，View 通过 `useSessionStore()` / `useSessionField()` 订阅
    - `FoliateViewer` 内部的总线适配器将引擎事件映射为 `view:*` 前缀事件（`annotations-changed` 除外，由引擎内部管理）
 
@@ -112,9 +113,11 @@ ReaderEngine ── 核心引擎（生命周期：idle → loading → ready →
 
 5. **选择菜单系统**：`SelectionDetector`（引擎层）通过 contextmenu 事件检测 iframe 内文本选择，提取 CFI 和上下文后 emit `selection` 事件。`FoliateViewer` 根据 `Platform.isDesktop` 决定渲染方式：桌面端使用自定义 React `SelectionMenu` 组件，移动端回退到 Obsidian 原生 `Menu`。`foliateSelection.ts` 提供 `getSurroundingContext()` 等辅助函数
 
+6. **书签系统**：用户点击阅读器工具栏的 bookmark 图标 → `readerHeader` 调用 `addBookmark` → `ReaderView` 通过 `ReaderAPI.addCurrentBookmark()` 调用 Controller → `ReaderController` 从 SessionStore 获取当前章节标签和页码作为书签标题 → `addBookmark()` 将书签写入 `ReaderSessionStore`（即时 UI 响应）并通过 `BookmarkService` 异步持久化到 `data.json`。删除书签需二次确认（点击删除按钮后变为确认按钮）。书签按 frontmatter id 索引存储在 `AnnotatorLiteSettings.bookmarks` 中。Outline 视图新增"书签"Tab，与"大纲"Tab 并排显示，Tab 切换按钮有书签数量角标
+
 ### 关键设计决策
 
-- **ReaderAPI 接口**：`ReaderAPI` 定义了 View 层调用 Controller 能力的统一接口（`navigateToTarget`、`navigateToAnnotation`、`updateAnnotation`、`deleteAnnotation`、`revealReader`、`toggleOutline`、`toggleAnnotations`、`closeSession`）。`DefaultReaderController` 同时实现 `ReaderController` 和 `ReaderAPI`。View 通过 `useReader()` hook 获取实例
+- **ReaderAPI 接口**：`ReaderAPI` 定义了 View 层调用 Controller 能力的统一接口（`navigateToTarget`、`navigateToAnnotation`、`updateAnnotation`、`deleteAnnotation`、`revealReader`、`toggleOutline`、`toggleAnnotations`、`closeSession`、`saveProgress`、`addBookmark`、`addCurrentBookmark`、`deleteBookmark`、`updateBookmark`、`getBookmarks`）。`DefaultReaderController` 同时实现 `ReaderController` 和 `ReaderAPI`。View 通过 `useReader()` hook 获取实例
 
 - **React 状态更新 vs 组件重挂载**：`ReaderView`、`OutlineView`、`AnnotationsView` 都继承 `BaseReactView<Api>` 基类，使用 `apiRef` 模式。ItemView 只在目标文件变化时调用 `root.render()`，标注更新、导航跳转等通过 `apiRef` 的 imperative API 更新内部 React state，避免销毁/重建 foliate-js DOM
 
@@ -171,7 +174,8 @@ Context hooks（位于 `src/contexts/`）：
 
 | 模块              | 位置                        | 职责                                                         |
 | ----------------- | --------------------------- | ------------------------------------------------------------ |
-| `readerHeader.ts` | `src/views/readerHeader.ts` | ReaderView header 按钮逻辑（滚动/分页、单列/双列、字体大小） |
+| `readerHeader.ts` | `src/views/readerHeader.ts` | ReaderView header 按钮逻辑（滚动/分页、单列/双列、字体大小、书签） |
+| `BookmarkService`  | `src/services/BookmarkService.ts` | 书签持久化服务（读写 data.json，按 frontmatter id 索引）       |
 | `foliate-js.d.ts` | `src/types/foliate-js.d.ts` | foliate-js 类型定义（FoliateView、Book、Renderer 等）        |
 
 ### 插件设置系统
@@ -184,6 +188,8 @@ interface AnnotatorLiteSettings {
   defaultFontSize: number; // 默认字体大小百分比（80-160）
   defaultColumnMode: ColumnMode; // 默认分栏模式（'single' | 'double'）
   defaultFlowMode: ReaderFlowMode; // 默认翻页模式（'paginated' | 'scrolled'）
+  readingHistory: ReadingHistoryMap; // 阅读历史记录
+  bookmarks: Record<string, Bookmark[]>; // 书签数据，key = frontmatter id
 }
 ```
 
@@ -210,9 +216,10 @@ interface AnnotatorLiteSettings {
 | `SelectionDetector`            | `src/engine/selectionDetector.ts`      | 引擎层选择检测（contextmenu → CFI → selection 事件）               |
 | `loadBook`                     | `src/engine/bookLoader.ts`             | 从 vault 加载书籍，创建 foliate-view，应用设置/主题/补丁           |
 | `EngineEventMap`               | `src/engine/engineTypes.ts`            | 引擎事件类型定义（outline/metadata/section/annotations/selection） |
-| `ReaderView`                   | `src/views/ReaderView.ts`              | 主阅读视图（继承 BaseReactView），含 header 按钮                   |
+| `ReaderView`                   | `src/views/ReaderView.ts`              | 主阅读视图（继承 BaseReactView），含 header 按钮（导航、书签、设置） |
 | `ReaderViewInner`              | `src/components/ReaderViewInner.tsx`   | Reader 的 React 内层，管理标注状态和事件通信                       |
 | `FoliateViewer`                | `src/viewers/FoliateViewer.tsx`        | ReaderEngine 的薄 React 适配层（React.memo）                       |
+| `OutlineComponent`             | `src/components/OutlineComponent.tsx`  | 大纲/书签双 Tab 组件（目录树 + 书签列表）                          |
 | `SelectionMenu`                | `src/components/SelectionMenu.tsx`     | 自定义右键菜单（颜色选择、笔记、删除）                             |
 | `SectionIndicator`             | `src/components/SectionIndicator.tsx`  | 章节导航指示器（上/下一章按钮）                                    |
 | `NoteModal`                    | `src/components/NoteModal.ts`          | 添加笔记弹窗（移动端使用）                                         |
@@ -221,6 +228,9 @@ interface AnnotatorLiteSettings {
 | `ReaderStoreContext`           | `src/contexts/ReaderStoreContext.ts`   | ReaderSessionStore 的 React Context                                |
 | `ReaderAPIContext`             | `src/contexts/ReaderAPIContext.ts`     | ReaderAPI 的 React Context + useReader() hook                      |
 | `useAnnotations`               | `src/hooks/useAnnotations.ts`          | TanStack Query 加载标注数据                                        |
+| `BookmarkService`              | `src/services/BookmarkService.ts`      | 书签持久化服务（读写 data.json，按 frontmatter id 索引）           |
+| `Bookmark`                     | `src/types/annotations.ts`             | 书签类型（id、cfiRange、title、pageLabel、created、note）          |
+| `generateBookmarkId`           | `src/services/ReaderController.ts`     | 生成书签 ID（`bm_` + 随机字符串）                                  |
 | `AnnotatorLiteSettings`        | `src/services/Settings.ts`             | 插件设置接口（高亮颜色、字体大小、分栏、翻页模式）                 |
 | `HighlightColor`               | `src/constants.ts`                     | 高亮颜色类型定义                                                   |
 | `markdownStorage.ts`           | `src/utils/markdownStorage.ts`         | 标注 ↔ Markdown 格式转换                                           |

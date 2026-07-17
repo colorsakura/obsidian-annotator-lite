@@ -133,6 +133,22 @@ export interface BookMetadata {
   author: string | null;
 }
 
+/** 书签数据 */
+export interface Bookmark {
+  /** 唯一标识 */
+  id: string;
+  /** foliate-js CFI 位置 */
+  cfiRange: string;
+  /** 书签标题（默认为当前章节标题或自动生成） */
+  title: string;
+  /** 页码标签 */
+  pageLabel?: string;
+  /** ISO 创建时间 */
+  created: string;
+  /** 可选备注 */
+  note?: string;
+}
+
 /** 选区数据，用于从 foliate-js 选区创建标注 */
 export interface PendingSelection {
   type: 'pdf' | 'epub';

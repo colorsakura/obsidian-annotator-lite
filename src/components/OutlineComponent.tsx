@@ -1,11 +1,19 @@
-import React, { useState } from 'react';
-import { BookMetadata, NavigationTarget, OutlineItem } from '../types/annotations';
+import React, { useCallback, useState } from 'react';
+import { BookMetadata, Bookmark, NavigationTarget, OutlineItem } from '../types/annotations';
+import { useT } from '../i18n';
+import { Trash2 } from 'lucide-react';
+
+type TabId = 'outline' | 'bookmarks';
 
 interface OutlineComponentProps {
   items: OutlineItem[];
   bookMetadata: BookMetadata | null;
+  bookmarks: Bookmark[];
   onNavigate: (target: NavigationTarget) => void;
+  onDeleteBookmark?: (id: string) => void;
 }
+
+// ─── 大纲树节点 ────────────────────────────────────────────────────
 
 const OutlineNodeItem: React.FC<{
   item: OutlineItem;
@@ -52,13 +60,71 @@ const OutlineNodeItem: React.FC<{
   );
 };
 
+// ─── 书签列表项 ────────────────────────────────────────────────────
+
+const BookmarkItem: React.FC<{
+  bookmark: Bookmark;
+  index: number;
+  onNavigate: (target: NavigationTarget) => void;
+  onDelete?: (id: string) => void;
+}> = ({ bookmark, index, onNavigate, onDelete }) => {
+  const t = useT();
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  const handleClick = () => {
+    onNavigate({ href: bookmark.cfiRange });
+  };
+
+  const handleDelete = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (showConfirm) {
+        onDelete?.(bookmark.id);
+        setShowConfirm(false);
+      } else {
+        setShowConfirm(true);
+      }
+    },
+    [bookmark.id, onDelete, showConfirm],
+  );
+
+  const title = bookmark.title || t('bookmarks.defaultTitle').replace('{0}', String(index + 1));
+
+  return (
+    <div className="annotator-bookmark-item" onClick={handleClick}>
+      <div className="annotator-bookmark-header">
+        <span className="annotator-bookmark-title">{title}</span>
+        <span className="annotator-bookmark-page">{bookmark.pageLabel}</span>
+      </div>
+      <div className="annotator-bookmark-actions">
+        <button
+          className={`annotator-bookmark-btn-delete ${showConfirm ? 'annotator-bookmark-btn-delete-confirm' : ''}`}
+          title={showConfirm ? t('annotations.confirmDelete') : t('bookmarks.delete')}
+          aria-label={showConfirm ? t('annotations.confirmDelete') : t('bookmarks.delete')}
+          onClick={handleDelete}
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ─── 主组件 ────────────────────────────────────────────────────────
+
 export const OutlineComponent: React.FC<OutlineComponentProps> = ({
   items,
   bookMetadata,
+  bookmarks,
   onNavigate,
+  onDeleteBookmark,
 }) => {
+  const t = useT();
+  const [activeTab, setActiveTab] = useState<TabId>('outline');
+
   return (
     <div className="annotator-outline-container">
+      {/* 封面区域 */}
       {bookMetadata && (bookMetadata.coverUrl || bookMetadata.title) && (
         <div className="annotator-outline-cover-section">
           {bookMetadata.coverUrl ? (
@@ -92,13 +158,59 @@ export const OutlineComponent: React.FC<OutlineComponentProps> = ({
           </div>
         </div>
       )}
-      {items.length === 0 ? (
-        <div className="annotator-outline-empty">No table of contents available.</div>
-      ) : (
-        <div className="annotator-outline-tree">
-          {items.map((item, i) => (
-            <OutlineNodeItem key={`d0-${i}`} item={item} depth={0} onNavigate={onNavigate} />
-          ))}
+
+      {/* Tab 切换 */}
+      <div className="annotator-outline-tabs">
+        <button
+          className={`annotator-outline-tab ${activeTab === 'outline' ? 'annotator-outline-tab-active' : ''}`}
+          onClick={() => setActiveTab('outline')}
+        >
+          {t('outline.tab.outline')}
+        </button>
+        <button
+          className={`annotator-outline-tab ${activeTab === 'bookmarks' ? 'annotator-outline-tab-active' : ''}`}
+          onClick={() => setActiveTab('bookmarks')}
+        >
+          {t('outline.tab.bookmarks')}
+          {bookmarks.length > 0 && (
+            <span className="annotator-bookmark-badge">{bookmarks.length}</span>
+          )}
+        </button>
+      </div>
+
+      {/* 大纲 Tab 内容 */}
+      {activeTab === 'outline' && (
+        <div className="annotator-outline-tab-content">
+          {items.length === 0 ? (
+            <div className="annotator-outline-empty">No table of contents available.</div>
+          ) : (
+            <div className="annotator-outline-tree">
+              {items.map((item, i) => (
+                <OutlineNodeItem key={`d0-${i}`} item={item} depth={0} onNavigate={onNavigate} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 书签 Tab 内容 */}
+      {activeTab === 'bookmarks' && (
+        <div className="annotator-outline-tab-content">
+          {bookmarks.length === 0 ? (
+            <div className="annotator-outline-empty">{t('bookmarks.empty')}</div>
+          ) : (
+            <div className="annotator-bookmarks-list">
+              {bookmarks.map((b, i) => (
+                <BookmarkItem
+                  key={b.id}
+                  bookmark={b}
+                  index={i}
+                  onNavigate={onNavigate}
+                  onDelete={onDeleteBookmark}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -65,6 +65,13 @@
   "annotations.noteModal.cancel": "取消",
 
   "outline.viewName": "大纲",
+  "outline.tab.outline": "大纲",
+  "outline.tab.bookmarks": "书签",
+
+  "bookmarks.empty": "暂无书签。点击阅读器工具栏中的书签图标添加。",
+  "bookmarks.add": "添加书签",
+  "bookmarks.delete": "删除书签",
+  "bookmarks.defaultTitle": "书签 {0}",
 
   "menu.annotate": "Annotate"
 }

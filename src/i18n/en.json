@@ -65,6 +65,13 @@
   "annotations.noteModal.cancel": "Cancel",
 
   "outline.viewName": "Outline",
+  "outline.tab.outline": "Outline",
+  "outline.tab.bookmarks": "Bookmarks",
+
+  "bookmarks.empty": "No bookmarks yet. Click the bookmark icon in the reader toolbar to add.",
+  "bookmarks.add": "Add bookmark",
+  "bookmarks.delete": "Delete bookmark",
+  "bookmarks.defaultTitle": "Bookmark {0}",
 
   "menu.annotate": "Annotate"
 }

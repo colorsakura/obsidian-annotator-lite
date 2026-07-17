@@ -11,6 +11,7 @@ export interface ReaderHeaderCallbacks {
   toggleOutline: () => void;
   toggleAnnotations: () => void;
   goBack: () => void;
+  addBookmark: () => void;
 }
 
 export interface ReaderHeaderHandle {
@@ -27,6 +28,7 @@ export function setupReaderHeader(
     callbacks.toggleOutline,
   );
   view.addAction('highlighter', t('reader.toolbar.annotations'), callbacks.toggleAnnotations);
+  view.addAction('bookmark', t('bookmarks.add'), callbacks.addBookmark);
   const readerFlowModeAction = view.addAction(
     'scroll-text',
     t('reader.toolbar.toggleScroll'),

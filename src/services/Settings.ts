@@ -4,6 +4,7 @@ import {
   type HighlightColor,
   type ReaderFlowMode,
 } from '../constants';
+import type { Bookmark } from '../types/annotations';
 
 // 阅读记录类型
 export interface ReadingRecord {
@@ -29,6 +30,8 @@ export interface AnnotatorLiteSettings {
   defaultFlowMode: ReaderFlowMode;
   /** 阅读历史记录 */
   readingHistory: ReadingHistoryMap;
+  /** 书签数据，key = frontmatter id */
+  bookmarks: Record<string, Bookmark[]>;
   /** 界面语言：'zh' | 'en' | undefined（undefined 表示自动检测） */
   language?: 'zh' | 'en';
 }
@@ -39,4 +42,5 @@ export const DEFAULT_SETTINGS: AnnotatorLiteSettings = {
   defaultColumnMode: 'double',
   defaultFlowMode: 'paginated',
   readingHistory: {},
+  bookmarks: {},
 };

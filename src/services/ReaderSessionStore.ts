@@ -1,4 +1,4 @@
-import type { BookMetadata, NavigationTarget, OutlineItem } from '../types/annotations';
+import type { Bookmark, BookMetadata, NavigationTarget, OutlineItem } from '../types/annotations';
 
 export type ReaderTargetType = 'pdf' | 'epub' | 'mobi' | 'azw3' | 'fb2' | 'fbz' | 'cbz';
 
@@ -25,6 +25,7 @@ export interface ReaderSessionState {
   metadata: BookMetadata | null;
   section: ReaderSectionState;
   navigationTarget: NavigationTarget | null;
+  bookmarks: Bookmark[];
 }
 
 type ReaderSessionListener = (state: ReaderSessionState | null) => void;
@@ -55,6 +56,7 @@ export class ReaderSessionStore {
         totalSections: 0,
       },
       navigationTarget: null,
+      bookmarks: [],
     };
     this.notify();
   }
@@ -78,6 +80,27 @@ export class ReaderSessionStore {
 
   setNavigationTarget(target: NavigationTarget | null): void {
     this.update({ navigationTarget: target });
+  }
+
+  setBookmarks(bookmarks: Bookmark[]): void {
+    this.update({ bookmarks });
+  }
+
+  addBookmark(bookmark: Bookmark): void {
+    if (!this.state) return;
+    this.update({ bookmarks: [...this.state.bookmarks, bookmark] });
+  }
+
+  deleteBookmark(id: string): void {
+    if (!this.state) return;
+    this.update({ bookmarks: this.state.bookmarks.filter((b) => b.id !== id) });
+  }
+
+  updateBookmark(id: string, updates: Partial<Bookmark>): void {
+    if (!this.state) return;
+    this.update({
+      bookmarks: this.state.bookmarks.map((b) => (b.id === id ? { ...b, ...updates } : b)),
+    });
   }
 
   private update(updates: Partial<ReaderSessionState>): void {

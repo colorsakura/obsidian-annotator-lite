@@ -31,6 +31,7 @@ import {
 import { type AnnotatorLiteSettings, DEFAULT_SETTINGS } from './services/Settings';
 import { AnnotatorLiteSettingTab } from './components/SettingsTab';
 import { ReadingHistoryService } from './services/ReadingHistoryService';
+import { BookmarkService } from './services/BookmarkService';
 import { loadTranslations, setLanguage, resolveDefaultLanguage, t } from './i18n';
 import { createLogger } from './utils/logger';
 
@@ -104,6 +105,11 @@ export default class AnnotatorLitePlugin extends Plugin {
       (data) => this.saveData(data),
     );
 
+    const bookmarkService = new BookmarkService(
+      () => this.loadData(),
+      (data) => this.saveData(data),
+    );
+
     const queryClient = getQueryClient();
     if (!queryClient) throw new Error('QueryClient not initialized');
     const annotationService = new AnnotationService(
@@ -121,6 +127,7 @@ export default class AnnotatorLitePlugin extends Plugin {
       () => this.settings.highlightColors,
       () => this.settings,
       this.historyService,
+      bookmarkService,
       (file, key) => this.getPropertyValue(key, file),
       queryClient,
     );

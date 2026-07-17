@@ -1,6 +1,7 @@
 node_modules/
 .specify/
 .pi/
+specs/
 main.js
 styles.css
 manifest.json
